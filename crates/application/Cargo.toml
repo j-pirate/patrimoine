@@ -1,0 +1,7 @@
+[package]
+name = "patrimoine-application"
+version.workspace = true
+edition = "2021"
+
+[dependencies]
+patrimoine-domain = { path = "../domain" }

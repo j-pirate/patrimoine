@@ -1,0 +1,15 @@
+{
+  "component": "AppImageKit AppRun launcher",
+  "bundled_path": "AppRun.wrapped",
+  "binary_sha256": "f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f",
+  "binary_source": "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64",
+  "binary_also_matches": "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-x86_64",
+  "licence": "MIT",
+  "licence_source": "https://raw.githubusercontent.com/AppImage/AppImageKit/2b8f5b39c41d3895e6b6b88a45b1905f4ffce4ef/src/AppRun.c",
+  "licence_source_sha256": "79c8a946886f7966f8b3a54bb7e8f81c46828625552db7b33a8d6d28a03e4268",
+  "licence_notice_file": "AppImageKit-AppRun-MIT-NOTICE",
+  "licence_notice_sha256": "4c5740ea095142855619edcb5db9647ee0caf48c16cc67397972952e098fac89",
+  "provenance": "Tauri bundler downloads the apprun-old release. Bundled AppRun.wrapped, cached AppRun-x86_64, fresh Tauri release and fresh AppImageKit release are byte-identical. DWARF source path is /ws/src/AppRun.c and build directory is /tmp/AppImageKit-build-52gv1q/src.",
+  "limitation": "The binary contains no recovered source commit. The pinned current upstream AppRun.c supplies the file-specific MIT licence/copyright text, not proof of the historical build commit.",
+  "checked_on": "2026-11-13"
+}

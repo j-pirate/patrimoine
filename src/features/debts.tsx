@@ -1,0 +1,196 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
+import { api, displayCurrencies, errorMessage } from '../services/api';
+import type { RegistrySnapshot, Fraction } from '../services/registry-types';
+import type { DebtAssetLink, DebtContract, DebtCoverage, DebtGuarantee, DebtMovement, DebtPaymentAllocation, DebtReceivableAdjustment, DebtReport, DebtSchedule, DebtSnapshot, DebtTerms, FinancingParty } from '../services/debt-types';
+import { FxTrace } from './exchange-rates';
+import { assetAt, EditorFrame, entityAt, Field, Period, RegistryNotice } from './registry-ui';
+import type { ViewContext } from './registry-ui';
+
+type Kind = 'contract' | 'terms' | 'movement' | 'adjustment' | 'schedule' | 'allocation' | 'asset_link' | 'guarantee' | 'coverage';
+type DebtRecord = DebtContract | DebtTerms | DebtMovement | DebtReceivableAdjustment | DebtSchedule | DebtPaymentAllocation | DebtAssetLink | DebtGuarantee | DebtCoverage;
+type Tab = 'contracts' | 'movements' | 'links' | 'report';
+interface PartyForm { line_id: string; side: string; entity_id: string; legal_num: string; legal_den: string; economic_num: string; economic_den: string; liability_kind: string; notes: string }
+interface Editor { kind: Kind; record: DebtRecord | null; values: Record<string, string>; parties: PartyForm[]; reason: string }
+const titles: Record<Kind, string> = { contract: 'Contrat de financement', terms: 'Conditions et parties', movement: 'Mouvement de financement', adjustment: 'Dépréciation ou reprise de créance', schedule: 'Échéance prévue', allocation: 'Affectation de remboursement', asset_link: 'Lien au bien', guarantee: 'Garantie conditionnelle', coverage: 'Couverture de valeur globale' };
+const movementKinds: Record<string, string> = { opening: 'Ouverture historique', drawdown: 'Tirage', principal_repayment: 'Remboursement du principal', principal_adjustment: 'Ajustement justifié du principal', write_off: 'Remise juridique du principal' };
+const sideNames: Record<string, string> = { creditor: 'Créancier', debtor: 'Débiteur' };
+const liabilityNames: Record<string, string> = { single: 'Obligation individuelle', several: 'Obligation divisée', joint_and_several: 'Solidarité juridique' };
+function partyForm(party?: FinancingParty, side = 'creditor'): PartyForm {
+  return { line_id: party?.line_id ?? crypto.randomUUID(), side: party?.side ?? side, entity_id: party?.entity_id ?? '', legal_num: party?.legal_share?.num ?? '', legal_den: party?.legal_share?.den ?? '', economic_num: party?.economic_share?.num ?? '', economic_den: party?.economic_share?.den ?? '', liability_kind: party?.liability_kind ?? '', notes: party?.notes ?? '' };
+}
+function fraction(num: string, den: string): Fraction | null { return num.trim() === '' && den.trim() === '' ? null : { num: num.trim(), den: den.trim() }; }
+function fractionLabel(value: Fraction | null) { return value === null ? 'Inconnus' : `${value.num}/${value.den}`; }
+function initial(date: string, selected: string): Record<string, string> {
+  return { debt_id: selected, name: '', currency: 'EUR', tracking_start: date, notes: '', archived: 'false', valid_from: date, valid_to: '', principal_status: 'unknown', interest_rate: '', interest_convention: '', kind: 'opening', effective_on: date, principal_change: '', interest_paid: '0', fees_paid: '0', unlinked_reason: '', creditor_entity_id: '', valuation_delta: '', source: '', due_on: date, expected_principal: '', expected_interest: '0', expected_fees: '0', status: 'planned', movement_id: '', schedule_id: '', principal: '', interest: '0', fees: '0', asset_id: '', relation_kind: 'finances', share_num: '', share_den: '', guarantor_entity_id: '', limit_amount: '', company_id: '', side: 'debtor', included: '' };
+}
+
+export default function DebtsPage({ registry, context, onChanged, onBusyChange, onNavigateTreasury }: {
+  registry: RegistrySnapshot; context: ViewContext; onChanged: () => Promise<void>;
+  onBusyChange: (busy: boolean) => void; onNavigateTreasury?: () => void;
+}) {
+  const [snapshot, setSnapshot] = useState<DebtSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [tab, setTab] = useState<Tab>('contracts');
+  const [selected, setSelected] = useState('');
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [confirmation, setConfirmation] = useState<{ record: DebtRecord; archive: boolean } | null>(null);
+  const [confirmationReason, setConfirmationReason] = useState('');
+  const [report, setReport] = useState<DebtReport | null>(null);
+  const requestId = useRef(0);
+  const reportId = useRef(0);
+  const readOnly = context.knowledgeSequence != null;
+  const reload = useCallback(async () => {
+    const request = ++requestId.current;
+    setLoading(true); setSnapshot(null); setError('');
+    try { const value = await api.listDebtsAt(context.knowledgeSequence ?? null); if (request === requestId.current) setSnapshot(value); }
+    catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+    finally { if (request === requestId.current) setLoading(false); }
+  }, [context.knowledgeSequence]);
+  useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
+  useEffect(() => { onBusyChange(pending); return () => onBusyChange(false); }, [pending, onBusyChange]);
+  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setConfirmation(null); setMessage(''); }, [context.date, context.personId, context.knowledgeSequence, registry.knowledge_sequence]);
+  function contractName(id: string) { return snapshot?.contracts.find(c => c.id === id)?.name ?? id; }
+  function entityName(id: string) { const e = registry.entities.find(item => item.id === id); return e ? entityAt(registry, e, context.date).display_name : id; }
+  function assetName(id: string) { const a = registry.assets.find(item => item.id === id); return a ? assetAt(registry, a, context.date).name : id; }
+  function open(kind: Kind, record: DebtRecord | null = null) {
+    if (readOnly) return;
+    const values = initial(context.date, selected);
+    if (kind === 'adjustment') values.kind = 'impairment';
+    if (record) for (const [key, value] of Object.entries(record)) if (typeof value === 'string' || typeof value === 'boolean' || value === null) values[key] = value === null ? '' : String(value);
+    if (record && 'attributed_principal_share' in record) { values.share_num = record.attributed_principal_share?.num ?? ''; values.share_den = record.attributed_principal_share?.den ?? ''; }
+    setEditor({ kind, record, values, parties: kind === 'terms' ? record && 'parties' in record ? record.parties.map(p => partyForm(p)) : [partyForm(undefined, 'creditor'), partyForm(undefined, 'debtor')] : [], reason: '' });
+    setConfirmation(null); setError(''); setMessage('');
+  }
+  function update(key: string, value: string) { setEditor(current => current && ({ ...current, values: { ...current.values, [key]: value } })); }
+  async function save(event: FormEvent) {
+    event.preventDefault(); if (!editor || readOnly) return;
+    const { values: v, kind } = editor;
+    if (kind === 'coverage' && !['true', 'false'].includes(v.included)) { setError('Indiquez explicitement si la valeur globale inclut cette face du contrat.'); return; }
+    const meta = { id: editor.record?.id ?? null, expected_revision_id: editor.record?.revision_id ?? null, reason: editor.reason.trim() };
+    const dated = { valid_from: v.valid_from, valid_to: v.valid_to || null };
+    const parties = editor.parties.map(p => ({ line_id: p.line_id, side: p.side, entity_id: p.entity_id, legal_share: fraction(p.legal_num, p.legal_den), economic_share: fraction(p.economic_num, p.economic_den), liability_kind: p.liability_kind, notes: p.notes }));
+    setPending(true); setError(''); setMessage('');
+    try {
+      switch (kind) {
+        case 'contract': await api.saveDebtContract({ ...meta, name: v.name.trim(), currency: v.currency, tracking_start: v.tracking_start, notes: v.notes, archived: v.archived === 'true' }); break;
+        case 'terms': await api.saveDebtTerms({ ...meta, debt_id: v.debt_id, ...dated, principal_status: v.principal_status, interest_rate: v.interest_rate.trim() || null, interest_convention: v.interest_convention.trim(), parties, notes: v.notes }); break;
+        case 'movement': await api.saveDebtMovement({ ...meta, debt_id: v.debt_id, kind: v.kind, effective_on: v.effective_on, principal_change: v.principal_change.trim(), interest_paid: v.interest_paid.trim(), fees_paid: v.fees_paid.trim(), unlinked_reason: v.unlinked_reason.trim(), notes: v.notes }); break;
+        case 'adjustment': await api.saveDebtReceivableAdjustment({ ...meta, debt_id: v.debt_id, creditor_entity_id: v.creditor_entity_id, kind: v.kind === 'reversal' ? 'reversal' : 'impairment', effective_on: v.effective_on, valuation_delta: v.valuation_delta.trim(), source: v.source.trim(), notes: v.notes }); break;
+        case 'schedule': await api.saveDebtSchedule({ ...meta, debt_id: v.debt_id, due_on: v.due_on, expected_principal: v.expected_principal.trim(), expected_interest: v.expected_interest.trim(), expected_fees: v.expected_fees.trim(), status: v.status, notes: v.notes }); break;
+        case 'allocation': await api.saveDebtPaymentAllocation({ ...meta, movement_id: v.movement_id, schedule_id: v.schedule_id, effective_on: v.effective_on, principal: v.principal.trim(), interest: v.interest.trim(), fees: v.fees.trim() }); break;
+        case 'asset_link': await api.saveDebtAssetLink({ ...meta, debt_id: v.debt_id, asset_id: v.asset_id, relation_kind: v.relation_kind, attributed_principal_share: fraction(v.share_num, v.share_den), ...dated, notes: v.notes }); break;
+        case 'guarantee': await api.saveDebtGuarantee({ ...meta, debt_id: v.debt_id, guarantor_entity_id: v.guarantor_entity_id, limit_amount: v.limit_amount.trim() || null, ...dated, notes: v.notes }); break;
+        case 'coverage': await api.saveDebtCoverage({ ...meta, debt_id: v.debt_id, company_id: v.company_id, side: v.side, ...dated, included: v.included === 'true', source: v.source.trim(), notes: v.notes }); break;
+      }
+      await onChanged(); await reload(); setEditor(null); setReport(null); setMessage('L’enregistrement de financement a été conservé avec ses révisions.');
+    } catch (failure) { setError(errorMessage(failure)); }
+    finally { setPending(false); }
+  }
+  async function confirm(event: FormEvent) {
+    event.preventDefault(); if (!confirmation || readOnly) return;
+    setPending(true); setError(''); setMessage('');
+    try {
+      if (confirmation.archive && 'archived' in confirmation.record) {
+        const { revision_id, ...record } = confirmation.record;
+        await api.saveDebtContract({ ...record, expected_revision_id: revision_id, reason: confirmationReason.trim(), archived: !record.archived });
+      } else await api.voidRegistryRecord(confirmation.record.id, confirmation.record.revision_id, confirmationReason.trim());
+      setConfirmation(null); await onChanged(); await reload(); setReport(null); setMessage('La modification est conservée dans l’historique.');
+    } catch (failure) { setError(errorMessage(failure)); }
+    finally { setPending(false); }
+  }
+  async function calculate(event: FormEvent) {
+    event.preventDefault(); if (!selected) return;
+    const request = ++reportId.current;
+    setPending(true); setError(''); setReport(null);
+    try { const value = await api.getDebtReport({ debt_id: selected, date: context.date, knowledge_sequence: context.knowledgeSequence ?? null }); if (request === reportId.current) setReport(value); }
+    catch (failure) { if (request === reportId.current) setError(errorMessage(failure)); }
+    finally { setPending(false); }
+  }
+  const relevant = (id: string) => !selected || selected === id;
+  function actions(kind: Kind, record: DebtRecord, description: string) {
+    return <div className="row-actions"><button type="button" className="button secondary small-button" disabled={pending || readOnly} aria-label={`Modifier ${description}`} onClick={() => open(kind, record)}>Modifier</button><button type="button" className="text-button" disabled={pending || readOnly} onClick={() => { setConfirmation({ record, archive: kind === 'contract' }); setConfirmationReason(''); setEditor(null); }}>{kind === 'contract' && 'archived' in record ? record.archived ? 'Réactiver' : 'Archiver' : 'Annuler l’enregistrement'}</button></div>;
+  }
+  function card(title: string, add: string, kind: Kind, headers: string[], body: ReactNode[]) {
+    return <section className="card"><div className="section-title"><h2>{title}</h2><button type="button" className="button" disabled={pending || readOnly || (kind !== 'contract' && !snapshot?.contracts.length)} onClick={() => open(kind)}>{add}</button></div>{body.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr>{headers.map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead><tbody>{body}</tbody></table></div> : <p className="muted">Aucun enregistrement dans la sélection.</p>}</section>;
+  }
+  return <div className="registry-workspace">
+    <RegistryNotice>Un contrat décrit une seule dette avec ses deux faces. Les quotes-parts économiques sont explicites et indépendantes de la propriété d’un bien financé. Une prévision, une garantie ou un taux indicatif ne crée pas de principal ni de paiement.</RegistryNotice>
+    {readOnly && <RegistryNotice><strong>Lecture seule historique.</strong> Financements connus à la séquence {context.knowledgeSequence}. Revenez aux connaissances actuelles pour modifier ces sources.</RegistryNotice>}
+    <div className="button-row" role="group" aria-label="Sections des financements">{([['contracts', 'Contrats et parties'], ['movements', 'Mouvements et échéances'], ['links', 'Biens et garanties'], ['report', 'Contrôler un financement']] as const).map(([key, label]) => <button type="button" key={key} className={`button ${tab === key ? '' : 'secondary'}`} disabled={pending} onClick={() => setTab(key)}>{label}</button>)}</div>
+    {loading && <p role="status">Chargement des financements…</p>}
+    {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>En cas de conflit, rechargez les sources actuelles puis rouvrez le formulaire. Les montants saisis n’ont remplacé aucune version plus récente.</p><button type="button" className="button secondary" disabled={pending || loading} onClick={() => { void reload(); }}>Recharger les financements</button></RegistryNotice>}
+    {message && <RegistryNotice>{message}</RegistryNotice>}
+    {!loading && snapshot && <>
+      <section className="card"><Field id="debt-filter" label="Contrat à consulter"><select id="debt-filter" value={selected} disabled={pending} onChange={event => { setSelected(event.currentTarget.value); reportId.current += 1; setReport(null); }}><option value="">Tous les contrats</option>{snapshot.contracts.map(c => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archivé)' : ''}</option>)}</select></Field>{onNavigateTreasury && <button type="button" className="text-button" disabled={pending} onClick={onNavigateTreasury}>Rapprocher les mouvements dans les comptes</button>}</section>
+      {tab === 'contracts' && <>
+        {card('Contrats de financement', 'Créer un contrat de financement', 'contract', ['Contrat', 'Début du suivi', 'Notes', 'Actions'], snapshot.contracts.filter(c => relevant(c.id)).map(c => <tr key={c.id}><td><strong>{c.name}</strong><small>{c.currency}{c.archived ? ' · archivé' : ''}</small></td><td>{c.tracking_start}</td><td>{c.notes || '—'}</td><td>{actions('contract', c, `le contrat ${c.name}`)}</td></tr>))}
+        {card('Conditions et parties datées', 'Définir les parties du financement', 'terms', ['Contrat et période', 'Participants et droits économiques', 'Principal et taux', 'Actions'], snapshot.terms.filter(t => relevant(t.debt_id)).map(t => <tr key={t.id}><td>{contractName(t.debt_id)}<small><Period from={t.valid_from} to={t.valid_to} /></small></td><td><ul>{t.parties.map(p => <li key={p.line_id}>{sideNames[p.side] || p.side} : {entityName(p.entity_id)} · {fractionLabel(p.economic_share)}<small>{liabilityNames[p.liability_kind] || p.liability_kind} · droits juridiques {fractionLabel(p.legal_share)}</small></li>)}</ul></td><td>{t.principal_status === 'complete' ? 'Principal déclaré connu, sous réserve des mouvements' : 'Principal inconnu'}<small>{t.interest_rate === null ? 'Taux non renseigné' : `Taux indicatif ${t.interest_rate}`}</small></td><td>{actions('terms', t, `les conditions de ${contractName(t.debt_id)}`)}</td></tr>))}
+      </>}
+      {tab === 'movements' && <>
+        <RegistryNotice>Le solde initial est un mouvement d’ouverture unique, même s’il est nul. Les remboursements de principal sont signés négativement ; intérêts et frais restent positifs et distincts. Une source non rapprochée ne crée pas automatiquement de mouvement bancaire.</RegistryNotice>
+        {card('Mouvements du principal', 'Enregistrer un mouvement de financement', 'movement', ['Contrat et date', 'Nature', 'Principal / intérêts / frais', 'Rapprochement', 'Actions'], snapshot.movements.filter(m => relevant(m.debt_id)).map(m => <tr key={m.id}><td>{contractName(m.debt_id)}<small>{m.effective_on}</small></td><td>{movementKinds[m.kind] || m.kind}</td><td>{m.principal_change} / {m.interest_paid} / {m.fees_paid}</td><td>{m.unlinked_reason || 'Consulter les liens de trésorerie'}</td><td>{actions('movement', m, `le mouvement de ${contractName(m.debt_id)} du ${m.effective_on}`)}</td></tr>))}
+        {card('Échéancier prévisionnel', 'Ajouter une échéance de financement', 'schedule', ['Contrat et date', 'Principal / intérêts / frais prévus', 'État', 'Actions'], snapshot.schedules.filter(s => relevant(s.debt_id)).map(s => <tr key={s.id}><td>{contractName(s.debt_id)}<small>{s.due_on}</small></td><td>{s.expected_principal} / {s.expected_interest} / {s.expected_fees}</td><td>{s.status === 'cancelled' ? 'Annulée' : 'Prévue, sans paiement supposé'}</td><td>{actions('schedule', s, `l’échéance de ${contractName(s.debt_id)} du ${s.due_on}`)}</td></tr>))}
+        {card('Affectations des remboursements', 'Affecter un remboursement prévu', 'allocation', ['Mouvement', 'Échéance', 'Principal / intérêts / frais', 'Date', 'Actions'], snapshot.payment_allocations.filter(a => { const m = snapshot.movements.find(item => item.id === a.movement_id); return m && relevant(m.debt_id); }).map(a => <tr key={a.id}><td>{snapshot.movements.find(m => m.id === a.movement_id)?.effective_on || a.movement_id}</td><td>{snapshot.schedules.find(s => s.id === a.schedule_id)?.due_on || a.schedule_id}</td><td>{a.principal} / {a.interest} / {a.fees}</td><td>{a.effective_on}</td><td>{actions('allocation', a, `l’affectation du ${a.effective_on}`)}</td></tr>))}
+        {card('Dépréciations de créances', 'Déprécier ou reprendre une créance', 'adjustment', ['Contrat / créancier', 'Date et variation', 'Source', 'Actions'], snapshot.receivable_adjustments.filter(a => relevant(a.debt_id)).map(a => <tr key={a.id}><td>{contractName(a.debt_id)}<small>{entityName(a.creditor_entity_id)}</small></td><td>{a.effective_on}<small>{a.valuation_delta} · {a.kind === 'reversal' ? 'Reprise' : 'Dépréciation'}</small></td><td>{a.source}</td><td>{actions('adjustment', a, `la dépréciation de ${contractName(a.debt_id)}`)}</td></tr>))}
+      </>}
+      {tab === 'links' && <>
+        <RegistryNotice>Un bien financé ou donné en sûreté ne désigne jamais automatiquement le débiteur. Une garantie reste un engagement conditionnel ; elle n’est pas déduite comme une dette certaine. Une dépréciation de créance ne remet pas juridiquement la dette.</RegistryNotice>
+        {card('Liens aux biens', 'Lier un financement à un bien', 'asset_link', ['Contrat et bien', 'Nature et affectation', 'Période', 'Actions'], snapshot.asset_links.filter(l => relevant(l.debt_id)).map(l => <tr key={l.id}><td>{contractName(l.debt_id)}<small>{assetName(l.asset_id)}</small></td><td>{l.relation_kind === 'collateral' ? 'Sûreté, sans attribution de dette' : 'Financement analytique'}<small>{fractionLabel(l.attributed_principal_share)}</small></td><td><Period from={l.valid_from} to={l.valid_to} /></td><td>{actions('asset_link', l, `le lien de ${contractName(l.debt_id)} à ${assetName(l.asset_id)}`)}</td></tr>))}
+        {card('Garanties et cautions', 'Enregistrer une garantie conditionnelle', 'guarantee', ['Contrat et garant', 'Limite déclarée', 'Période', 'Actions'], snapshot.guarantees.filter(g => relevant(g.debt_id)).map(g => <tr key={g.id}><td>{contractName(g.debt_id)}<small>{entityName(g.guarantor_entity_id)}</small></td><td>{g.limit_amount ?? 'Limite inconnue'}<small>Hors dette certaine</small></td><td><Period from={g.valid_from} to={g.valid_to} /></td><td>{actions('guarantee', g, `la garantie de ${entityName(g.guarantor_entity_id)}`)}</td></tr>))}
+        {card('Couverture des valeurs globales', 'Déclarer une couverture de société', 'coverage', ['Contrat et société', 'Face du contrat', 'Couverture déclarée', 'Période', 'Actions'], snapshot.coverages.filter(c => relevant(c.debt_id)).map(c => <tr key={c.id}><td>{contractName(c.debt_id)}<small>{entityName(c.company_id)}</small></td><td>{sideNames[c.side] || c.side}</td><td>{c.included ? 'Déjà comprise dans la valeur globale' : 'Explicitement exclue de la valeur globale'}<small>{c.source}</small></td><td><Period from={c.valid_from} to={c.valid_to} /></td><td>{actions('coverage', c, `la couverture de ${entityName(c.company_id)}`)}</td></tr>))}
+      </>}
+      {tab === 'report' && <section className="card"><h2>Encours et engagements du contrat</h2><p>Analyse du contrat entier à la date {context.date}. Les vues familiales et individuelles du bilan appliquent séparément les poids économiques et les éliminations réciproques.</p><form onSubmit={event => { void calculate(event); }}><fieldset disabled={pending}><Field id="debt-report-contract" label="Financement à contrôler"><select id="debt-report-contract" required value={selected} onChange={event => { setSelected(event.currentTarget.value); reportId.current += 1; setReport(null); }}><option value="">Choisir…</option>{snapshot.contracts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field><button type="submit" className="button" disabled={!selected}>Calculer l’encours du financement</button></fieldset></form>{report && <DebtReportView report={report} entityName={entityName} assetName={assetName} />}</section>}
+      {editor && !readOnly && <EditorFrame title={`${editor.record ? 'Corriger' : 'Créer'} · ${titles[editor.kind]}`} pending={pending} onCancel={() => setEditor(null)}><DebtForm editor={editor} registry={registry} snapshot={snapshot} context={context} update={update} setEditor={setEditor} pending={pending} onSubmit={save} /></EditorFrame>}
+      {confirmation && !readOnly && <section className="card restore-review"><h2>Confirmer la modification du financement</h2><p>{confirmation.archive ? 'L’archivage masque le contrat des nouvelles saisies, sans éteindre le principal ni supprimer son histoire.' : 'L’annulation écarte cet enregistrement des connaissances actuelles ; une dépendance encore utilisée ou un encours incohérent provoquera un refus.'}</p><form onSubmit={event => { void confirm(event); }}><fieldset disabled={pending}><Field id="debt-confirm-reason" label="Motif de la modification du financement"><textarea id="debt-confirm-reason" required value={confirmationReason} onChange={event => setConfirmationReason(event.currentTarget.value)} /></Field><button type="submit" className="button danger" disabled={!confirmationReason.trim()}>Confirmer la modification du financement</button><button type="button" className="button secondary" onClick={() => setConfirmation(null)}>Conserver l’enregistrement</button></fieldset></form></section>}
+    </>}
+  </div>;
+}
+
+function DebtForm({ editor, registry, snapshot, context, update, setEditor, pending, onSubmit }: {
+  editor: Editor; registry: RegistrySnapshot; snapshot: DebtSnapshot; context: ViewContext;
+  update: (key: string, value: string) => void; setEditor: Dispatch<SetStateAction<Editor | null>>;
+  pending: boolean; onSubmit: (event: FormEvent) => Promise<void>;
+}) {
+  const v = editor.values; const kind = editor.kind;
+  const text = (key: string, label: string, required = false, type = 'text', hint?: string) => <Field key={key} id={`debt-${key}`} label={label} hint={hint}><input id={`debt-${key}`} required={required} type={type} value={v[key] ?? ''} onChange={event => update(key, event.currentTarget.value)} /></Field>;
+  const select = (key: string, label: string, options: { id: string; label: string }[], required = true) => <Field key={key} id={`debt-${key}`} label={label}><select id={`debt-${key}`} required={required} value={v[key] ?? ''} onChange={event => update(key, event.currentTarget.value)}><option value="">Choisir…</option>{options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></Field>;
+  const contracts = snapshot.contracts.map(c => ({ id: c.id, label: c.name }));
+  const entities = registry.entities.map(e => ({ id: e.id, label: entityAt(registry, e, context.date).display_name }));
+  const dates = <div className="form-grid">{text('valid_from', 'Début de validité', true, 'date')}{text('valid_to', 'Fin de validité (exclue)', false, 'date')}</div>;
+  function changeParty(index: number, key: keyof PartyForm, value: string) { setEditor(current => current && ({ ...current, parties: current.parties.map((p, i) => i === index ? { ...p, [key]: value } : p) })); }
+  return <form onSubmit={event => { void onSubmit(event); }}><fieldset disabled={pending}>
+    {kind !== 'contract' && kind !== 'allocation' && select('debt_id', 'Contrat du financement', contracts)}
+    {kind === 'contract' && <>{text('name', 'Nom du financement', true)}<div className="form-grid">{select('currency', 'Devise du financement', displayCurrencies.map(code => ({ id: code, label: code })))}{text('tracking_start', 'Début du suivi du financement', true, 'date')}</div><p className="field-hint">Créer le contrat ne crée aucun principal. Enregistrez son ouverture historique explicitement, même si elle vaut zéro.</p></>}
+    {kind === 'terms' && <>{dates}<div className="form-grid">{select('principal_status', 'Connaissance du principal', [{ id: 'unknown', label: 'Inconnu ou suivi incomplet' }, { id: 'complete', label: 'Déclaré connu avec ses mouvements' }])}{text('interest_rate', 'Taux indicatif (facultatif)', false, 'text', 'Texte décimal du contrat ; ce taux ne crée ni intérêts ni échéancier.')}</div>{text('interest_convention', 'Convention du taux et des intérêts')}
+      <h3>Parties et droits explicites</h3><p className="field-hint">Laissez les deux cases d’une fraction vides si le droit est inconnu. Les deux faces du contrat ont leurs propres répartitions, sans lien implicite avec le bien financé.</p>{editor.parties.map((p, index) => <fieldset key={p.line_id} className="card"><legend>Partie {index + 1}</legend><div className="form-grid"><Field id={`debt-party-${index}-side`} label={`Face de la partie ${index + 1}`}><select id={`debt-party-${index}-side`} value={p.side} onChange={event => changeParty(index, 'side', event.currentTarget.value)}><option value="creditor">Créancier</option><option value="debtor">Débiteur</option></select></Field><Field id={`debt-party-${index}-entity`} label={`Entité de la partie ${index + 1}`}><select id={`debt-party-${index}-entity`} required value={p.entity_id} onChange={event => changeParty(index, 'entity_id', event.currentTarget.value)}><option value="">Choisir…</option>{entities.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}</select></Field></div>
+        {(['economic', 'legal'] as const).map(share => <div className="form-grid" key={share}><Field id={`debt-party-${index}-${share}-num`} label={`${share === 'economic' ? 'Droit économique' : 'Droit juridique'} ${index + 1} — numérateur`}><input id={`debt-party-${index}-${share}-num`} inputMode="numeric" required={!!p[`${share}_den`]} value={p[`${share}_num`]} onChange={event => changeParty(index, `${share}_num`, event.currentTarget.value)} /></Field><Field id={`debt-party-${index}-${share}-den`} label={`${share === 'economic' ? 'Droit économique' : 'Droit juridique'} ${index + 1} — dénominateur`}><input id={`debt-party-${index}-${share}-den`} inputMode="numeric" required={!!p[`${share}_num`]} value={p[`${share}_den`]} onChange={event => changeParty(index, `${share}_den`, event.currentTarget.value)} /></Field></div>)}
+        <Field id={`debt-party-${index}-liability`} label={`Portée juridique de la partie ${index + 1}`}><select id={`debt-party-${index}-liability`} required value={p.liability_kind} onChange={event => changeParty(index, 'liability_kind', event.currentTarget.value)}><option value="">Choisir…</option>{Object.entries(liabilityNames).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></Field><Field id={`debt-party-${index}-notes`} label={`Notes de la partie ${index + 1}`}><textarea id={`debt-party-${index}-notes`} value={p.notes} onChange={event => changeParty(index, 'notes', event.currentTarget.value)} /></Field><button type="button" className="text-button" onClick={() => setEditor(current => current && ({ ...current, parties: current.parties.filter((_, i) => i !== index) }))}>Retirer la partie {index + 1}</button></fieldset>)}<button type="button" className="button secondary" onClick={() => setEditor(current => current && ({ ...current, parties: [...current.parties, partyForm()] }))}>Ajouter une partie au contrat</button>
+    </>}
+    {kind === 'movement' && <>{select('kind', 'Nature du mouvement de financement', Object.entries(movementKinds).map(([id, label]) => ({ id, label })))}{text('effective_on', 'Date du mouvement de financement', true, 'date')}<div className="form-grid">{text('principal_change', 'Variation signée du principal', true)}{text('interest_paid', 'Intérêts payés', true)}{text('fees_paid', 'Frais payés', true)}</div><Field id="debt-unlinked_reason" label="Motif d’absence de rapprochement bancaire"><textarea id="debt-unlinked_reason" value={v.unlinked_reason} required onChange={event => update('unlinked_reason', event.currentTarget.value)} /></Field><p className="field-hint">Ouverture/tirage : principal positif ou nul selon la nature. Remboursement : principal négatif ; intérêts et frais ne diminuent pas ce principal. Le rapprochement avec les comptes doit utiliser les mêmes sources, sans second décaissement.</p></>}
+    {kind === 'adjustment' && <>{select('creditor_entity_id', 'Créancier dont la créance est ajustée', entities)}{select('kind', 'Nature de l’ajustement de créance', [{ id: 'impairment', label: 'Dépréciation de la créance seulement' }, { id: 'reversal', label: 'Reprise de dépréciation' }])}{text('effective_on', 'Date de l’ajustement de créance', true, 'date')}{text('valuation_delta', 'Variation signée de la valeur de créance', true)}{text('source', 'Source de la dépréciation ou de la reprise', true)}<p className="field-hint">Une dépréciation négative n’éteint pas le principal certain du débiteur. Une remise juridique utilise un mouvement du principal distinct.</p></>}
+    {kind === 'schedule' && <>{text('due_on', 'Date d’échéance prévue', true, 'date')}<div className="form-grid">{text('expected_principal', 'Principal prévu', true)}{text('expected_interest', 'Intérêts prévus', true)}{text('expected_fees', 'Frais prévus', true)}</div>{select('status', 'État de la prévision', [{ id: 'planned', label: 'Prévue' }, { id: 'cancelled', label: 'Annulée' }])}<p className="field-hint">Cette prévision n’enregistre aucun remboursement ni sortie bancaire.</p></>}
+    {kind === 'allocation' && <>{select('movement_id', 'Remboursement réel à affecter', snapshot.movements.filter(m => m.kind === 'principal_repayment').map(m => ({ id: m.id, label: `${contractNameFor(snapshot, m.debt_id)} · ${m.effective_on} · ${m.principal_change}` })))}{select('schedule_id', 'Échéance de financement concernée', snapshot.schedules.map(s => ({ id: s.id, label: `${contractNameFor(snapshot, s.debt_id)} · ${s.due_on}` })))}{text('effective_on', 'Date de l’affectation du remboursement', true, 'date')}<div className="form-grid">{text('principal', 'Principal affecté', true)}{text('interest', 'Intérêts affectés', true)}{text('fees', 'Frais affectés', true)}</div></>}
+    {kind === 'asset_link' && <>{select('asset_id', 'Bien lié au financement', registry.assets.map(a => ({ id: a.id, label: assetAt(registry, a, context.date).name })))}{select('relation_kind', 'Nature du lien au bien', [{ id: 'finances', label: 'Financement analytique du bien' }, { id: 'collateral', label: 'Sûreté ou collatéral uniquement' }])}{dates}<div className="form-grid">{text('share_num', 'Part analytique du principal — numérateur')}{text('share_den', 'Part analytique du principal — dénominateur')}</div><p className="field-hint">Une part inconnue reste vide. Ce lien n’attribue jamais la dette aux copropriétaires du bien.</p></>}
+    {kind === 'guarantee' && <>{select('guarantor_entity_id', 'Garant ou caution identifié', entities)}{text('limit_amount', 'Limite de la garantie (facultative)')}{dates}<p className="field-hint">Cette garantie est conditionnelle et reste hors des dettes certaines. Un appel exige une opération explicite et justifiée.</p></>}
+    {kind === 'coverage' && <>{select('company_id', 'Société valorisée globalement', registry.entities.filter(e => e.kind === 'company').map(e => ({ id: e.id, label: e.display_name })))}{select('side', 'Face couverte du contrat', [{ id: 'creditor', label: 'Créance' }, { id: 'debtor', label: 'Dette' }])}{select('included', 'Présence dans la valeur globale', [{ id: 'true', label: 'Déjà comprise, avec source vérifiable' }, { id: 'false', label: 'Explicitement exclue, avec source vérifiable' }])}{dates}{text('source', 'Source de la couverture déclarée', true)}<p className="field-hint">Sans couverture vérifiable, la consolidation concernée reste incomplète ; aucune seconde déduction ni élimination n’est supposée.</p></>}
+    {kind !== 'allocation' && <Field id="debt-notes" label="Notes du financement"><textarea id="debt-notes" value={v.notes} onChange={event => update('notes', event.currentTarget.value)} maxLength={10000} /></Field>}
+    <Field id="debt-reason" label="Motif de l’enregistrement du financement"><textarea id="debt-reason" required value={editor.reason} onChange={event => { const reason = event.currentTarget.value; setEditor(current => current && ({ ...current, reason })); }} maxLength={2000} /></Field><button type="submit" className="button" disabled={!editor.reason.trim()}>{editor.record ? 'Enregistrer la correction du financement' : 'Enregistrer le financement'}</button>
+  </fieldset></form>;
+}
+function contractNameFor(snapshot: DebtSnapshot, id: string) { return snapshot.contracts.find(c => c.id === id)?.name ?? id; }
+
+function DebtReportView({ report, entityName, assetName }: { report: DebtReport; entityName: (id: string) => string; assetName: (id: string) => string }) {
+  const money = (value: string | null, currency = report.contract.currency) => value === null ? 'Non calculable' : `${value} ${currency}`;
+  return <div className="debt-report"><h3>{report.contract.name} · situation au {report.date}</h3><dl className="rental-indicators"><div><dt>Principal restant contractuel</dt><dd>{money(report.balance.principal_original)}</dd></div><div><dt>Principal converti</dt><dd>{money(report.principal_eur, 'EUR')}</dd></div><div><dt>Intérêts payés dans le suivi</dt><dd>{money(report.balance.interest_paid_original)}</dd></div><div><dt>Frais payés dans le suivi</dt><dd>{money(report.balance.fees_paid_original)}</dd></div></dl><p className="scope-note">Ces montants décrivent le contrat entier. Les parts créancières et débitrices sont distinctes, les garanties conditionnelles restent hors dette certaine, et les paiements proviennent de mouvements réels.</p>
+    {report.parties.length > 0 && <div className="table-scroll"><table><caption>Faces juridiques et économiques du contrat</caption><thead><tr><th scope="col">Partie</th><th scope="col">Droits économiques</th><th scope="col">Nominal</th><th scope="col">Ajustement de créance</th><th scope="col">Valeur portée</th><th scope="col">Exposition juridique</th></tr></thead><tbody>{report.parties.map(p => <tr key={p.party.line_id}><td>{sideNames[p.party.side] || p.party.side} · {entityName(p.party.entity_id)}<small>{liabilityNames[p.party.liability_kind] || p.party.liability_kind}</small></td><td>{fractionLabel(p.party.economic_share)}</td><td>{money(p.nominal_original)}</td><td>{money(p.adjustment_original)}</td><td>{money(p.carrying_value_original)}</td><td>{money(p.legal_maximum_original)}</td></tr>)}</tbody></table></div>}
+    {report.schedules.length > 0 && <div className="table-scroll"><table><caption>Échéancier et remboursements réellement affectés</caption><thead><tr><th scope="col">Date</th><th scope="col">Principal restant prévu</th><th scope="col">Intérêts / frais prévus restants</th><th scope="col">État du règlement</th></tr></thead><tbody>{report.schedules.map(s => <tr key={s.schedule.id}><td>{s.schedule.due_on}</td><td>{s.remaining_principal}</td><td>{s.remaining_interest} / {s.remaining_fees}</td><td>{s.settled_on ? `Réglée le ${s.settled_on}` : s.overdue_days > 0 ? `${s.overdue_days} jour(s) de retard` : 'Non soldée'}{s.historical_late && <small>Retard historique conservé</small>}</td></tr>)}</tbody></table></div>}
+    {report.guarantees.length > 0 && <RegistryNotice><strong>Engagements conditionnels, hors dette certaine</strong><ul>{report.guarantees.map(g => <li key={g.id}>{entityName(g.guarantor_entity_id)} : {money(g.limit_amount)} · <Period from={g.valid_from} to={g.valid_to} /></li>)}</ul></RegistryNotice>}
+    {report.asset_links.length > 0 && <details><summary>Biens liés et affectations analytiques</summary><ul>{report.asset_links.map(l => <li key={l.id}>{assetName(l.asset_id)} · {l.relation_kind === 'collateral' ? 'Sûreté uniquement' : 'Financement analytique'} · {fractionLabel(l.attributed_principal_share)}</li>)}</ul></details>}
+    {report.warnings.length > 0 && <RegistryNotice><ul>{report.warnings.map((w, index) => <li key={`${w.code}-${index}`}>{w.message}</li>)}</ul></RegistryNotice>}
+    <details><summary>Sources et conversion du financement</summary><p className="hash">{report.source_ids.join(', ') || 'Aucune source applicable'}</p>{report.conversion && <FxTrace result={report.conversion} />}</details>
+  </div>;
+}

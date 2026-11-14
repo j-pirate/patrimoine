@@ -1,0 +1,54 @@
+{
+  "format_version": 1,
+  "purpose": "Exact upstream commit licence texts omitted from published crate archives; fetched through verified HTTPS during the 12 November 2026 review. Hashes pin future offline regeneration.",
+  "files": [
+    {
+      "ecosystem": "cargo",
+      "name": "alloc-stdlib",
+      "version": "0.3.0",
+      "path": "alloc-stdlib-0.3.0/LICENSE",
+      "source_url": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+    },
+    {
+      "ecosystem": "cargo",
+      "name": "dlopen2",
+      "version": "0.8.2",
+      "path": "dlopen2-0.8.2/LICENSE",
+      "source_url": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+      "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+    },
+    {
+      "ecosystem": "cargo",
+      "name": "dlopen2_derive",
+      "version": "0.4.3",
+      "path": "dlopen2_derive-0.4.3/LICENSE",
+      "source_url": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+      "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+    },
+    {
+      "ecosystem": "cargo",
+      "name": "tauri-plugin",
+      "version": "2.7.2",
+      "path": "tauri-plugin-2.7.2/LICENSE-MIT",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/59b63ab500da9859f12d8888c3298bc29bba0b92/LICENSE-MIT",
+      "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d"
+    },
+    {
+      "ecosystem": "cargo",
+      "name": "libappindicator-sys",
+      "version": "0.9.0",
+      "path": "libappindicator-sys-0.9.0/LICENSE-MIT",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-MIT",
+      "sha256": "eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b"
+    },
+    {
+      "ecosystem": "cargo",
+      "name": "libappindicator-sys",
+      "version": "0.9.0",
+      "path": "libappindicator-sys-0.9.0/LICENSE-APACHE",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+    }
+  ]
+}
