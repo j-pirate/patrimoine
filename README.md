@@ -8,6 +8,8 @@ Projet d’application Linux locale de gestion patrimoniale familiale, en franç
 
 **[Télécharger l’application, le kit et les guides](distribution/README.md)** — version 0.1.1 pour Debian 13 x86_64, avec instructions de reconstitution et de lancement.
 
+**Pop!_OS 22.04 / Ubuntu 22.04 : [paquets compatibles glibc 2.35](distribution/0.1.1-popos22.04/README.md)**, avec un `.deb` et une AppImage entière. Cette reconstruction corrige l’incompatibilité de bibliothèques du paquet Debian 13 sur ces systèmes, sans modification des calculs ni du schéma 6.
+
 La livraison cible **Debian 13 x86_64**, avec les bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La construction locale produit l’AppImage et son fichier `SHA256SUMS` ; le rapport de qualification identifie les artefacts effectivement testés. Le script de construction ne téléverse aucun paquet et l’application ne se met pas à jour automatiquement. Node et Rust ne sont pas requis pour utiliser le paquet.
 
 Le [guide d’installation, mise à jour et récupération](docs/23-installation-et-recuperation-linux.md) décrit le lancement, les données XDG, la sauvegarde préalable, le retour à une version compatible et les deux voies de récupération. Le [rapport de qualification](docs/22-validation-phase10.md) donne les versions et systèmes effectivement testés, les mesures de performance et leurs limites. L’inventaire des composants accompagne la livraison dans ses notices.

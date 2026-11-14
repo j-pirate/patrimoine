@@ -1,0 +1,9 @@
+{
+  "deb_sha256": "68555ec755f1d13781decbfe51894d991795f9eb008a38e6b380d4970e6b7a6a",
+  "installed_program_sha256": "2446f19d8f795a22f97931da0f16fb852d48a4b4b9b2f421e25a474da8e59816",
+  "package": "patrimoine",
+  "version": "0.1.1",
+  "test_image": "patrimoine-installed:ubuntu22",
+  "status": "passed",
+  "native_steps": 50
+}

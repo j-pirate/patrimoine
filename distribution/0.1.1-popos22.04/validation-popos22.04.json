@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "target": "Pop!_OS 22.04 x86_64, base Ubuntu 22.04 / glibc 2.35",
+  "test_os": "Ubuntu 22.04, Xvfb, Docker --network none, utilisateur1000",
+  "actual_popos_desktop_or_gpu_tested": false,
+  "application_code_lockfiles_migrations_unchanged": true,
+  "artifacts": [
+    {
+      "file": "Patrimoine_0.1.1_popos22.04_amd64.AppImage",
+      "bytes": 84875768,
+      "sha256": "53ec6527842cbfeac228489af081f1602e5f2c6deb98f7d11980924beaa45e2b"
+    },
+    {
+      "file": "Patrimoine_0.1.1_popos22.04_amd64.deb",
+      "bytes": 7503530,
+      "sha256": "68555ec755f1d13781decbfe51894d991795f9eb008a38e6b380d4970e6b7a6a"
+    }
+  ],
+  "abi": {
+    "elf_files": 175,
+    "symlinks_skipped": 33,
+    "max_required": {
+      "strong": {
+        "GLIBC": "GLIBC_2.35",
+        "GLIBCXX": "GLIBCXX_3.4.30",
+        "CXXABI": "CXXABI_1.3.9"
+      },
+      "weak": {
+        "GLIBC": "GLIBC_2.30",
+        "GLIBCXX": null,
+        "CXXABI": null
+      }
+    },
+    "failure_count": 0,
+    "optional_absence_count": 0
+  },
+  "embedded_notices": {
+    "status": "passed",
+    "files_verified": 733,
+    "components": 468,
+    "ubuntu_components": 113,
+    "payload_sha256": "05e95550f1f1f0917966318d8a65758bed5d4bbf76a2e7abebf68af565d90531",
+    "application_sha256": "53ec6527842cbfeac228489af081f1602e5f2c6deb98f7d11980924beaa45e2b"
+  },
+  "native_flows": {
+    "AppImage": {
+      "status": "passed",
+      "steps": 50
+    },
+    "deb_installed": {
+      "status": "passed",
+      "steps": 50
+    }
+  },
+  "limits": [
+    "La session graphique et le pilote GPU du poste utilisateur ne sont pas reproduits.",
+    "Les limites fonctionnelles et de grand volume du rapport phase10 restent applicables.",
+    "Deux avertissements de dépendances amont restent documentés."
+  ]
+}

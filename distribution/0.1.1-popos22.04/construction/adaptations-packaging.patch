@@ -1,0 +1,105 @@
+--- a/scripts/build-linux.sh
++++ b/scripts/build-linux.sh
+@@ -44,7 +44,7 @@
+     'product': config['productName'],
+     'version': config['version'],
+     'architecture': platform.machine(),
+-    'target_distribution': 'Debian 13 x86_64',
++    'target_distribution': 'Pop!_OS 22.04 / Ubuntu 22.04 x86_64 (glibc 2.35)',
+     'build_distribution': platform.freedesktop_os_release().get('PRETTY_NAME', platform.platform()),
+     'build_os': {key: platform.freedesktop_os_release().get(key) for key in ('ID', 'VERSION_ID', 'PRETTY_NAME')},
+     'build_kernel': platform.release(),
+--- a/scripts/collect-third-party-licences.py
++++ b/scripts/collect-third-party-licences.py
+@@ -5,7 +5,7 @@
+ The output includes Cargo's Linux normal/build/procedural-macro dependency graph
+ and npm's production dependency closure. It does not assert that a compiler or
+ type-only package is linked into the final binary. --appdir adds the copyrights
+-of Debian packages whose shared libraries are actually present in that AppDir.
++of Ubuntu packages whose shared libraries are actually present in that AppDir.
+ """
+ from __future__ import annotations
+ 
+@@ -187,10 +187,10 @@
+ 
+ 
+ def debian_inventory(stage: Path, appdir: Path, sysroot: Path) -> tuple[list[dict], list[str], list[dict]]:
+-    """Map actual bundled .so names to local Debian package file inventories."""
++    """Map actual bundled .so names to local Ubuntu package file inventories."""
+     libraries = sorted({path.name: path for path in appdir.rglob("*") if path.is_file() and ".so" in path.name}.values())
+     # dpkg owns host files. The non-privileged sysroot was extracted from these
+-    # locally cached Debian archives, so read their file lists when needed.
++    # locally cached Ubuntu archives, so read their file lists when needed.
+     archives = sorted((sysroot.parent / "apt/archives").glob("*.deb"))
+     owned: dict[str, list[tuple[str, str]]] = defaultdict(list)
+     cached_metadata = {}
+@@ -200,11 +200,11 @@
+         source_field = subprocess.check_output(["dpkg-deb", "-f", str(archive), "Source"], text=True).strip()
+         source_match = re.fullmatch(r"([^ ()]+)(?: \(([^()]+)\))?", source_field)
+         source_name = source_match[1] if source_match else package
+-        # A Debian binary-only rebuild adds +bN to the binary version while
++        # A Ubuntu binary-only rebuild adds +bN to the binary version while
+         # retaining the original source version unless Source names it explicitly.
+         source_version = source_match[2] if source_match and source_match[2] else re.sub(r"\+b[0-9]+$", "", version)
+         cached_metadata[package] = {"version": version, "source_package": source_name, "source_version": source_version,
+-                                    "binary_metadata_origin": "locally cached Debian archive"}
++                                    "binary_metadata_origin": "locally cached Ubuntu archive"}
+         listing = subprocess.check_output(["dpkg-deb", "--contents", str(archive)], text=True)
+         for line in listing.splitlines():
+             fields = line.split()
+@@ -249,15 +249,15 @@
+             if source.resolve().is_relative_to(sysroot.resolve()):
+                 metadata = cached_metadata.get(package)
+                 if metadata is None:
+-                    raise ValueError(f"No cached Debian metadata for {package}")
++                    raise ValueError(f"No cached Ubuntu metadata for {package}")
+             else:
+                 data = subprocess.check_output(["dpkg-query", "-W", "-f=${Version}\t${source:Package}\t${source:Version}", package], text=True).strip().split("\t")
+                 if len(data) != 3 or not all(data):
+-                    raise ValueError(f"Incomplete installed Debian source metadata for {package}")
++                    raise ValueError(f"Incomplete installed Ubuntu source metadata for {package}")
+                 metadata = {"version": data[0], "source_package": data[1], "source_version": data[2],
+-                            "binary_metadata_origin": "installed Debian package database"}
++                            "binary_metadata_origin": "installed Ubuntu package database"}
+             if package in selected_metadata and selected_metadata[package] != metadata:
+-                raise ValueError(f"Conflicting Debian package versions in bundled libraries: {package}")
++                raise ValueError(f"Conflicting Ubuntu package versions in bundled libraries: {package}")
+             selected_metadata[package] = metadata
+             selected[package].append(library)
+             binary_evidence[package].append({"bundled_path": bundled_path.relative_to(appdir).as_posix(), "package_file": relative,
+@@ -272,12 +272,12 @@
+         files = []
+         if copyright_file:
+             files = copied_files([copyright_file], copyright_file.parent, stage / "LICENSES/debian" / safe_name(package), stage)
+-        records.append({"ecosystem": "debian", "name": package, **metadata,
+-                        "source_browser_url": f"https://sources.debian.org/src/{quote(metadata['source_package'], safe='')}/{quote(metadata['source_version'], safe='')}/",
++        records.append({"ecosystem": "ubuntu", "name": package, **metadata,
++                        "source_browser_url": f"https://launchpad.net/ubuntu/+source/{quote(metadata['source_package'], safe='')}/{quote(metadata['source_version'], safe='')}/",
+                         "scope": ["shared libraries actually bundled in AppDir"],
+                         "bundled_libraries": sorted(set(bundled)), "binary_evidence": binary_evidence[package],
+-                        "declared_licence": "See Debian machine-readable copyright text", "files": files})
+-    # Debian copyright files commonly refer to these complete standard texts.
++                        "declared_licence": "See Ubuntu machine-readable copyright text", "files": files})
++    # Ubuntu copyright files commonly refer to these complete standard texts.
+     # Preserve them in the AppImage notices instead of relying on the target OS.
+     common_directory = next((path for path in [sysroot / "usr/share/common-licenses", Path("/usr/share/common-licenses")] if path.is_dir()), None)
+     common = []
+@@ -320,14 +320,14 @@
+                  "Exact resolved versions, source URLs, evidence and file hashes: manifest.json.",
+                  "Complete collected licence/copyright texts: LICENSES/.",
+                  "MPL-covered crates are listed with versioned source archive URLs; local modifications are not made to their source in this application.",
+-                 "Bundled Debian libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Debian Sources link.",
++                 "Bundled Ubuntu libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Ubuntu Launchpad source link.",
+                  "GTK/GLib/WebKit and other LGPL libraries remain dynamically linked. The AppImage can be extracted and those libraries replaced; their copyright and applicable LGPL texts are included below.",
+-                 "The pinned Type-2 runtime includes static musl, libfuse, squashfuse, zstd, zlib and mimalloc code; launcher/runtime provenance and licence texts are included separately from the Debian .so inventory. Unknown static dependency versions are disclosed in manifest.json; a licence-text reference version is not proof of the linked binary version.",
++                 "The pinned Type-2 runtime includes static musl, libfuse, squashfuse, zstd, zlib and mimalloc code; launcher/runtime provenance and licence texts are included separately from the Ubuntu .so inventory. Unknown static dependency versions are disclosed in manifest.json; a licence-text reference version is not proof of the linked binary version.",
+                  "Static libfuse relinking/source requirements also apply to the AppImage runtime; extraction alone does not satisfy those requirements.",
+-                 "These local validation notices do not include a complete corresponding-source archive or create a written source offer. Before external redistribution, the distributor must supply the corresponding sources or another offer permitted by each applicable licence, including Debian patches and any local modifications.", ""]
++                 "These local validation notices do not include a complete corresponding-source archive or create a written source offer. Before external redistribution, the distributor must supply the corresponding sources or another offer permitted by each applicable licence, including Ubuntu patches and any local modifications.", ""]
+         lines += [f"{p['ecosystem']}: {p['name']} {p['version']} — {p.get('declared_licence') or 'not declared'}" for p in packages]
+         if missing: lines += ["", "Missing packaged licence texts:", *missing]
+-        if unmapped: lines += ["", "Bundled shared libraries without Debian ownership evidence:", *unmapped]
++        if unmapped: lines += ["", "Bundled shared libraries without Ubuntu ownership evidence:", *unmapped]
+         if not args.appdir: lines += ["", "The AppDir has not yet been scanned: this inventory alone does not cover shared libraries copied by the packager."]
+         (stage / "NOTICE.txt").write_text("\n".join(lines) + "\n")
+         for package in packages:

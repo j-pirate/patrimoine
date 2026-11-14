@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "files_verified": 733,
+  "components": 468,
+  "ubuntu_components": 113,
+  "payload_sha256": "05e95550f1f1f0917966318d8a65758bed5d4bbf76a2e7abebf68af565d90531",
+  "application_sha256": "53ec6527842cbfeac228489af081f1602e5f2c6deb98f7d11980924beaa45e2b"
+}
