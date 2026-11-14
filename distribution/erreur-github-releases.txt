@@ -1,0 +1,6 @@
+Tentative du 14 novembre 2026 (Europe/Paris).
+Commande : gh api repos/j-pirate/patrimoine/releases
+Code de sortie : 1
+Erreur exacte : Get "https://api.github.com/repos/j-pirate/patrimoine/releases": Forbidden
+
+Cette erreur empêche la création et le téléversement des pièces jointes par GitHub Releases. L’accès Git au dépôt fonctionne. Le message ne permet pas de distinguer à lui seul un refus du proxy, une politique réseau ou des droits API insuffisants. Les fichiers sont donc publiés dans distribution/0.1.1 via Git. Aucun jeton ni réglage de visibilité n’est modifié.

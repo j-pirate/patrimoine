@@ -6,11 +6,13 @@ Projet d’application Linux locale de gestion patrimoniale familiale, en franç
 
 ## Installer et récupérer ses données
 
+**[Télécharger l’application, le kit et les guides](distribution/README.md)** — version 0.1.1 pour Debian 13 x86_64, avec instructions de reconstitution et de lancement.
+
 La livraison cible **Debian 13 x86_64**, avec les bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La construction locale produit l’AppImage et son fichier `SHA256SUMS` ; le rapport de qualification identifie les artefacts effectivement testés. Le script de construction ne téléverse aucun paquet et l’application ne se met pas à jour automatiquement. Node et Rust ne sont pas requis pour utiliser le paquet.
 
 Le [guide d’installation, mise à jour et récupération](docs/23-installation-et-recuperation-linux.md) décrit le lancement, les données XDG, la sauvegarde préalable, le retour à une version compatible et les deux voies de récupération. Le [rapport de qualification](docs/22-validation-phase10.md) donne les versions et systèmes effectivement testés, les mesures de performance et leurs limites. L’inventaire des composants accompagne la livraison dans ses notices.
 
-Les sources de la version **0.1.1**, les tests et la documentation figurent dans ce dépôt. Les binaires et les coffres synthétiques ne sont pas suivis par Git. Pour construire l’AppImage, utiliser `bash scripts/build-linux.sh` avec les prérequis du [guide de développement](docs/07-developpement.md) ; le [générateur du kit de récupération](scripts/build-recovery-kit.py) produit le secours autonome. Les chemins `.local/` et `/workspace/.tooling/` présents dans les rapports désignent des preuves conservées dans l’environnement de qualification, absentes du dépôt GitHub.
+Les sources de la version **0.1.1**, les tests et la documentation figurent dans ce dépôt. Les six ZIP de téléchargement sont versionnés dans `distribution/0.1.1/`. Les coffres synthétiques et les sorties locales de construction ne sont pas suivis par Git. Pour construire l’AppImage, utiliser `bash scripts/build-linux.sh` avec les prérequis du [guide de développement](docs/07-developpement.md) ; le [générateur du kit de récupération](scripts/build-recovery-kit.py) produit le secours autonome. Les chemins `.local/` et `/workspace/.tooling/` présents dans les rapports désignent des preuves conservées dans l’environnement de qualification, absentes du dépôt GitHub.
 
 Sur le grand profil synthétique, la cible de deux secondes n’est pas atteinte et le tableau de bord dépasse le budget de 120 secondes. Deux avertissements de dépendances amont restent documentés dans la [revue de sécurité](docs/24-revue-securite.md).
 

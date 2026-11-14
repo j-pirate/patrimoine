@@ -1,0 +1,56 @@
+{
+  "product": "Patrimoine",
+  "version": "0.1.1",
+  "architecture": "x86_64",
+  "target_distribution": "Debian 13 x86_64",
+  "build_distribution": "Debian GNU/Linux 13 (trixie)",
+  "build_os": {
+    "ID": "debian",
+    "VERSION_ID": "13",
+    "PRETTY_NAME": "Debian GNU/Linux 13 (trixie)"
+  },
+  "build_kernel": "6.18.57",
+  "build_glibc": {
+    "implementation": "glibc",
+    "version": "2.41"
+  },
+  "schema_version": 6,
+  "rust": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "node": "v24.22.1",
+  "cargo_lock_sha256": "eba81b6ea42e62d25954215bcd6453a7130787b0ed521aa45f86b11c585bcbcb",
+  "npm_lock_sha256": "3713a861851e27fa9b25acf744db26751f33ee6934f48e344100e0014b725079",
+  "webkit_helpers": [
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess",
+      "sha256": "c39f4bd3efcef47e2b0f19911d44c3cbb97e75ebd237cbb26e6bdf607cc927c1",
+      "origin": "cloud_sysroot"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess",
+      "sha256": "c46b720e9f2c295dd96ae95fbbe299554f444c3d4ebd77d04e8a8349a0570091",
+      "origin": "cloud_sysroot"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess",
+      "sha256": "888c4bac79223fb244ad8731ffb6e60db79d56dad936b3edc5e24d72c633a201",
+      "origin": "cloud_sysroot"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so",
+      "sha256": "09e750756644e96f086d9ee2882bf1352b93c546a23ba8ac5ac93bff425c69d8",
+      "origin": "cloud_sysroot"
+    }
+  ],
+  "appimage_runtime": {
+    "source": "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64",
+    "sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46"
+  },
+  "reproducibility": "Dépendances verrouillées et composants WebKit empreintés ; identité binaire entre deux constructions non revendiquée.",
+  "artifacts": [
+    {
+      "file": "Patrimoine_0.1.1_amd64.AppImage",
+      "size_bytes": 112196088,
+      "sha256": "6abd1f90a70baa001560787f46e5b10ced7e3fd364b428c99541c454b5d9c240"
+    }
+  ]
+}

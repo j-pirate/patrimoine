@@ -1,0 +1,100 @@
+{
+  "result": "success",
+  "verified_at_utc": "2026-11-14T00:43:23.676397+00:00",
+  "source": {
+    "name": "Patrimoine_0.1.1_amd64.AppImage",
+    "bytes": 112196088,
+    "sha256": "6abd1f90a70baa001560787f46e5b10ced7e3fd364b428c99541c454b5d9c240"
+  },
+  "archives": [
+    {
+      "name": "Patrimoine_0.1.1_application_partie_1_sur_6.zip",
+      "bytes": 19928904,
+      "sha256": "0ae7f1b38e4d8b4771a0c55b04cdf2df9b58c44a8bc8aa66000b6cc985c8f246",
+      "part": "AppImage.part01",
+      "part_bytes": 19922944,
+      "compression": "ZIP_STORED"
+    },
+    {
+      "name": "Patrimoine_0.1.1_application_partie_2_sur_6.zip",
+      "bytes": 19923124,
+      "sha256": "8ffdec62f5a07cbfde625bd6532a6ffd7b91905f3fedc4505c2954986e3bf44c",
+      "part": "AppImage.part02",
+      "part_bytes": 19922944,
+      "compression": "ZIP_STORED"
+    },
+    {
+      "name": "Patrimoine_0.1.1_application_partie_3_sur_6.zip",
+      "bytes": 19923124,
+      "sha256": "f4b32f1f72f580341ba9394f43656f5ffeb5a62897e5233ce02364a8bc44380d",
+      "part": "AppImage.part03",
+      "part_bytes": 19922944,
+      "compression": "ZIP_STORED"
+    },
+    {
+      "name": "Patrimoine_0.1.1_application_partie_4_sur_6.zip",
+      "bytes": 19923124,
+      "sha256": "8979e766e72a4071fc5f825eb315757fcee2f54d54ef4d96e79bdfcac0d59975",
+      "part": "AppImage.part04",
+      "part_bytes": 19922944,
+      "compression": "ZIP_STORED"
+    },
+    {
+      "name": "Patrimoine_0.1.1_application_partie_5_sur_6.zip",
+      "bytes": 19923124,
+      "sha256": "d5ac96e7badcacebbcdfd55420c8bc3323e68ec667bb1fc551f89b267418d175",
+      "part": "AppImage.part05",
+      "part_bytes": 19922944,
+      "compression": "ZIP_STORED"
+    },
+    {
+      "name": "Patrimoine_0.1.1_application_partie_6_sur_6.zip",
+      "bytes": 12581548,
+      "sha256": "b4868945523b3ac79cde3a40b8aed807903295e73dde57567d04733c1895daf6",
+      "part": "AppImage.part06",
+      "part_bytes": 12581368,
+      "compression": "ZIP_STORED"
+    }
+  ],
+  "tests": {
+    "zip_integrity": true,
+    "standard_zip_stored": true,
+    "all_archives_below_20_MiB": true,
+    "all_parts_at_most_20_MiB": true,
+    "extraction_all_six_to_same_parent": true,
+    "reconstruction_from_different_working_directory_with_spaces": true,
+    "reconstructed_bytes": 112196088,
+    "reconstructed_sha256": "6abd1f90a70baa001560787f46e5b10ced7e3fd364b428c99541c454b5d9c240",
+    "reconstructed_mode": "0755",
+    "extracted_script_mode": "0755",
+    "existing_matching_file_preserved": true,
+    "missing_part_refused_without_final_file": true,
+    "conflicting_destination_preserved": true,
+    "corrupt_part_refused_without_final_file": true,
+    "temporary_reconstruction_files_cleaned": true,
+    "independent_script_and_readme_review": "passed",
+    "application_started": false
+  },
+  "test_logs": {
+    "reconstruction": {
+      "exit_code": 0,
+      "stdout": "Reconstitution des six morceaux…\nReconstitution terminée : Patrimoine_0.1.1_amd64.AppImage\nTaille : 112196088 octets. SHA-256 vérifié :\n6abd1f90a70baa001560787f46e5b10ced7e3fd364b428c99541c454b5d9c240\nDroits du fichier : 755 (exécutable).\n\nApplication pour Linux Debian 13 x86_64 (amd64).\nPour la lancer manuellement :\n  cd -- /workspace/shared/downloads/patrimoine-0.1.1/.tests-parties-eyh7sx8x/reconstitution\\ complète/Patrimoine_0.1.1_appimage\n  ./Patrimoine_0.1.1_amd64.AppImage\n\nAucune application n’a été lancée par ce script.\n",
+      "stderr": ""
+    },
+    "missing_part": {
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Erreur : Morceau absent ou illisible : AppImage.part04. Extrayez les six ZIP dans le même dossier parent, puis recommencez.\n"
+    },
+    "conflicting_destination": {
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Erreur : Le fichier Patrimoine_0.1.1_amd64.AppImage existe déjà et ne correspond pas à la version attendue. Aucun écrasement effectué. Déplacez-le avant de recommencer.\n"
+    },
+    "corrupt_part": {
+      "exit_code": 1,
+      "stdout": "Reconstitution des six morceaux…\n",
+      "stderr": "Erreur : La taille ou le SHA-256 est incorrect. Les morceaux sont incomplets ou endommagés ; téléchargez-les à nouveau.\n"
+    }
+  }
+}
