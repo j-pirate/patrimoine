@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 3 — Registre, propriété, consolidation, devises et historique.**
-- **Partie suivante : 4 — Immobilier et loyers.**
+- **Dernière partie terminée : 4 — Immobilier et loyers.**
+- **Partie suivante : 5 — Trésorerie, financements et bilan financier.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -18,7 +18,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 1 | Documentation, cahier des charges et explications | Terminée |
 | 2 | Architecture applicative, contrats et primitives de calcul | Terminée |
 | 3 | Registre, propriété, consolidation, devises et historique | Terminée |
-| 4 | Immobilier et loyers | À examiner |
+| 4 | Immobilier et loyers | Terminée |
 | 5 | Trésorerie, financements et bilan financier | À examiner |
 | 6 | Métaux précieux et sociétés | À examiner |
 | 7 | Documents, sauvegardes et portabilité | À examiner |
@@ -222,3 +222,59 @@ Les trois suites consultées exercent des K passés non nuls et futurs ; une lec
 **Idée :** vérifier le snapshot métier vide, l’absence de fuite de révisions et l’absence de mutation à K=0, notamment après migration ou restauration. Conserver les tests existants de corrections/annulations anciennes et de rollback des compteurs.
 
 **Partie 3 terminée — registre, propriété, consolidation, devises et historique.** Huit pistes supplémentaires consignées ; aucune correction appliquée. Prochaine partie : immobilier et loyers. Point à rapprocher des cessions : le registre seul peut signaler des droits incomplets après clôture de tous les droits d’un actif ; il ne dispose pas des événements immobiliers permettant d’inférer sa vente. Aucun défaut du bilan n’est conclu sur ce seul constat.
+
+## Partie 4 — Immobilier et loyers
+
+Périmètre : `domain/src/property.rs` et `rentals.rs`, `infrastructure/src/properties.rs` et `rentals.rs`, migration 0004, écrans `properties.tsx` et `real-estate.tsx`, contrats et suites domaine/persistance/interface associés.
+
+Contrôles exécutés : **26 tests existants réussis**, sans échec ni ignoré, avec `cargo test -p patrimoine-domain --test rental_tests --test income_attribution_tests --offline`. Un probe temporaire hors dépôt, compilé contre le domaine local puis exécuté, confirme IMMO-01. Les autres tests sont consultés. Les coûts d’acquisition, conversions historiques, estimations et gains sont correctement séparés dans les cas lus. La vraie cession comporte un événement explicite et une clôture atomique des droits ; elle n’invente pas de trésorerie et conserve les anciens K. Les garanties d’idempotence de génération et de correction des remboursements sont à préserver.
+
+### IMMO-01 — Ne pas rendre inconnus les revenus à cause d’un bail sans exposition économique
+
+**P2 · Défaut confirmé par un cas ciblé.** [Contrôle des données locatives manquantes](../crates/domain/src/rentals.rs#L1699), [invalidation des indicateurs](../crates/domain/src/rentals.rs#L1737).
+
+Cas reproduit : actif entièrement détenu par un tiers identifié, bail actif sans échéances générées, requête familiale sans filtre de bien. Le poids économique familial est connu et vaut `0/1`, le loyer contractuel annualisé vaut `0.00`, mais le revenu économique et l’impayé deviennent `None`, avec statut partiel et alerte `missing_rent_dues`. Un bail sans exposition dans ce contexte empêche donc de calculer ses totaux.
+
+**Idée :** limiter l’invalidation de chaque indicateur aux segments où son exposition est positive ou inconnue ; conserver zéro quand elle est démontrée nulle. Ne pas filtrer globalement les encaissements : leur bénéficiaire explicite reste indépendant des droits économiques. Couvrir le tiers sans échéances et un cas mixte comportant aussi un revenu familial connu.
+
+### IMMO-02 — Conserver la confirmation après rechargement du parent
+
+**P2 · Fragilité de cycle de vie observée dans l’intégration.** [Succès après onChanged](../src/features/properties.tsx#L68), [reload qui efface les snapshots](../src/features/real-estate.tsx#L80), [montage conditionnel de l’enfant](../src/features/real-estate.tsx#L182).
+
+Le parent déclenche un chargement qui peut démonter PropertyWorkspace, alors que celui-ci affiche son succès seulement après l’actualisation. Avec un vrai chargement asynchrone, ce résultat peut viser l’ancienne instance et disparaître. Les tests isolés de l’enfant utilisent un callback qui ne le démonte pas.
+
+**Idée :** conserver le résultat de mutation dans un parent durable ou préserver l’instance pendant le rechargement du même contexte. Vérifier depuis RealEstatePage qu’une sauvegarde puis une correction de cession donnent une confirmation durable sans seconde mutation. Ne pas conserver des données affichées sous un autre K ; rapprocher ce travail de REG-03.
+
+### IMMO-03 — Bloquer les onglets pendant une opération enfant
+
+**P2 · Condition de navigation observée.** [Activité enfant](../src/features/real-estate.tsx#L55), [onglets](../src/features/real-estate.tsx#L177).
+
+Le parent reçoit `childBusy`, mais ses onglets ne sont désactivés que sur `pending || loading`. Un changement d’onglet pendant une sauvegarde ou cession en attente peut démonter l’enfant et masquer le résultat local de cette opération.
+
+**Idée :** inclure l’activité enfant dans le verrou des onglets et conserver le résultat indépendamment de son composant. Avec une promesse de cession en attente, vérifier que les onglets restent inactifs puis se réactivent après résolution ou refus.
+
+### IMMO-04 — Distinguer les biens, unités et baux homonymes
+
+**P2 · Ambiguïté observée dans les options de sélection.** [Libellé du bail](../src/features/real-estate.tsx#L167), [sélecteurs](../src/features/real-estate.tsx#L213), [unité](../src/features/real-estate.tsx#L221).
+
+Deux immeubles peuvent avoir une unité « A · Studio » ; deux baux successifs peuvent aussi concerner le même locataire. Les options n’affichent pas systématiquement le bien et la période, donc les choix peuvent être identiques avant sélection, notamment pour un paiement ou la génération d’échéances.
+
+**Idée :** afficher bien, référence d’unité et dates du bail, avec un identifiant court lorsque nécessaire. Vérifier deux biens aux unités homonymes et deux contrats successifs : chaque choix doit être identifiable et la commande viser l’objet choisi.
+
+### IMMO-05 — Réduire les recherches répétées sans retirer les contrôles
+
+**P3 · Optimisations proposées, sans benchmark propre à ces fonctions.** [Identités immobilières](../crates/domain/src/property.rs#L179), [génération d’échéances](../crates/infrastructure/src/rentals.rs#L627), [sélection des créations](../crates/infrastructure/src/rentals.rs#L683), [cible immuable](../crates/infrastructure/src/properties.rs#L464).
+
+Le contrôle des identités immobilières parcourt l’ensemble des couples d’identités du registre pour chaque objet immobilier. La génération recherche chaque clé dans toutes les échéances puis utilise des recherches linéaires d’identifiants. Le contrôle de cible immobilière compare aussi les révisions deux à deux.
+
+**Idée :** préparer deux ensembles d’identités/révisions et un index de clés de génération ; comparer après mesure une agrégation par objet et nombre de cibles distinctes à l’autojointure actuelle. Le contrôle locatif fournit déjà un exemple d’agrégation. Préserver les conflits, annulations, clés réservées et cibles immuables, avec les mêmes résultats historiques.
+
+### IMMO-06 — Verrouiller explicitement l’immutabilité de devise d’un bail
+
+**P3 · Proposition de couverture ; piste de bug écartée.** [Validation des devises sur toutes les révisions](../crates/infrastructure/src/rentals.rs#L92), [validation avant commit](../crates/infrastructure/src/rentals.rs#L245), [règle documentée](13-immobilier-et-loyers.md#L38).
+
+Un snapshot artificiel du domaine peut représenter des conditions successives de devises différentes, mais le store examine toutes les révisions et refuse cette correction avant commit. L’application n’est donc pas démontrée capable de changer un bail EUR en USD sur ce chemin.
+
+**Idée :** ajouter un cas de correction refusée avec échéance EUR existante, puis vérifier que snapshot, historique et K sont inchangés. Documenter le niveau auquel cet invariant historique est garanti plutôt que conclure à tort qu’un cas artificiel est un défaut de commande.
+
+**Partie 4 terminée — immobilier et loyers.** Six pistes supplémentaires consignées, dont un défaut de complétude reproduit ; aucune correction appliquée. Prochaine partie : trésorerie, financements et bilan financier.
