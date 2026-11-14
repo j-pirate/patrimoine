@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 2 — Architecture applicative, contrats et primitives de calcul.**
-- **Partie suivante : 3 — Registre, propriété, consolidation, devises et historique.**
+- **Dernière partie terminée : 3 — Registre, propriété, consolidation, devises et historique.**
+- **Partie suivante : 4 — Immobilier et loyers.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -17,7 +17,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 |---|---|---|
 | 1 | Documentation, cahier des charges et explications | Terminée |
 | 2 | Architecture applicative, contrats et primitives de calcul | Terminée |
-| 3 | Registre, propriété, consolidation, devises et historique | À examiner |
+| 3 | Registre, propriété, consolidation, devises et historique | Terminée |
 | 4 | Immobilier et loyers | À examiner |
 | 5 | Trésorerie, financements et bilan financier | À examiner |
 | 6 | Métaux précieux et sociétés | À examiner |
@@ -150,3 +150,75 @@ Les tests couvrent déjà de nombreuses bornes et valeurs non canoniques.
 **Idée :** compléter ultérieurement les cas `-0` et `-0,000 → 0`, l’idempotence de la normalisation et les longueurs exactes de 64/65 octets. Ces cas visent les frontières du contrat ; ils ne nécessitent pas une nouvelle représentation monétaire.
 
 **Partie 2 terminée — architecture applicative, contrats et primitives de calcul.** Quatre pistes supplémentaires consignées ; aucune correction appliquée. Prochaine partie : registre, propriété, consolidation, devises et historique.
+
+## Partie 3 — Registre, propriété, consolidation, devises et historique
+
+Périmètre : contrats et validations du registre, poids et contributions de consolidation, profils datés, FX et pont de variation ; persistance `infrastructure/src/registry.rs`, migrations 0002/0003 et suites associées ; interfaces registre, change, historique et périodes de profil, types et tests correspondants. Les calculs intermodules de dettes et métaux sont réservés aux parties 5 et 6. Le raccordement `onChanged` dans App est lu ponctuellement pour vérifier le résultat d’une mutation.
+
+Contrôle exécuté : `cargo test -p patrimoine-domain --offline --test fx_tests --test variation_tests` — **18 tests réussis**, aucun échec ni ignoré. Les autres suites citées sont consultées, pas annoncées comme relancées. Aucun défaut de montant ni de persistance n’a été confirmé dans ce périmètre. Transactions immédiates, révisions attendues, cutoff K, refus de cycles et conservation des annulations sont à préserver.
+
+### REG-01 — Compléter les sources expliquant les contributions
+
+**P2 · Provenance incomplète observée, pas un montant erroné démontré.** [Poids initiaux](../crates/domain/src/consolidation.rs#L273), [sources de la contribution](../crates/domain/src/consolidation.rs#L450).
+
+Le choix du périmètre familial utilise les appartenances datées, mais les sources des poids initiaux ne reçoivent que l’identité/révision des personnes. Les politiques des sociétés déterminent aussi la traversée détaillée ou son arrêt sans être toutes ajoutées aux sources. Un lecteur ne retrouve donc pas directement toutes les décisions à l’origine du montant.
+
+**Idée :** ajouter les identités et révisions des appartenances actives et des politiques effectivement utilisées. Vérifier les sources dans les cas direct, indirect et mixte global/détaillé, en conservant le même résultat numérique.
+
+### REG-02 — Préparer les index et chemins de change pour un snapshot donné
+
+**P2 · Complexité observée, optimisation proposée.** [Recherche des poids](../crates/domain/src/consolidation.rs#L319), [parcours des actifs](../crates/domain/src/consolidation.rs#L817), [projection des profils](../crates/domain/src/profiles.rs#L6), [dernier cours](../crates/domain/src/fx.rs#L85), [recalculs de variation](../crates/domain/src/variation.rs#L133).
+
+Les participations sont rescannées par société, les propriétés par actif, les estimations par position et les cours par conversion. Plusieurs validations/recalculs sont répétés sur le même snapshot. Ces coûts sont visibles dans le code ; aucune durée propre à chaque boucle n’est établie ici.
+
+**Idée :** indexer les sources par cible et date, préparer les chemins FX par couple/date et réutiliser les structures dans un même snapshot immuable. Toute réutilisation doit rester attachée à D/K et être invalidée après mutation ou restauration. Préserver les priorités direct/inverse/pivots, les inconnus, les sources et les alertes. Mesurer séparément graphe large, nombreuses estimations et dates historiques, sans remplacer l’arithmétique exacte.
+
+### REG-03 — Séparer écriture confirmée et actualisation de l’affichage
+
+**P2 · Chemin d’erreur observé, scénario conditionné à un échec de lecture après écriture.** [Retour après commit](../crates/infrastructure/src/registry.rs#L589), [mutation UI](../src/features/registry.tsx#L109), [change](../src/features/exchange-rates.tsx#L49), [rechargement qui peut rejeter](../src/App.tsx#L81).
+
+Les sauvegardes rechargent le registre complet après le commit pour retrouver l’objet. L’interface ferme aussi son formulaire après `save*`, puis attend `onChanged` dans le même bloc d’erreur. Un rechargement peut donc échouer alors que la mutation est déjà persistée. Dans App, l’erreur du registre peut masquer le composant : il ne faut pas présumer qu’un message local précis sera toujours visible, mais la confirmation de réussite peut être perdue.
+
+**Idée :** retourner l’objet produit ou relu par identifiant avant commit, distinguer l’état « enregistré » d’un échec de synchronisation et proposer de recharger sans rejouer l’écriture. Couvrir le scénario `save*` réussi puis actualisation rejetée ; ne pas annoncer un rollback qui n’a pas eu lieu.
+
+### REG-04 — Mesurer aussi une longue succession de connaissances
+
+**P2 · Proposition de mesure et d’optimisation.** [Validation de chaque séquence](../crates/infrastructure/src/registry.rs#L721), [chargement de l’historique de profils](../crates/infrastructure/src/registry.rs#L69).
+
+La validation historique recharge et contrôle un snapshot à chaque changement, y compris ceux sans modification du registre. Le coût cumule donc des états croissants. Le gros profil de qualification n’a que deux changements : il ne renseigne pas ce cas d’historique dense.
+
+**Idée :** mesurer plusieurs milliers de changements successifs avant de proposer une réutilisation des états ou le ciblage des séquences pertinentes. Conserver la vérification de tous les anciens états qui peut révéler une incohérence historique ; ne pas se limiter au dernier K pour accélérer.
+
+### REG-05 — Rendre les confirmations accessibles au clavier
+
+**P2 · Défaut de parcours clavier observé statiquement.** [Confirmation rendue avant les tableaux](../src/features/registry.tsx#L164), [défilement seul](../src/features/registry.tsx#L87), [gestion existante dans EditorFrame](../src/features/registry-ui.tsx#L43).
+
+L’ouverture d’une confirmation défile vers celle-ci mais laisse le focus sur son bouton déclencheur, situé plus loin dans les tableaux. Tab poursuit alors les actions des tableaux au lieu d’atteindre la nouvelle confirmation.
+
+**Idée :** focaliser le titre à l’ouverture et restaurer le focus au déclencheur à la fermeture, comme pour les formulaires ordinaires. Vérifier ce parcours pour archivage, réactivation et annulation, en plus des contrôles déjà présents pour EditorFrame.
+
+### REG-06 — Identifier une conversion dont la saisie a changé
+
+**P3 · Amélioration de présentation.** [Saisie et résultat FX](../src/features/exchange-rates.tsx#L93), [invalidation actuelle](../src/features/exchange-rates.tsx#L42).
+
+Modifier le montant ou les devises conserve la conversion précédente. Celle-ci affiche encore son ancien montant : aucun calcul faux n’est établi, mais la proximité des nouveaux champs peut prêter à confusion.
+
+**Idée :** masquer la conversion dès que sa requête change ou l’étiqueter comme résultat précédent. Montrer également le K effectif du pont historique. Une actualisation du journal ne doit pas être considérée comme recalculant implicitement ce pont ; aucun scénario réel de divergence de K n’est démontré ici.
+
+### REG-07 — Remplacer les annonces de modules futurs déjà livrés
+
+**P3 · Contenu affiché périmé.** [Notice sociétés](../src/features/registry.tsx#L176), [contrôle d’attribution](../src/features/registry.tsx#L221), [historique](../src/features/history.tsx#L61).
+
+Ces textes annoncent encore comme futurs les indicateurs, financements, modules immobilier/banque/métaux ou tableaux de bord pourtant présents.
+
+**Idée :** renvoyer vers les sections existantes et expliquer le périmètre précis du contrôle affiché. Préserver la distinction entre sous-total historique d’actifs et bilan financier complet, sans annoncer que leurs résultats seraient interchangeables.
+
+### REG-08 — Ajouter une frontière persistante explicite à K=0
+
+**P3 · Proposition ciblée de couverture.** [Lecture bornée](../crates/infrastructure/src/registry.rs#L304), suites `registry_adversarial.rs`, `registry_migrations.rs` et `fx_history.rs`.
+
+Les trois suites consultées exercent des K passés non nuls et futurs ; une lecture persistante explicite `Some(0)` n’y apparaît pas. Cela n’affirme pas une absence de couverture K=0 dans toutes les autres couches.
+
+**Idée :** vérifier le snapshot métier vide, l’absence de fuite de révisions et l’absence de mutation à K=0, notamment après migration ou restauration. Conserver les tests existants de corrections/annulations anciennes et de rollback des compteurs.
+
+**Partie 3 terminée — registre, propriété, consolidation, devises et historique.** Huit pistes supplémentaires consignées ; aucune correction appliquée. Prochaine partie : immobilier et loyers. Point à rapprocher des cessions : le registre seul peut signaler des droits incomplets après clôture de tous les droits d’un actif ; il ne dispose pas des événements immobiliers permettant d’inférer sa vente. Aucun défaut du bilan n’est conclu sur ce seul constat.
