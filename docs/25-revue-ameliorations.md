@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 1 — Documentation, cahier des charges et explications.**
-- **Partie suivante : 2 — Architecture applicative, contrats et primitives de calcul.**
+- **Dernière partie terminée : 2 — Architecture applicative, contrats et primitives de calcul.**
+- **Partie suivante : 3 — Registre, propriété, consolidation, devises et historique.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -16,7 +16,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | Partie | Périmètre | État |
 |---|---|---|
 | 1 | Documentation, cahier des charges et explications | Terminée |
-| 2 | Architecture applicative, contrats et primitives de calcul | À examiner |
+| 2 | Architecture applicative, contrats et primitives de calcul | Terminée |
 | 3 | Registre, propriété, consolidation, devises et historique | À examiner |
 | 4 | Immobilier et loyers | À examiner |
 | 5 | Trésorerie, financements et bilan financier | À examiner |
@@ -108,3 +108,45 @@ Les anciens dossiers desktop cités en phases 2 et 3 ne figurent pas dans le ZIP
 **Idée :** inventorier les campagnes selon « livrée / conservée seulement dans l’environnement / non retrouvée » et relier chaque critère aux preuves existantes et limites. Séparer contrôle statique, refus adversarial réellement exécuté et panne physique non exercée. Ne pas recréer un résultat ancien à partir d’un test actuel.
 
 **Partie 1 terminée — documentation, cahier des charges et explications.** Huit pistes consignées ; aucune correction appliquée. Prochaine partie : architecture applicative, contrats et primitives de calcul.
+
+## Partie 2 — Architecture applicative, contrats et primitives de calcul
+
+Périmètre : les dix fichiers de contrats de `crates/application/src/`, les primitives `exact.rs`, `operations.rs`, `profiles.rs`, les contrats communs du domaine, les types de transport TypeScript et leur appelant `src/services/api.ts`. Les validations communes sont lues ; la validation temporelle détaillée du registre appartient à la partie 3.
+
+Contrôles ciblés effectués : **8 tests existants réussis**, sans échec ni test ignoré, via `cargo test -p patrimoine-domain --lib --offline exact::tests`, `cargo test -p patrimoine-domain --test fx_tests --offline precision` et `cargo test -p patrimoine-domain --test attribution --offline french_form_normalization`.
+
+À conserver : sources bornées avant conversion en grands entiers, normalisation distincte du stockage canonique, calcul rationnel et arrondi final au pair, précision TND de trois décimales et refus d’une précision implicite pour une devise inconnue. Aucun défaut numérique ni incompatibilité fonctionnelle entre les DTO comparés n’a été établi. Le fait que la couche application expose surtout des ports ne justifie pas à lui seul une refonte.
+
+### ARCH-01 — Contrôler la correspondance des contrats Rust et TypeScript
+
+**P2 · Proposition de prévention des régressions.** [Documents Rust](../crates/domain/src/documents.rs#L6), [documents TS](../src/services/documents-types.ts#L1), [portabilité Rust](../crates/domain/src/portability.rs#L6), [portabilité TS](../src/services/portability-types.ts#L1), [appels typés](../src/services/api.ts#L79).
+
+Les champs comparés concordent actuellement, mais les structures sont recopiées et les types de retour d’`invoke<T>` ne valident pas eux-mêmes les réponses. Un changement Rust peut donc laisser le frontend compiler avec un contrat périmé.
+
+**Idée :** générer les types de transport depuis Rust ou contrôler les schémas sérialisés en CI. Vérifier champs, propriétés obligatoires, nullabilité et valeurs finies, sans déplacer les calculs financiers dans TypeScript. Distinguer également les champs facultatifs d’une ancienne forme acceptée des propriétés normalement émises par le DTO courant : `serde(default)` ne signifie pas une omission en sortie.
+
+### ARCH-02 — Exploiter des codes d’erreur et statuts stables
+
+**P2 · Proposition de maintenance et d’explication.** [AppError](../crates/domain/src/lib.rs#L44), [présentation d’erreur](../src/services/api.ts#L68), [statuts documentaires](../src/services/documents-types.ts#L3).
+
+Les codes d’erreur et plusieurs valeurs finies sont des chaînes libres. Le présentateur commun retient surtout le message, ce qui ne structure pas les actions propres à un conflit de révision, une validation ou une erreur d’accès au support. Cela ne signifie pas une absence de validation backend des valeurs actuelles.
+
+**Idée :** définir des enums sérialisées conservant les valeurs existantes et partager leur contrat avec TypeScript. Associer aux codes des explications et actions adaptées, tout en conservant les messages français. Vérifier les branches inconnues et la compatibilité des anciens codes plutôt que l’orthographe d’un message complet.
+
+### ARCH-03 — Indexer une fois les capacités des lignes de trésorerie
+
+**P2 · Complexité observée, optimisation proposée.** [Agrégation](../crates/domain/src/operations.rs#L13), [recherches répétées](../crates/domain/src/operations.rs#L49).
+
+Après agrégation par `(transaction_revision_id, line_id)`, chaque clé provoque une recherche linéaire dans les transactions puis leurs lignes. Avec U clés utilisées et T transactions, le coût peut atteindre `O(U × T)`, hors recherche des lignes. Aucune latence propre à cette fonction n’a été mesurée ici.
+
+**Idée :** construire un index des capacités par clé avant de vérifier les sommes. Garder les mêmes références exactes, résultats, refus et ordre déterministe. Comparer les cas de capacité partagée existants et mesurer un jeu comprenant plusieurs milliers de lignes ; ne pas retirer les validations pour obtenir un gain.
+
+### ARCH-04 — Compléter quelques frontières des normalisations
+
+**P3 · Proposition de couverture, aucun comportement incorrect observé.** [Normalisation des montants](../crates/domain/src/exact.rs#L32), [zéro négatif](../crates/domain/src/exact.rs#L50), [normalisation des taux](../crates/domain/src/exact.rs#L126).
+
+Les tests couvrent déjà de nombreuses bornes et valeurs non canoniques.
+
+**Idée :** compléter ultérieurement les cas `-0` et `-0,000 → 0`, l’idempotence de la normalisation et les longueurs exactes de 64/65 octets. Ces cas visent les frontières du contrat ; ils ne nécessitent pas une nouvelle représentation monétaire.
+
+**Partie 2 terminée — architecture applicative, contrats et primitives de calcul.** Quatre pistes supplémentaires consignées ; aucune correction appliquée. Prochaine partie : registre, propriété, consolidation, devises et historique.
