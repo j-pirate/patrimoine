@@ -1,6 +1,6 @@
 # Documents, export, sauvegarde et restauration
 
-Statut : proposition de conception de phase 1. Aucun mécanisme décrit ici n’est encore implémenté ou validé par un test logiciel. Les noms des tables suivent le [modèle relationnel](02-modele-relationnel.md).
+Statut : proposition de conception de phase 1. Aucun mécanisme décrit ici n’est encore implémenté ou validé par un test logiciel. Les noms des tables suivent le [modèle relationnel](modele-relationnel.md).
 
 ## 1. Contrat de récupération
 
@@ -146,7 +146,7 @@ La notice incluse dans chaque archive fournit ces opérations, avec les noms ré
 5. Ouvrir le XLSX avec LibreOffice Calc ; conserver les colonnes exactes en texte avant calculs bureautiques. Un tableur peut arrondir les grandes valeurs lorsqu’elles sont converties en nombres.
 6. Les originaux sont dans `documents/sha256/`. Associer `document_versions.blob_sha256` à `document_blobs.sha256`, puis utiliser `original_name` pour exporter une copie nommée à convenance. Plusieurs noms peuvent correspondre au même contenu. Vérifier les SHA-256 avec un outil standard ; PDF, images et autres pièces gardent leurs octets d’origine.
 
-Les montants ne doivent pas être additionnés naïvement avec les opérations SQLite qui convertissent les textes en flottants : la lecture indépendante est immédiate, les calculs exacts nécessitent un outil décimal ou rationnel standard et les règles publiées dans [les règles métier](03-regles-metier.md).
+Les montants ne doivent pas être additionnés naïvement avec les opérations SQLite qui convertissent les textes en flottants : la lecture indépendante est immédiate, les calculs exacts nécessitent un outil décimal ou rationnel standard et les règles publiées dans [les règles métier](regles-metier.md).
 
 ## 11. Migrations et reprise
 

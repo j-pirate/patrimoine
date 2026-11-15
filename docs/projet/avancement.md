@@ -45,7 +45,7 @@ Pour cette phase de conception, « livré » signifie **documenté et revu**, pa
 - Sauvegardes du registre avec ses anciennes versions ; résultats d’attribution reproduits après restauration.
 - Contrat du domaine pur pour prêts/garanties et éliminations proportionnelles testé ; la phase 3 ne comportait pas encore leur saisie ni leur persistance, ajoutées en phase 6.
 
-La phase 4 étend ce registre aux estimations multidevises et à la datation civile des profils. Voir le [guide du registre](09-famille-et-propriete.md) et son [complément devises et historique](11-devises-et-historique.md).
+La phase 4 étend ce registre aux estimations multidevises et à la datation civile des profils. Voir le [guide du registre](../utilisateur/famille-et-propriete.md) et son [complément devises et historique](../utilisateur/devises-et-historique.md).
 
 ## Devises et historique implémentés — phase 4
 
@@ -153,7 +153,7 @@ Les indicateurs de gestion d’une société et les revenus locatifs gardent leu
 - Budgets de portabilité adaptés au jeu documentaire prévu : 11 000 entrées ZIP et manifeste de 4 Mio, base SQLite canonique de 256 Mio, autres fichiers de 128 Mio et total décompressé de 512 Mio ; les contrôles de chemin, empreinte et intégrité restent appliqués.
 - Guide utilisateur d’installation, mise à jour et récupération SQLite/CSV autonome, en complément des guides métier des phases précédentes.
 
-Les [preuves de phase 10](22-validation-phase10.md), le [guide Linux](23-installation-et-recuperation-linux.md) et la [revue de sécurité](24-revue-securite.md) donnent le périmètre de cette qualification locale. Les archives, formats et schéma restent ceux déjà livrés ; aucune publication distante n’est effectuée.
+Les [preuves de phase 10](../historique/validation-phase-10.md), le [guide Linux](../utilisateur/installation-linux.md) et la [revue de sécurité](../technique/revue-securite.md) donnent le périmètre de cette qualification locale. Les archives, formats et schéma restent ceux déjà livrés ; aucune publication distante n’est effectuée.
 
 Les deux voies de récupération du grand coffre préservent les 773 124 lignes et 10 000 originaux. Ce profil reste toutefois lent : la cible provisoire de deux secondes n’est pas atteinte et le tableau de bord dépasse 120 secondes, soit 14 opérations abouties sur 15. Les deux avertissements de dépendances amont restent ouverts et documentés.
 
@@ -175,23 +175,23 @@ Les deux voies de récupération du grand coffre préservent les 773 124 lignes 
 
 Phase 1 : contrôles documentaires, couverture du cahier des charges, cohérence des conventions et références. Les scénarios des modules à venir restent planifiés ; ceux du moteur de phase 3 ont désormais été exécutés.
 
-Phase 2 : les résultats de compilation, tests Rust/UI et parcours desktop sont consignés séparément dans [le rapport de validation](06-validation-phase2.md). Les limites de la simulation des pannes y sont explicites ; le passage des tests du socle ne vaut pas validation financière ni qualification AppImage.
+Phase 2 : les résultats de compilation, tests Rust/UI et parcours desktop sont consignés séparément dans [le rapport de validation](../historique/validation-phase-2.md). Les limites de la simulation des pannes y sont explicites ; le passage des tests du socle ne vaut pas validation financière ni qualification AppImage.
 
-Phase 3 : les preuves de calcul, de persistance, de migration et de parcours desktop sont consignées dans [le rapport du registre](08-validation-phase3.md). Elles portent sur cette version et ne valent pas validation des modules de devises, de location ou de dettes ajoutés ensuite.
+Phase 3 : les preuves de calcul, de persistance, de migration et de parcours desktop sont consignées dans [le rapport du registre](../historique/validation-phase-3.md). Elles portent sur cette version et ne valent pas validation des modules de devises, de location ou de dettes ajoutés ensuite.
 
-Phase 4 : les campagnes de calcul pur, stockage, migration, interface et parcours Linux sont consignées dans [le rapport devises et historique](10-validation-phase4.md). Les résultats des phases précédentes restent des preuves de leurs versions respectives.
+Phase 4 : les campagnes de calcul pur, stockage, migration, interface et parcours Linux sont consignées dans [le rapport devises et historique](../historique/validation-phase-4.md). Les résultats des phases précédentes restent des preuves de leurs versions respectives.
 
-Phase 5 : les commandes et résultats de cette version sont consignés dans [la validation immobilier et loyers](12-validation-phase5.md), avec [le guide d’utilisation](13-immobilier-et-loyers.md) et les limites de couverture de cette phase.
+Phase 5 : les commandes et résultats de cette version sont consignés dans [la validation immobilier et loyers](../historique/validation-phase-5.md), avec [le guide d’utilisation](../utilisateur/immobilier-et-loyers.md) et les limites de couverture de cette phase.
 
-Phase 6 : les commandes, résultats et limites de cette version figurent dans [la validation comptes et financements](14-validation-phase6.md). Le [guide comptes et financements](15-comptes-et-financements.md) décrit les parcours et les conditions de couverture du bilan.
+Phase 6 : les commandes, résultats et limites de cette version figurent dans [la validation comptes et financements](../historique/validation-phase-6.md). Le [guide comptes et financements](../utilisateur/comptes-et-financements.md) décrit les parcours et les conditions de couverture du bilan.
 
-Phase 7 : les commandes, résultats et limites de cette version figurent dans [la validation métaux et sociétés](16-validation-phase7.md). Le [guide métaux et sociétés](17-metaux-et-societes.md) décrit les parcours, conventions de coût, droits et distributions. Les chiffres des campagnes restent dans le rapport de validation.
+Phase 7 : les commandes, résultats et limites de cette version figurent dans [la validation métaux et sociétés](../historique/validation-phase-7.md). Le [guide métaux et sociétés](../utilisateur/metaux-et-societes.md) décrit les parcours, conventions de coût, droits et distributions. Les chiffres des campagnes restent dans le rapport de validation.
 
-Phase 8 : les commandes, résultats et limites de cette version figurent dans [la validation documents et portabilité](18-validation-phase8.md). Le [guide](19-documents-et-portabilite.md) distingue la bibliothèque historique, le classement, les originaux, les archives récupérables et le XLSX de consultation.
+Phase 8 : les commandes, résultats et limites de cette version figurent dans [la validation documents et portabilité](../historique/validation-phase-8.md). Le [guide](../utilisateur/documents-et-portabilite.md) distingue la bibliothèque historique, le classement, les originaux, les archives récupérables et le XLSX de consultation.
 
-Phase 9 : les commandes, résultats et limites figurent dans [la validation des tableaux de bord](20-validation-phase9.md). Le [guide](21-tableaux-de-bord.md) précise les filtres, les répartitions après éliminations, les historiques à K et le rapport de consultation.
+Phase 9 : les commandes, résultats et limites figurent dans [la validation des tableaux de bord](../historique/validation-phase-9.md). Le [guide](../utilisateur/tableaux-de-bord.md) précise les filtres, les répartitions après éliminations, les historiques à K et le rapport de consultation.
 
-Phase 10 : les commandes, résultats et limites actuels figurent dans [la qualification Linux](22-validation-phase10.md). Le [guide d’installation et de récupération](23-installation-et-recuperation-linux.md) décrit l’utilisation du paquet, les données XDG, les mises à jour manuelles et les procédures de secours. La [revue de sécurité](24-revue-securite.md) expose les contrôles des capacités et dépendances.
+Phase 10 : les commandes, résultats et limites actuels figurent dans [la qualification Linux](../historique/validation-phase-10.md). Le [guide d’installation et de récupération](../utilisateur/installation-linux.md) décrit l’utilisation du paquet, les données XDG, les mises à jour manuelles et les procédures de secours. La [revue de sécurité](../technique/revue-securite.md) expose les contrôles des capacités et dépendances.
 
 ## Suite du projet
 

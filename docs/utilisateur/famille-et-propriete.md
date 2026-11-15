@@ -1,6 +1,6 @@
 # Famille, sociétés et propriété — utilisation de la phase 3
 
-Ce guide décrit le registre initial. Les taux, estimations multidevises, profils datés et connaissances historiques sont décrits dans [le complément de phase 4](11-devises-et-historique.md).
+Ce guide décrit le registre initial. Les taux, estimations multidevises, profils datés et connaissances historiques sont décrits dans [le complément de phase 4](devises-et-historique.md).
 
 L’application travaille sur une base commune. Une vue individuelle est une sélection patrimoniale ; elle ne limite pas les accès de l’administrateur local. Les nouveaux coffres sont vides : les exemples des tests ne sont jamais chargés dans vos données.
 

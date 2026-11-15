@@ -1,6 +1,6 @@
 # Documents et portabilité — utilisation de la phase 8
 
-Guide du **12 novembre 2026, Europe/Paris**. Les exemples sont synthétiques. Les [preuves de validation](18-validation-phase8.md) distinguent les tests de format, de persistance, d’interface et les deux parcours de récupération.
+Guide du **12 novembre 2026, Europe/Paris**. Les exemples sont synthétiques. Les [preuves de validation](../historique/validation-phase-8.md) distinguent les tests de format, de persistance, d’interface et les deux parcours de récupération.
 
 ## Choisir le bon format
 
@@ -85,7 +85,7 @@ Dans un ZIP SQLite de confiance, lire `recovery/LISEZMOI.md`, ouvrir `data/patri
 
 Dans l’archive CSV, les tables et leur dictionnaire sont lisibles avec des outils standards, sans l’application. Les documents gardent leurs octets d’origine. Joindre `document_versions.blob_sha256` à `document_blobs.sha256`, retrouver `original_name` et vérifier les tailles et SHA-256 pour exporter une copie nommée à convenance.
 
-Le script indépendant [recover-csv.py](../scripts/recover-csv.py) reconstruit un fichier SQLite et un dossier d’originaux avec Python et SQLite standards, sans exécutable Patrimoine :
+Le script indépendant [recover-csv.py](../../scripts/recover-csv.py) reconstruit un fichier SQLite et un dossier d’originaux avec Python et SQLite standards, sans exécutable Patrimoine :
 
 ```bash
 mkdir recuperation

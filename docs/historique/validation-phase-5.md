@@ -58,7 +58,7 @@ Un premier lancement de `scripts/check.sh` s’est arrêté sur le formatage des
 
 ## Parcours graphique Linux réel
 
-`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0**, sur le binaire final. Le [rapport JSON](../.local/desktop-smoke.tXhT17zX/desktop-result.json) contient **31 étapes réussies**, aucune échouée ni non exécutée, et `native_dialogs_requested: true`. L’application s’exécute sous WebKitGTK/Xvfb dans Debian 13, avec utilisateur non privilégié, réseau désactivé et coffre synthétique neuf. Les contrôles de phases 3/4 sont conservés avant le nouveau scénario immobilier.
+`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0**, sur le binaire final. Le [rapport JSON](../../.local/desktop-smoke.tXhT17zX/desktop-result.json) contient **31 étapes réussies**, aucune échouée ni non exécutée, et `native_dialogs_requested: true`. L’application s’exécute sous WebKitGTK/Xvfb dans Debian 13, avec utilisateur non privilégié, réseau désactivé et coffre synthétique neuf. Les contrôles de phases 3/4 sont conservés avant le nouveau scénario immobilier.
 
 Le parcours vérifie notamment :
 
@@ -68,14 +68,14 @@ Le parcours vérifie notamment :
 - Paiements de `400` et `300` en mars : `700 EUR` reçus, reste `300 EUR` sur l’échéance de mars. Un complément de `300` le 20 avril solde cette échéance en conservant son retard et sa date de règlement.
 - Sur l’année 2023 : exigible `12 000 EUR`, reçu `1 000 EUR`, exploitation `2 000 EUR`, NOI `10 000 EUR`, brut `3 %`, net `2,5 %` sur une valeur de `400 000 EUR`. Le cash-flow après financement reste absent. Occupation contractuelle : `365 / 1 095` jours-unités.
 - Vente complète au 1er juillet 2024, puis correction depuis l’interface vers le 1er août et prix `161 000 EUR`, avec confirmation : droits réparés, ancien état toujours consultable à son K. Le bien cédé est absent du stock courant et aucun produit de vente bancaire n’est inventé.
-- Indicateurs calculés depuis leur formulaire réel, avec le choix explicite du bien entier ; [capture de l’interface](../.local/desktop-smoke.tXhT17zX/rental-indicators.png).
+- Indicateurs calculés depuis leur formulaire réel, avec le choix explicite du bien entier ; [capture de l’interface](../../.local/desktop-smoke.tXhT17zX/rental-indicators.png).
 - Dialogues GTK d’import/export documentaire, sauvegarde, analyse et annulation sans mutation, confirmation avec sauvegarde préalable, puis restitution des identités, droits, taux, profils, trois snapshots et indicateurs locatifs après activation d’une nouvelle génération.
 
 Le premier essai du nouveau pilote s’est arrêté après création de la fiche : le nom d’argument Python `kind` entrait en collision avec le champ métier de l’événement. Le paramètre a été renommé, la syntaxe contrôlée, puis le parcours complet a réussi sans modification des assertions ni des calculs applicatifs. Les saisies de texte utilisent le clavier WebDriver ; les dates natives utilisent les événements DOM `input/change`, avec vérification après deux images. Aucun état React ni résultat financier n’est injecté pour faire passer le scénario.
 
 ## Inspection indépendante des sauvegardes
 
-Une lecture des deux ZIP avec les bibliothèques standard Python `zipfile`, `hashlib`, `sqlite3`, `fractions` et `datetime`, sans appeler le backend applicatif, a produit [ce résultat indépendant](../.local/desktop-smoke.tXhT17zX/independent-backup-inspection.json).
+Une lecture des deux ZIP avec les bibliothèques standard Python `zipfile`, `hashlib`, `sqlite3`, `fractions` et `datetime`, sans appeler le backend applicatif, a produit [ce résultat indépendant](../../.local/desktop-smoke.tXhT17zX/independent-backup-inspection.json).
 
 Les deux archives ont le schéma 4 ; la principale est à K=59, la préalable à K=60. Les quatre fichiers manifestés par archive ont leurs tailles et empreintes exactes. Les comptages de toutes les tables concordent avec le manifeste, `integrity_check = ok` et aucune erreur de clés étrangères n’est détectée. Montants, taux, frais et surfaces sont stockés en `text` lorsqu’ils sont renseignés ; aucune somme en flottants SQLite n’a été utilisée.
 

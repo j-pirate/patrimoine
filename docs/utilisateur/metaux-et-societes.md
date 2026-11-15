@@ -1,8 +1,8 @@
 # Métaux et sociétés — utilisation de la phase 7
 
-La phase 8 complète ce guide avec les [versions documentaires, associations multiples et exports réimportables](19-documents-et-portabilite.md). Les limites de portabilité indiquées comme futures ci-dessous correspondent à l’état de la phase 7.
+La phase 8 complète ce guide avec les [versions documentaires, associations multiples et exports réimportables](documents-et-portabilite.md). Les limites de portabilité indiquées comme futures ci-dessous correspondent à l’état de la phase 7.
 
-Guide du **11 novembre 2026, Europe/Paris**. Les exemples illustrent les règles ; ils ne sont pas injectés dans le coffre. Les [preuves de validation](16-validation-phase7.md) distinguent calcul pur, persistance, interface et parcours Linux réel.
+Guide du **11 novembre 2026, Europe/Paris**. Les exemples illustrent les règles ; ils ne sont pas injectés dans le coffre. Les [preuves de validation](../historique/validation-phase-7.md) distinguent calcul pur, persistance, interface et parcours Linux réel.
 
 La date économique **D** et les connaissances **K** restent celles du bandeau commun. Les rapports utilisent les sources effectives à D connues à K. Toute séquence K fixe, y compris `0`, donne une consultation en lecture seule. Les sommes et quantités sont saisies en texte décimal ; le moteur conserve des fractions exactes et arrondit les montants à l’affichage.
 
@@ -65,7 +65,7 @@ Dans **Contrôler un lot**, sélectionner le lot puis **Calculer le lot de méta
 
 ## Conserver les fiches et méthodes des sociétés
 
-Dans **Sociétés**, **Fiches et participations** conserve le registre existant : profils, propriétaires, participations et méthode datée **détaillée** ou **valeur globale des capitaux propres**. Les [règles de propriété](09-famille-et-propriete.md), [dates et connaissances](11-devises-et-historique.md), [couvertures et financements](15-comptes-et-financements.md) restent applicables.
+Dans **Sociétés**, **Fiches et participations** conserve le registre existant : profils, propriétaires, participations et méthode datée **détaillée** ou **valeur globale des capitaux propres**. Les [règles de propriété](famille-et-propriete.md), [dates et connaissances](devises-et-historique.md), [couvertures et financements](comptes-et-financements.md) restent applicables.
 
 La valeur globale réellement retenue se saisit par les valorisations du registre et sa méthode explicite. Un chiffre d’affaires, une trésorerie indicative ou une estimation de gestion ne remplace pas cette valorisation par synchronisation implicite.
 

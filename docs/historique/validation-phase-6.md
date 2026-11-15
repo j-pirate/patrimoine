@@ -1,6 +1,6 @@
 # Validation — phase 6 : comptes, financements et bilan financier
 
-Cette campagne utilise uniquement des données synthétiques et des coffres isolés. Elle couvre le journal des comptes/caisses, les rapprochements, financements, avances/dépôts, droits sur les créances locatives et leur bilan familial ou individuel. Les rapports incomplets conservent leurs sous-totaux connus sans les présenter comme un net exhaustif. Le [guide](15-comptes-et-financements.md) décrit les formulaires disponibles.
+Cette campagne utilise uniquement des données synthétiques et des coffres isolés. Elle couvre le journal des comptes/caisses, les rapprochements, financements, avances/dépôts, droits sur les créances locatives et leur bilan familial ou individuel. Les rapports incomplets conservent leurs sous-totaux connus sans les présenter comme un net exhaustif. Le [guide](../utilisateur/comptes-et-financements.md) décrit les formulaires disponibles.
 
 ## Vérification complète
 
@@ -52,7 +52,7 @@ Les fixtures utilisent de vrais schémas historiques 1–4, puis contrôlent l�
 
 ## Parcours Linux natif
 
-`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0**, sur le binaire final. Le [rapport JSON](../.local/desktop-smoke.yLQnPQrW/desktop-result.json) contient **37 étapes réussies**, aucune échouée ni non exécutée et `native_dialogs_requested: true`. Debian 13, WebKitGTK/Xvfb, utilisateur non privilégié, conteneur sans réseau et coffre neuf ; les parcours antérieurs du registre, devises, historique et immobilier restent exécutés.
+`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0**, sur le binaire final. Le [rapport JSON](../../.local/desktop-smoke.yLQnPQrW/desktop-result.json) contient **37 étapes réussies**, aucune échouée ni non exécutée et `native_dialogs_requested: true`. Debian 13, WebKitGTK/Xvfb, utilisateur non privilégié, conteneur sans réseau et coffre neuf ; les parcours antérieurs du registre, devises, historique et immobilier restent exécutés.
 
 Les nouveaux contrôles emploient les commandes Tauri réelles, les formulaires React et SQLite :
 
@@ -61,7 +61,7 @@ Les nouveaux contrôles emploient les commandes Tauri réelles, les formulaires 
 - Prêt externe ouvert à 100 000 EUR, échéance prévue, remboursement réel de principal 1 000, intérêts 200 et frais 10 : trois liens sur un seul débit de 1 210 EUR, principal 99 000 EUR. Une garantie non appelée de 50 000 reste contingente. Un autre contrat de 10 000 entre membres est neutralisé des deux côtés dans la famille.
 - Dépôt de 2 000 reçu depuis le formulaire et lié à la banque B ; compensation de 300 sur l’échéance de janvier sans nouvelle transaction ; restitution de 500 avec débit. Solde banque B 340 EUR, obligation 1 200 EUR et impayé de janvier 700 EUR ; loyer reçu annuel inchangé à 1 000 EUR. À l’ancien K, le solde bancaire reste −1 160 EUR.
 - Déclaration de couverture depuis l’interface, calcul du bilan et contrôle du découvert en passif. Malgré la déclaration, le net reste absent parce que des anciennes sources locatives du scénario n’ont pas été rapprochées. Les sous-totaux connus sont 351 452,30 EUR d’actifs et 100 242 EUR de passifs ; leur différence 251 210,30 EUR reste explicitement partielle.
-- Dialogues GTK d’import/export documentaire, sauvegarde complète, analyse/annulation sans mutation, confirmation avec sauvegarde préalable et activation d’une nouvelle génération. Les six snapshots métier, identités, révisions, liens, anciennes connaissances et soldes sont reproduits. Le [rapport financier avant/après](../.local/desktop-smoke.yLQnPQrW/financial-restore-comparison.json) est entièrement identique à K=91, y compris les positions et leurs traces de conversion. Les [oracles du scénario](../.local/desktop-smoke.yLQnPQrW/financial-oracles.json) sont conservés.
+- Dialogues GTK d’import/export documentaire, sauvegarde complète, analyse/annulation sans mutation, confirmation avec sauvegarde préalable et activation d’une nouvelle génération. Les six snapshots métier, identités, révisions, liens, anciennes connaissances et soldes sont reproduits. Le [rapport financier avant/après](../../.local/desktop-smoke.yLQnPQrW/financial-restore-comparison.json) est entièrement identique à K=91, y compris les positions et leurs traces de conversion. Les [oracles du scénario](../../.local/desktop-smoke.yLQnPQrW/financial-oracles.json) sont conservés.
 
 Un premier essai du pilote comparait les positions financières calculées avant l’import documentaire à celles restaurées après cet import. L’import augmente K et les traces FX conservent cette séquence : les montants et sources métier étaient conservés, mais la comparaison utilisait deux connaissances différentes. Le pilote capture désormais le rapport après l’import, immédiatement avant sauvegarde, puis vérifie sa reproduction intégrale à K égal. Le second parcours complet réussit ; aucune assertion financière n’a été retirée et aucun calcul applicatif n’a été modifié pour ce motif.
 
@@ -69,7 +69,7 @@ Les saisies textuelles utilisent le clavier WebDriver avec vérification après 
 
 ## Inspection indépendante des archives
 
-Une lecture indépendante des deux ZIP avec les bibliothèques standard Python `zipfile`, `hashlib`, `sqlite3` et `fractions.Fraction`, sans appeler le backend, produit [ce rapport](../.local/desktop-smoke.yLQnPQrW/independent-backup-inspection.json) : **réussi**.
+Une lecture indépendante des deux ZIP avec les bibliothèques standard Python `zipfile`, `hashlib`, `sqlite3` et `fractions.Fraction`, sans appeler le backend, produit [ce rapport](../../.local/desktop-smoke.yLQnPQrW/independent-backup-inspection.json) : **réussi**.
 
 La sauvegarde principale est à K=91, la préalable à K=92. Les quatre fichiers manifestés par archive ont les tailles et SHA-256 annoncés. Les bases sont au schéma 5, avec 54 tables, 106 objets et 111 révisions ; `integrity_check` répond `ok` et `foreign_key_check` ne retourne aucune ligne. Les migrations SQL 1–4 correspondent exactement à celles des deux archives de phase 5 ; les cinq migrations enregistrées correspondent aux fichiers courants.
 

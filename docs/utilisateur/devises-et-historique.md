@@ -60,4 +60,4 @@ Une entrée dans le périmètre, une acquisition ou un changement de droits ne d
 
 La migration `0003` ajoute les taux et périodes descriptives. Les coffres et archives des schémas 1 et 2 sont contrôlés dans leur schéma d’origine, copiés, puis migrés avant activation. La génération précédente et l’archive source sont conservées. Le format ZIP reste en version 1 ; le schéma SQLite courant est 3.
 
-Une sauvegarde contient les taux, toutes les révisions, périodes, séquences et documents originaux, avec les autres données du registre. Après restauration, vérifier D et K puis relancer le contrôle : la restauration ne sauvegarde pas un calcul affiché en tant que rapport immuable. Les preuves exécutées et limites sont dans [la validation de phase 4](10-validation-phase4.md).
+Une sauvegarde contient les taux, toutes les révisions, périodes, séquences et documents originaux, avec les autres données du registre. Après restauration, vérifier D et K puis relancer le contrôle : la restauration ne sauvegarde pas un calcul affiché en tant que rapport immuable. Les preuves exécutées et limites sont dans [la validation de phase 4](../historique/validation-phase-4.md).

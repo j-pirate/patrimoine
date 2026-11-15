@@ -26,7 +26,7 @@ fi
 
 if ! pkg-config --exists webkit2gtk-4.1 gtk+-3.0; then
   if [ "$(uname -m)" != x86_64 ] || ! test -f /usr/share/keyrings/debian-archive-keyring.gpg; then
-    echo 'Ce script cloud cible Debian 13 x86_64. Voir docs/07-developpement.md pour une installation Linux classique.' >&2
+    echo 'Ce script cloud cible Debian 13 x86_64. Voir docs/technique/developpement-linux.md pour une installation Linux classique.' >&2
     exit 1
   fi
   if ! . /etc/os-release || [ "${ID:-}" != debian ] || [ "${VERSION_ID:-}" != 13 ]; then

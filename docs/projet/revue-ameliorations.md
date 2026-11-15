@@ -45,7 +45,7 @@ Contrôle effectué : **220 liens locaux examinés**, aucune destination manquan
 
 ### DOC-01 — Clarifier le net familial lorsqu’une créance interne est dépréciée
 
-**P1 · Point à vérifier, pas un bug du moteur établi.** [Règles initiales](03-regles-metier.md#L71), [éliminations](03-regles-metier.md#L148), [décision de financement](decisions.md#L90).
+**P1 · Point à vérifier, pas un bug du moteur établi.** [Règles initiales](../technique/regles-metier.md#L71), [éliminations](../technique/regles-metier.md#L148), [décision de financement](../technique/decisions-architecture.md#L90).
 
 Les règles initiales annoncent un net familial égal à la somme des nets individuels et une élimination identique sur les deux faces. La décision ultérieure retient un appariement nominal et une réduction de la créance proportionnelle à sa valeur comptable. Pour un prêt familial nominal de 100 000 EUR déprécié à 80 000 EUR, les deux conventions ne donnent pas nécessairement le même résultat consolidé.
 
@@ -53,7 +53,7 @@ Les règles initiales annoncent un net familial égal à la somme des nets indiv
 
 ### DOC-02 — Harmoniser les explications sur les documents à une ancienne connaissance K
 
-**P2 · Contradiction observée dans les guides.** [Devises/historique](11-devises-et-historique.md#L32), [immobilier](13-immobilier-et-loyers.md#L82), [financements](15-comptes-et-financements.md#L185), [guide documentaire](19-documents-et-portabilite.md#L14).
+**P2 · Contradiction observée dans les guides.** [Devises/historique](../utilisateur/devises-et-historique.md#L32), [immobilier](../utilisateur/immobilier-et-loyers.md#L82), [financements](../utilisateur/comptes-et-financements.md#L185), [guide documentaire](../utilisateur/documents-et-portabilite.md#L14).
 
 Les trois premiers textes annoncent que les documents concernent toujours le coffre actuel ; le guide documentaire explique que leur consultation suit K et que les écritures sont bloquées à K fixe. Ces pages restent accessibles depuis le parcours utilisateur courant.
 
@@ -61,7 +61,7 @@ Les trois premiers textes annoncent que les documents concernent toujours le cof
 
 ### DOC-03 — Rendre les renvois documentaires utilisables depuis GitHub
 
-**P2 · Limitation de navigation observée.** [Guide Linux, lien du kit](23-installation-et-recuperation-linux.md#L126), [rapport courant](22-validation-phase10.md#L7), [explication du README](../README.md#L15), [téléchargements versionnés](../distribution/README.md#L45).
+**P2 · Limitation de navigation observée.** [Guide Linux, lien du kit](../utilisateur/installation-linux.md#L126), [rapport courant](../historique/validation-phase-10.md#L7), [explication du README](../../README.md#L15), [téléchargements versionnés](../../distribution/README.md#L45).
 
 Les 77 renvois vers `.local/` ou `/workspace/.tooling/` fonctionnent dans le cloud mais pas dans un clone ordinaire. Le kit possède déjà une destination versionnée sous `distribution/0.1.1/`. Le ZIP documentaire fournit aussi des copies adaptées des preuves : ce constat ne signifie pas que les preuves finales sont perdues.
 
@@ -69,7 +69,7 @@ Les 77 renvois vers `.local/` ou `/workspace/.tooling/` fonctionnent dans le clo
 
 ### DOC-04 — Relier les exigences au périmètre effectivement reçu
 
-**P2 · Proposition de suivi.** [Besoin de variation expliquée](cahier-des-charges.md#L890), [critères initiaux](05-validation-et-plan.md#L130), [limite du pont livré](decisions.md#L130), [avancement](avancement.md#L142).
+**P2 · Proposition de suivi.** [Besoin de variation expliquée](cahier-des-charges.md#L890), [critères initiaux](plan-validation-initial.md#L130), [limite du pont livré](../technique/decisions-architecture.md#L130), [avancement](avancement.md#L142).
 
 Les limites du pont de variation sont déclarées : il conserve une portée de registre et ne décompose pas tout le bilan intermodules en flux, valorisation, change et périmètre. Le plan initial seul ne permet toutefois pas de suivre ce reliquat parmi les phases marquées implémentées.
 
@@ -77,7 +77,7 @@ Les limites du pont de variation sont déclarées : il conserve une portée de r
 
 ### DOC-05 — Ajouter une correspondance entre conception et schéma livré
 
-**P2 · Proposition de maintenance.** [Catalogue conceptuel](02-modele-relationnel.md#L5), [plan initial de migrations](02-modele-relationnel.md#L248), [décisions du schéma](decisions.md#L48), [portabilité au schéma 6](decisions.md#L120).
+**P2 · Proposition de maintenance.** [Catalogue conceptuel](../technique/modele-relationnel.md#L5), [plan initial de migrations](../technique/modele-relationnel.md#L248), [décisions du schéma](../technique/decisions-architecture.md#L48), [portabilité au schéma 6](../technique/decisions-architecture.md#L120).
 
 Le catalogue historique emploie notamment des sous-types et une migration documentaire `0007` qui ne correspondent pas directement au schéma livré. Son caractère prévisionnel est indiqué, mais retrouver la correspondance impose de reconstituer le journal des décisions.
 
@@ -85,7 +85,7 @@ Le catalogue historique emploie notamment des sous-types et une migration docume
 
 ### DOC-06 — Unifier la borne de pureté des métaux
 
-**P2 · Contradiction documentaire observée.** [Modèle proposé](02-modele-relationnel.md#L147), [règles proposées](03-regles-metier.md#L270).
+**P2 · Contradiction documentaire observée.** [Modèle proposé](../technique/modele-relationnel.md#L147), [règles proposées](../technique/regles-metier.md#L270).
 
 Le premier texte impose une pureté dans `]0,1]`, le second dans `[0,1]`.
 
@@ -93,7 +93,7 @@ Le premier texte impose une pureté dans `]0,1]`, le second dans `[0,1]`.
 
 ### DOC-07 — Distinguer les programmes couverts par chaque campagne
 
-**P2 · Proposition de traçabilité.** [Parcours du paquet](22-validation-phase10.md#L40), [accessibilité](22-validation-phase10.md#L59), [manifeste de construction](../distribution/0.1.1/build-manifest.json).
+**P2 · Proposition de traçabilité.** [Parcours du paquet](../historique/validation-phase-10.md#L40), [accessibilité](../historique/validation-phase-10.md#L59), [manifeste de construction](../../distribution/0.1.1/build-manifest.json).
 
 Le parcours natif et la mise à jour sont bien rattachés à l’AppImage finale par SHA-256. Les contrôles d’accessibilité utilisent un ELF de développement et les performances plusieurs binaires de service ; leurs identités sont précisées dans les preuves, mais dispersées. Le manifeste de construction contient les empreintes des dépendances verrouillées, sans commit ni arbre source.
 
@@ -101,7 +101,7 @@ Le parcours natif et la mise à jour sont bien rattachés à l’AppImage finale
 
 ### DOC-08 — Inventorier les anciennes preuves et les critères de réception
 
-**P3 · Proposition de lisibilité des archives.** [Campagne phase 2](06-validation-phase2.md#L99), [phase 3](08-validation-phase3.md#L95), [critères de phase 2](06-validation-phase2.md#L9).
+**P3 · Proposition de lisibilité des archives.** [Campagne phase 2](../historique/validation-phase-2.md#L99), [phase 3](../historique/validation-phase-3.md#L95), [critères de phase 2](../historique/validation-phase-2.md#L9).
 
 Les anciens dossiers desktop cités en phases 2 et 3 ne figurent pas dans le ZIP distribué ; les preuves finales et celles des phases 4 à 10 sont présentes. Le lien entre identifiants de critères et observations reste souvent en prose.
 
@@ -119,7 +119,7 @@ Contrôles ciblés effectués : **8 tests existants réussis**, sans échec ni t
 
 ### ARCH-01 — Contrôler la correspondance des contrats Rust et TypeScript
 
-**P2 · Proposition de prévention des régressions.** [Documents Rust](../crates/domain/src/documents.rs#L6), [documents TS](../src/services/documents-types.ts#L1), [portabilité Rust](../crates/domain/src/portability.rs#L6), [portabilité TS](../src/services/portability-types.ts#L1), [appels typés](../src/services/api.ts#L79).
+**P2 · Proposition de prévention des régressions.** [Documents Rust](../../crates/domain/src/documents.rs#L6), [documents TS](../../src/services/documents-types.ts#L1), [portabilité Rust](../../crates/domain/src/portability.rs#L6), [portabilité TS](../../src/services/portability-types.ts#L1), [appels typés](../../src/services/api.ts#L79).
 
 Les champs comparés concordent actuellement, mais les structures sont recopiées et les types de retour d’`invoke<T>` ne valident pas eux-mêmes les réponses. Un changement Rust peut donc laisser le frontend compiler avec un contrat périmé.
 
@@ -127,7 +127,7 @@ Les champs comparés concordent actuellement, mais les structures sont recopiée
 
 ### ARCH-02 — Exploiter des codes d’erreur et statuts stables
 
-**P2 · Proposition de maintenance et d’explication.** [AppError](../crates/domain/src/lib.rs#L44), [présentation d’erreur](../src/services/api.ts#L68), [statuts documentaires](../src/services/documents-types.ts#L3).
+**P2 · Proposition de maintenance et d’explication.** [AppError](../../crates/domain/src/lib.rs#L44), [présentation d’erreur](../../src/services/api.ts#L68), [statuts documentaires](../../src/services/documents-types.ts#L3).
 
 Les codes d’erreur et plusieurs valeurs finies sont des chaînes libres. Le présentateur commun retient surtout le message, ce qui ne structure pas les actions propres à un conflit de révision, une validation ou une erreur d’accès au support. Cela ne signifie pas une absence de validation backend des valeurs actuelles.
 
@@ -135,7 +135,7 @@ Les codes d’erreur et plusieurs valeurs finies sont des chaînes libres. Le pr
 
 ### ARCH-03 — Indexer une fois les capacités des lignes de trésorerie
 
-**P2 · Complexité observée, optimisation proposée.** [Agrégation](../crates/domain/src/operations.rs#L13), [recherches répétées](../crates/domain/src/operations.rs#L49).
+**P2 · Complexité observée, optimisation proposée.** [Agrégation](../../crates/domain/src/operations.rs#L13), [recherches répétées](../../crates/domain/src/operations.rs#L49).
 
 Après agrégation par `(transaction_revision_id, line_id)`, chaque clé provoque une recherche linéaire dans les transactions puis leurs lignes. Avec U clés utilisées et T transactions, le coût peut atteindre `O(U × T)`, hors recherche des lignes. Aucune latence propre à cette fonction n’a été mesurée ici.
 
@@ -143,7 +143,7 @@ Après agrégation par `(transaction_revision_id, line_id)`, chaque clé provoqu
 
 ### ARCH-04 — Compléter quelques frontières des normalisations
 
-**P3 · Proposition de couverture, aucun comportement incorrect observé.** [Normalisation des montants](../crates/domain/src/exact.rs#L32), [zéro négatif](../crates/domain/src/exact.rs#L50), [normalisation des taux](../crates/domain/src/exact.rs#L126).
+**P3 · Proposition de couverture, aucun comportement incorrect observé.** [Normalisation des montants](../../crates/domain/src/exact.rs#L32), [zéro négatif](../../crates/domain/src/exact.rs#L50), [normalisation des taux](../../crates/domain/src/exact.rs#L126).
 
 Les tests couvrent déjà de nombreuses bornes et valeurs non canoniques.
 
@@ -159,7 +159,7 @@ Contrôle exécuté : `cargo test -p patrimoine-domain --offline --test fx_tests
 
 ### REG-01 — Compléter les sources expliquant les contributions
 
-**P2 · Provenance incomplète observée, pas un montant erroné démontré.** [Poids initiaux](../crates/domain/src/consolidation.rs#L273), [sources de la contribution](../crates/domain/src/consolidation.rs#L450).
+**P2 · Provenance incomplète observée, pas un montant erroné démontré.** [Poids initiaux](../../crates/domain/src/consolidation.rs#L273), [sources de la contribution](../../crates/domain/src/consolidation.rs#L450).
 
 Le choix du périmètre familial utilise les appartenances datées, mais les sources des poids initiaux ne reçoivent que l’identité/révision des personnes. Les politiques des sociétés déterminent aussi la traversée détaillée ou son arrêt sans être toutes ajoutées aux sources. Un lecteur ne retrouve donc pas directement toutes les décisions à l’origine du montant.
 
@@ -167,7 +167,7 @@ Le choix du périmètre familial utilise les appartenances datées, mais les sou
 
 ### REG-02 — Préparer les index et chemins de change pour un snapshot donné
 
-**P2 · Complexité observée, optimisation proposée.** [Recherche des poids](../crates/domain/src/consolidation.rs#L319), [parcours des actifs](../crates/domain/src/consolidation.rs#L817), [projection des profils](../crates/domain/src/profiles.rs#L6), [dernier cours](../crates/domain/src/fx.rs#L85), [recalculs de variation](../crates/domain/src/variation.rs#L133).
+**P2 · Complexité observée, optimisation proposée.** [Recherche des poids](../../crates/domain/src/consolidation.rs#L319), [parcours des actifs](../../crates/domain/src/consolidation.rs#L817), [projection des profils](../../crates/domain/src/profiles.rs#L6), [dernier cours](../../crates/domain/src/fx.rs#L85), [recalculs de variation](../../crates/domain/src/variation.rs#L133).
 
 Les participations sont rescannées par société, les propriétés par actif, les estimations par position et les cours par conversion. Plusieurs validations/recalculs sont répétés sur le même snapshot. Ces coûts sont visibles dans le code ; aucune durée propre à chaque boucle n’est établie ici.
 
@@ -175,7 +175,7 @@ Les participations sont rescannées par société, les propriétés par actif, l
 
 ### REG-03 — Séparer écriture confirmée et actualisation de l’affichage
 
-**P2 · Chemin d’erreur observé, scénario conditionné à un échec de lecture après écriture.** [Retour après commit](../crates/infrastructure/src/registry.rs#L589), [mutation UI](../src/features/registry.tsx#L109), [change](../src/features/exchange-rates.tsx#L49), [rechargement qui peut rejeter](../src/App.tsx#L81).
+**P2 · Chemin d’erreur observé, scénario conditionné à un échec de lecture après écriture.** [Retour après commit](../../crates/infrastructure/src/registry.rs#L589), [mutation UI](../../src/features/registry.tsx#L109), [change](../../src/features/exchange-rates.tsx#L49), [rechargement qui peut rejeter](../../src/App.tsx#L81).
 
 Les sauvegardes rechargent le registre complet après le commit pour retrouver l’objet. L’interface ferme aussi son formulaire après `save*`, puis attend `onChanged` dans le même bloc d’erreur. Un rechargement peut donc échouer alors que la mutation est déjà persistée. Dans App, l’erreur du registre peut masquer le composant : il ne faut pas présumer qu’un message local précis sera toujours visible, mais la confirmation de réussite peut être perdue.
 
@@ -183,7 +183,7 @@ Les sauvegardes rechargent le registre complet après le commit pour retrouver l
 
 ### REG-04 — Mesurer aussi une longue succession de connaissances
 
-**P2 · Proposition de mesure et d’optimisation.** [Validation de chaque séquence](../crates/infrastructure/src/registry.rs#L721), [chargement de l’historique de profils](../crates/infrastructure/src/registry.rs#L69).
+**P2 · Proposition de mesure et d’optimisation.** [Validation de chaque séquence](../../crates/infrastructure/src/registry.rs#L721), [chargement de l’historique de profils](../../crates/infrastructure/src/registry.rs#L69).
 
 La validation historique recharge et contrôle un snapshot à chaque changement, y compris ceux sans modification du registre. Le coût cumule donc des états croissants. Le gros profil de qualification n’a que deux changements : il ne renseigne pas ce cas d’historique dense.
 
@@ -191,7 +191,7 @@ La validation historique recharge et contrôle un snapshot à chaque changement,
 
 ### REG-05 — Rendre les confirmations accessibles au clavier
 
-**P2 · Défaut de parcours clavier observé statiquement.** [Confirmation rendue avant les tableaux](../src/features/registry.tsx#L164), [défilement seul](../src/features/registry.tsx#L87), [gestion existante dans EditorFrame](../src/features/registry-ui.tsx#L43).
+**P2 · Défaut de parcours clavier observé statiquement.** [Confirmation rendue avant les tableaux](../../src/features/registry.tsx#L164), [défilement seul](../../src/features/registry.tsx#L87), [gestion existante dans EditorFrame](../../src/features/registry-ui.tsx#L43).
 
 L’ouverture d’une confirmation défile vers celle-ci mais laisse le focus sur son bouton déclencheur, situé plus loin dans les tableaux. Tab poursuit alors les actions des tableaux au lieu d’atteindre la nouvelle confirmation.
 
@@ -199,7 +199,7 @@ L’ouverture d’une confirmation défile vers celle-ci mais laisse le focus su
 
 ### REG-06 — Identifier une conversion dont la saisie a changé
 
-**P3 · Amélioration de présentation.** [Saisie et résultat FX](../src/features/exchange-rates.tsx#L93), [invalidation actuelle](../src/features/exchange-rates.tsx#L42).
+**P3 · Amélioration de présentation.** [Saisie et résultat FX](../../src/features/exchange-rates.tsx#L93), [invalidation actuelle](../../src/features/exchange-rates.tsx#L42).
 
 Modifier le montant ou les devises conserve la conversion précédente. Celle-ci affiche encore son ancien montant : aucun calcul faux n’est établi, mais la proximité des nouveaux champs peut prêter à confusion.
 
@@ -207,7 +207,7 @@ Modifier le montant ou les devises conserve la conversion précédente. Celle-ci
 
 ### REG-07 — Remplacer les annonces de modules futurs déjà livrés
 
-**P3 · Contenu affiché périmé.** [Notice sociétés](../src/features/registry.tsx#L176), [contrôle d’attribution](../src/features/registry.tsx#L221), [historique](../src/features/history.tsx#L61).
+**P3 · Contenu affiché périmé.** [Notice sociétés](../../src/features/registry.tsx#L176), [contrôle d’attribution](../../src/features/registry.tsx#L221), [historique](../../src/features/history.tsx#L61).
 
 Ces textes annoncent encore comme futurs les indicateurs, financements, modules immobilier/banque/métaux ou tableaux de bord pourtant présents.
 
@@ -215,7 +215,7 @@ Ces textes annoncent encore comme futurs les indicateurs, financements, modules 
 
 ### REG-08 — Ajouter une frontière persistante explicite à K=0
 
-**P3 · Proposition ciblée de couverture.** [Lecture bornée](../crates/infrastructure/src/registry.rs#L304), suites `registry_adversarial.rs`, `registry_migrations.rs` et `fx_history.rs`.
+**P3 · Proposition ciblée de couverture.** [Lecture bornée](../../crates/infrastructure/src/registry.rs#L304), suites `registry_adversarial.rs`, `registry_migrations.rs` et `fx_history.rs`.
 
 Les trois suites consultées exercent des K passés non nuls et futurs ; une lecture persistante explicite `Some(0)` n’y apparaît pas. Cela n’affirme pas une absence de couverture K=0 dans toutes les autres couches.
 
@@ -231,7 +231,7 @@ Contrôles exécutés : **26 tests existants réussis**, sans échec ni ignoré,
 
 ### IMMO-01 — Ne pas rendre inconnus les revenus à cause d’un bail sans exposition économique
 
-**P2 · Défaut confirmé par un cas ciblé.** [Contrôle des données locatives manquantes](../crates/domain/src/rentals.rs#L1699), [invalidation des indicateurs](../crates/domain/src/rentals.rs#L1737).
+**P2 · Défaut confirmé par un cas ciblé.** [Contrôle des données locatives manquantes](../../crates/domain/src/rentals.rs#L1699), [invalidation des indicateurs](../../crates/domain/src/rentals.rs#L1737).
 
 Cas reproduit : actif entièrement détenu par un tiers identifié, bail actif sans échéances générées, requête familiale sans filtre de bien. Le poids économique familial est connu et vaut `0/1`, le loyer contractuel annualisé vaut `0.00`, mais le revenu économique et l’impayé deviennent `None`, avec statut partiel et alerte `missing_rent_dues`. Un bail sans exposition dans ce contexte empêche donc de calculer ses totaux.
 
@@ -239,7 +239,7 @@ Cas reproduit : actif entièrement détenu par un tiers identifié, bail actif s
 
 ### IMMO-02 — Conserver la confirmation après rechargement du parent
 
-**P2 · Fragilité de cycle de vie observée dans l’intégration.** [Succès après onChanged](../src/features/properties.tsx#L68), [reload qui efface les snapshots](../src/features/real-estate.tsx#L80), [montage conditionnel de l’enfant](../src/features/real-estate.tsx#L182).
+**P2 · Fragilité de cycle de vie observée dans l’intégration.** [Succès après onChanged](../../src/features/properties.tsx#L68), [reload qui efface les snapshots](../../src/features/real-estate.tsx#L80), [montage conditionnel de l’enfant](../../src/features/real-estate.tsx#L182).
 
 Le parent déclenche un chargement qui peut démonter PropertyWorkspace, alors que celui-ci affiche son succès seulement après l’actualisation. Avec un vrai chargement asynchrone, ce résultat peut viser l’ancienne instance et disparaître. Les tests isolés de l’enfant utilisent un callback qui ne le démonte pas.
 
@@ -247,7 +247,7 @@ Le parent déclenche un chargement qui peut démonter PropertyWorkspace, alors q
 
 ### IMMO-03 — Bloquer les onglets pendant une opération enfant
 
-**P2 · Condition de navigation observée.** [Activité enfant](../src/features/real-estate.tsx#L55), [onglets](../src/features/real-estate.tsx#L177).
+**P2 · Condition de navigation observée.** [Activité enfant](../../src/features/real-estate.tsx#L55), [onglets](../../src/features/real-estate.tsx#L177).
 
 Le parent reçoit `childBusy`, mais ses onglets ne sont désactivés que sur `pending || loading`. Un changement d’onglet pendant une sauvegarde ou cession en attente peut démonter l’enfant et masquer le résultat local de cette opération.
 
@@ -255,7 +255,7 @@ Le parent reçoit `childBusy`, mais ses onglets ne sont désactivés que sur `pe
 
 ### IMMO-04 — Distinguer les biens, unités et baux homonymes
 
-**P2 · Ambiguïté observée dans les options de sélection.** [Libellé du bail](../src/features/real-estate.tsx#L167), [sélecteurs](../src/features/real-estate.tsx#L213), [unité](../src/features/real-estate.tsx#L221).
+**P2 · Ambiguïté observée dans les options de sélection.** [Libellé du bail](../../src/features/real-estate.tsx#L167), [sélecteurs](../../src/features/real-estate.tsx#L213), [unité](../../src/features/real-estate.tsx#L221).
 
 Deux immeubles peuvent avoir une unité « A · Studio » ; deux baux successifs peuvent aussi concerner le même locataire. Les options n’affichent pas systématiquement le bien et la période, donc les choix peuvent être identiques avant sélection, notamment pour un paiement ou la génération d’échéances.
 
@@ -263,7 +263,7 @@ Deux immeubles peuvent avoir une unité « A · Studio » ; deux baux successifs
 
 ### IMMO-05 — Réduire les recherches répétées sans retirer les contrôles
 
-**P3 · Optimisations proposées, sans benchmark propre à ces fonctions.** [Identités immobilières](../crates/domain/src/property.rs#L179), [génération d’échéances](../crates/infrastructure/src/rentals.rs#L627), [sélection des créations](../crates/infrastructure/src/rentals.rs#L683), [cible immuable](../crates/infrastructure/src/properties.rs#L464).
+**P3 · Optimisations proposées, sans benchmark propre à ces fonctions.** [Identités immobilières](../../crates/domain/src/property.rs#L179), [génération d’échéances](../../crates/infrastructure/src/rentals.rs#L627), [sélection des créations](../../crates/infrastructure/src/rentals.rs#L683), [cible immuable](../../crates/infrastructure/src/properties.rs#L464).
 
 Le contrôle des identités immobilières parcourt l’ensemble des couples d’identités du registre pour chaque objet immobilier. La génération recherche chaque clé dans toutes les échéances puis utilise des recherches linéaires d’identifiants. Le contrôle de cible immobilière compare aussi les révisions deux à deux.
 
@@ -271,7 +271,7 @@ Le contrôle des identités immobilières parcourt l’ensemble des couples d’
 
 ### IMMO-06 — Verrouiller explicitement l’immutabilité de devise d’un bail
 
-**P3 · Proposition de couverture ; piste de bug écartée.** [Validation des devises sur toutes les révisions](../crates/infrastructure/src/rentals.rs#L92), [validation avant commit](../crates/infrastructure/src/rentals.rs#L245), [règle documentée](13-immobilier-et-loyers.md#L38).
+**P3 · Proposition de couverture ; piste de bug écartée.** [Validation des devises sur toutes les révisions](../../crates/infrastructure/src/rentals.rs#L92), [validation avant commit](../../crates/infrastructure/src/rentals.rs#L245), [règle documentée](../utilisateur/immobilier-et-loyers.md#L38).
 
 Un snapshot artificiel du domaine peut représenter des conditions successives de devises différentes, mais le store examine toutes les révisions et refuse cette correction avant commit. L’application n’est donc pas démontrée capable de changer un bail EUR en USD sur ce chemin.
 
