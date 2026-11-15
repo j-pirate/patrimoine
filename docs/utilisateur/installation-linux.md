@@ -1,12 +1,14 @@
 # Installation, mise à jour et récupération Linux
 
-Guide du **13 novembre 2026, Europe/Paris**. Le [rapport de qualification](22-validation-phase10.md) donne les paquets, versions, systèmes et volumes effectivement testés. Les [résultats de sécurité](24-revue-securite.md) distinguent les contrôles réalisés de leurs limites. Les données des essais sont synthétiques.
+**Pop!_OS 22.04 / Ubuntu 22.04 :** les paquets compatibles sont disponibles sur la [page dédiée](../../distribution/0.1.1-popos22.04/README.md). Les instructions Debian 13 ci-dessous ne s'appliquent pas à ces systèmes sans adaptation.
+
+Guide du **13 novembre 2026, Europe/Paris**. Le [rapport de qualification](../historique/validation-phase-10.md) donne les paquets, versions, systèmes et volumes effectivement testés. Les [résultats de sécurité](../technique/revue-securite.md) distinguent les contrôles réalisés de leurs limites. Les données des essais sont synthétiques.
 
 ## Choisir le paquet
 
 La cible de cette livraison est **Debian 13, x86_64**, avec session graphique Linux et bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La qualification de cette cible ne vaut pas compatibilité avec toutes les distributions, les anciennes versions de glibc, les machines ARM ou toutes les configurations graphiques.
 
-L’AppImage contient le programme et son interface. Node, npm, Rust, un serveur et un compte externe ne sont pas nécessaires pour l’utiliser. Les outils de développement du [guide technique](07-developpement.md) servent uniquement à construire ou vérifier les sources. Les lecteurs de documents et outils bureautiques sont séparés : l’export d’un original ne dépend pas de la présence d’un lecteur associé.
+L’AppImage contient le programme et son interface. Node, npm, Rust, un serveur et un compte externe ne sont pas nécessaires pour l’utiliser. Les outils de développement du [guide technique](../technique/developpement-linux.md) servent uniquement à construire ou vérifier les sources. Les lecteurs de documents et outils bureautiques sont séparés : l’export d’un original ne dépend pas de la présence d’un lecteur associé.
 
 Les commandes de ce guide utilisent le candidat `Patrimoine_0.1.1_amd64.AppImage`, accompagné de `SHA256SUMS` et de `build-manifest.json`. Le rapport de qualification identifie les artefacts effectivement construits et testés. Conserver ces trois fichiers ensemble. Le fichier d’empreintes détecte une différence avec les octets annoncés ; il ne constitue pas une signature de l’auteur. Vérifier aussi la provenance du paquet avant de l’exécuter.
 
@@ -16,7 +18,7 @@ Dans le dossier contenant les fichiers livrés :
 sha256sum --check SHA256SUMS
 ```
 
-Ne pas utiliser un paquet dont la vérification échoue. Les notices des composants tiers accompagnent le paquet ; leur [inventaire](licences-tierces.md) précise les licences et la méthode de collecte. La licence du code propre à ce dépôt n’est pas modifiée par ces notices.
+Ne pas utiliser un paquet dont la vérification échoue. Les notices des composants tiers accompagnent le paquet ; leur [inventaire](../technique/licences-tierces.md) précise les licences et la méthode de collecte. La licence du code propre à ce dépôt n’est pas modifiée par ces notices.
 
 ## Installer pour son compte Linux
 
@@ -38,7 +40,7 @@ Si le système ne permet pas le montage FUSE utilisé par le format AppImage, le
 
 Ce mode extrait le programme pour son exécution ; il ne restaure pas un coffre. Il demande de l’espace temporaire disponible. Les conditions effectivement exercées figurent dans le rapport de qualification, y compris la distinction entre lancement monté et lancement par extraction.
 
-Au premier lancement, le coffre est vide. Les données de démonstration des campagnes de test ne sont pas ajoutées au coffre de l’utilisateur. Renseigner la famille, les actifs et leurs droits, puis les sources financières et couvertures avant d’attendre un patrimoine net complet. Le [guide des tableaux de bord](21-tableaux-de-bord.md) explique les montants connus, les valeurs inconnues et les filtres.
+Au premier lancement, le coffre est vide. Les données de démonstration des campagnes de test ne sont pas ajoutées au coffre de l’utilisateur. Renseigner la famille, les actifs et leurs droits, puis les sources financières et couvertures avant d’attendre un patrimoine net complet. Le [guide des tableaux de bord](tableaux-de-bord.md) explique les montants connus, les valeurs inconnues et les filtres.
 
 ## Où résident les données
 
@@ -123,7 +125,7 @@ Pour retrouver un original, joindre `document_versions.blob_sha256` à `document
 
 ## Reconstruire le CSV sans binaire applicatif
 
-Le [kit autonome](../.local/releases/0.1.1/Patrimoine_0.1.1_recuperation.zip) contient le lecteur et ses six migrations, sans nécessiter le binaire ou un accès réseau. Le dépôt fournit également [recover-csv.py](../scripts/recover-csv.py), utilisable avec Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. Aucun paquet Python externe n’est nécessaire. Depuis une copie du dépôt correspondant au format de l’archive :
+Le [kit autonome](../../.local/releases/0.1.1/Patrimoine_0.1.1_recuperation.zip) contient le lecteur et ses six migrations, sans nécessiter le binaire ou un accès réseau. Le dépôt fournit également [recover-csv.py](../../scripts/recover-csv.py), utilisable avec Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. Aucun paquet Python externe n’est nécessaire. Depuis une copie du dépôt correspondant au format de l’archive :
 
 ```bash
 mkdir recuperation
@@ -136,11 +138,11 @@ Les destinations doivent être inexistantes. Le script utilise les six migration
 
 Les documents extraits sont placés sous `sha256/` dans le dossier choisi. Les chemins enregistrés dans la base gardent leur préfixe `documents/` ; le retirer pour les résoudre depuis `--documents-dir`. Format, empreintes, types, nullité, références, intégrité SQLite et originaux sont contrôlés. Les invariants financiers Rust ne sont pas réexécutés par ce secours externe : utiliser l’analyse et le réimport applicatifs pour remettre les données en service dans Patrimoine.
 
-Le [guide des documents et formats](19-documents-et-portabilite.md) détaille CSV, XLSX, versions et associations. Le XLSX et le rapport JSON filtré servent à la consultation ; ils ne remplacent pas une archive récupérable avec ses originaux.
+Le [guide des documents et formats](documents-et-portabilite.md) détaille CSV, XLSX, versions et associations. Le XLSX et le rapport JSON filtré servent à la consultation ; ils ne remplacent pas une archive récupérable avec ses originaux.
 
 ## Volumes, accessibilité et diagnostic
 
-Le [rapport de qualification](22-validation-phase10.md) donne les temps et mémoires observés, les caractéristiques de la machine, les tailles de fixtures et les cas interrompus ou non exécutés. La cible de consultation inférieure à deux secondes du plan était provisoire ; elle ne constitue pas une garantie universelle de temps de réponse. Les limites de formats ou de budget sont refusées explicitement, sans supprimer une partie du coffre pour accélérer un calcul.
+Le [rapport de qualification](../historique/validation-phase-10.md) donne les temps et mémoires observés, les caractéristiques de la machine, les tailles de fixtures et les cas interrompus ou non exécutés. La cible de consultation inférieure à deux secondes du plan était provisoire ; elle ne constitue pas une garantie universelle de temps de réponse. Les limites de formats ou de budget sont refusées explicitement, sans supprimer une partie du coffre pour accélérer un calcul.
 
 Sur le grand profil testé, cette cible de deux secondes n’est atteinte par aucune des dix consultations mesurées. Le tableau de bord dépasse son budget de 120 secondes : 14 opérations sur 15 ont abouti. Les deux récupérations complètes réussissent, mais ces résultats ne qualifient pas une utilisation fluide de l’interface à ce volume.
 
