@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 5 — Trésorerie, financements et bilan financier.**
-- **Partie suivante : 6 — Métaux précieux et sociétés.**
+- **Dernière partie terminée : 6 — Métaux précieux et sociétés.**
+- **Partie suivante : 7 — Documents, sauvegardes et portabilité.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -20,7 +20,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 3 | Registre, propriété, consolidation, devises et historique | Terminée |
 | 4 | Immobilier et loyers | Terminée |
 | 5 | Trésorerie, financements et bilan financier | Terminée |
-| 6 | Métaux précieux et sociétés | À examiner |
+| 6 | Métaux précieux et sociétés | Terminée |
 | 7 | Documents, sauvegardes et portabilité | À examiner |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | À examiner |
 | 9 | SQLite, migrations, fichiers et interface native Tauri | À examiner |
@@ -89,7 +89,7 @@ Le catalogue historique emploie notamment des sous-types et une migration docume
 
 Le premier texte impose une pureté dans `]0,1]`, le second dans `[0,1]`.
 
-**Idée :** choisir une borne unique et la distinguer de la quantité restante, qui peut être nulle après une vente complète. La règle effectivement appliquée sera contrôlée dans la partie 6 avant de proposer une correction du code.
+**Idée :** choisir une borne unique et la distinguer de la quantité restante, qui peut être nulle après une vente complète. Contrôle de partie 6 : `metals.rs:401–404` applique `]0,1]` ; un probe refuse 0 et accepte 1. Harmoniser les textes avec cette règle livrée, sans correction du moteur sur ce point.
 
 ### DOC-07 — Distinguer les programmes couverts par chaque campagne
 
@@ -324,3 +324,55 @@ Les collections gardent l’ordre du snapshot, chargé par identifiant, puis son
 Compléments aux pistes existantes : REG-03 touche aussi les sauvegardes ordinaires des trois stores et les écrans financiers ; les postings coordonnés relisent au contraire leur objet avant commit. IMMO-02 concerne aussi l’enfant de TreasuryPage. REG-02/04 sont renforcés par `infrastructure/src/finance.rs:126–150,216–240` : chargements et validations emboîtés répètent les mêmes invariants et le rejeu des K. Proposer une orchestration unique par snapshot, sans supprimer de contrôle historique ; aucune latence propre n’a été mesurée. Le refus de corriger isolément une transaction partagée entre sources protège l’intégrité : un éventuel parcours collectif serait une amélioration, pas un contournement à introduire.
 
 **Partie 5 terminée — trésorerie, financements et bilan financier.** Quatre pistes supplémentaires, dont un défaut de substitution financière reproduit ; aucune correction appliquée. Prochaine partie : métaux précieux et sociétés.
+
+## Partie 6 — Métaux précieux et sociétés
+
+Périmètre : domaines, stores, ports et interfaces métaux/sociétés, migration 0006, helpers `phase7.rs`, intégrations `finance.rs`/`consolidation.rs`, contrats, suites et guide associés.
+
+Contrôles exécutés : **69 tests existants distincts réussis**, sans échec ni ignoré : `metals_tests` 21, `companies_tests` 18, `operations_integration` 14, `metals_store` 9 et `companies_store` 7, avec `cargo test -p patrimoine-domain --offline --test metals_tests --test companies_tests --test operations_integration` et `cargo test -p patrimoine-infrastructure --offline --test metals_store --test companies_store` (suites lancées en groupes distincts ; les relances d’intégration ne sont comptées qu’une fois). Un test UI temporaire hors dépôt reproduit MET-01. Des probes hors dépôt exercent les calculs, puis les services persistants pour MET-02/03 et deux frontières de distribution.
+
+À préserver : conversions physiques exactes, coût homogène proportionnel, stock nul distinct d’une ouverture inconnue, double face bancaire et capacité commune entre modules, transfert des droits atomique et conservation des bornes futures. Les indicateurs de sociétés ne créent pas de positions patrimoniales, ni une déclaration de dividende un encaissement. DOC-06 est tranché ci-dessus.
+
+### MET-01 — Fixer le lot cible pendant un transfert des droits
+
+**P1 · Mauvaise cible de commande reproduite dans l’interface.** [Ouverture](../../src/features/metals.tsx#L140), [sauvegarde](../../src/features/metals.tsx#L148), [sélecteur actif](../../src/features/metals.tsx#L182).
+
+Le brouillon conserve les propriétaires du lot A mais pas son identifiant. Le filtre reste utilisable pendant la saisie. Si l’utilisateur choisit ensuite le lot B, la sauvegarde relit B et lui applique les propriétaires préparés pour A.
+
+Probe UI : ouvrir le transfert de A, saisir Charles comme nouveau propriétaire, sélectionner B, enregistrer. Le payload vise `lot-b`, clôture les droits de B et ouvre pour B ceux de Charles à `1/1`. Ce n’est pas une commande rejetée pour mélange d’actifs : les lignes construites concernent toutes B. Aucun coffre réel d’utilisateur n’a été modifié pendant le probe.
+
+**Idée :** capturer lot et actif dans le brouillon, afficher leur identité dans le formulaire et invalider/fermer ce brouillon au changement de contexte. Vérifier que le backend reçoit toujours la cible annoncée à l’ouverture et que les droits de B restent inchangés. Le test temporaire est exécuté avec `node node_modules/vitest/vitest.mjs run --config /tmp/patrimoine-p6-ui-audit/vite.config.mts` ; il ne constitue pas encore un test de régression versionné.
+
+### MET-02 — Convertir les primes et décotes même sans cotation du métal
+
+**P2 · Montants de composantes faux, reproduits dans les services persistants.** [Devise de repli](../../crates/domain/src/metals.rs#L937), [taux EUR de repli](../../crates/domain/src/metals.rs#L987), [composantes EUR](../../crates/domain/src/metals.rs#L1058), [affichage](../../src/features/metals.tsx#L228).
+
+Sans intrinsèque calculable, le taux EUR est remplacé par 1. Stock de 2 unités, devise de coût USD, coût zéro, aucune cotation métal, prime 10 USD/unité et décote 5 USD/unité : le rapport expose prime 20 USD **et 20 EUR**, décote 10 USD **et 10 EUR**. Ajouter USD/EUR=0,5 ne corrige pas ces valeurs : elles devraient valoir 10 EUR et 5 EUR. Sans FX, ces faux EUR sont déjà présents sans avertissement de change. Les valeurs totales intrinsèque/revente restent inconnues : aucun net total erroné n’est établi par ce cas.
+
+**Idée :** convertir indépendamment chaque composante connue, conserver ses sources FX et rendre ses euros inconnus si le taux nécessaire manque. Couvrir prime monétaire, décote, prime proportionnelle dépendant de l’intrinsèque et zéros explicites.
+
+### MET-03 — Garder calculable un stock confirmé nul malgré une cotation étrangère
+
+**P2 · Défaut de complétude reproduit dans les services persistants.** [Devise du stock nul](../../crates/domain/src/metals.rs#L933), [transmission au bilan](../../crates/domain/src/finance.rs#L2181), [exigence de change](../../crates/domain/src/finance.rs#L933).
+
+Fixture persistante : banque 1 000 EUR, lot ouvert à quantité/coût zéro, inventaire complet, aucune cotation ni FX. Bilan complet, net 1 000 EUR. Ajouter uniquement un cours or 60 USD/g est accepté ; le rapport métal reste complet avec valeur 0 EUR, mais le bilan devient partiel, net inconnu, `missing_exchange_rate`, sous-total connu 1 000 EUR. L’ancien K conserve le résultat complet. La présence de la cotation fait transporter le zéro en USD jusqu’au bilan, qui exige alors inutilement un change.
+
+**Idée :** conserver une valeur exactement nulle sans exiger un taux, avec provenance du zéro et sans convertir une quantité inconnue en zéro. Couvrir stock nul avec/sans cotation étrangère, taux absent et propriété inconnue.
+
+### SOC-01 — Expliquer la règle de chevauchement indépendamment de la devise
+
+**P3 · Contradiction documentaire observée.** [Guide](../utilisateur/metaux-et-societes.md#L78), [règle](../../crates/domain/src/companies.rs#L335), [test](../../crates/domain/tests/companies_tests.rs#L350).
+
+Le guide limite l’interdiction aux périodes de même société, fréquence **et devise**. Le moteur interdit le chevauchement de même société/fréquence quelle que soit la devise, ce que le test exerce explicitement.
+
+**Idée :** distinguer cette unicité de la compatibilité de devise nécessaire pour calculer une tendance. Aucune correction du calcul n’est motivée par cette divergence.
+
+### SOC-02 — Conserver deux frontières de distribution dans les tests
+
+**P2 · Proposition de prévention, résultats actuels corrects.** [Compensation opaque](../../crates/domain/src/finance.rs#L2299), [cas de sortie déjà testé](../../crates/domain/tests/operations_integration.rs#L590).
+
+Probes du domaine : un dividende de 500 entre filiale détaillée et parent global, tous deux sous la même barrière opaque, conserve un bilan complet de 5 000 avec l’ancienne estimation ; leurs mouvements se compensent. Pour une société détaillée détenue à 50 %, banque société 1 000 et membre 100, un dividende de 500 au membre fait passer le net familial de 600 à 850, compte tenu de la part des associés extérieurs.
+
+**Idée :** fixer ces résultats dans des tests ciblés pour éviter qu’une simplification du traitement opaque ou une neutralisation de tout dividende ne casse les périmètres partiels. Ne pas présenter ces cas corrects comme des défauts.
+
+**Partie 6 terminée — métaux précieux et sociétés.** Cinq pistes supplémentaires, dont trois défauts reproduits ; aucune correction appliquée. Prochaine partie : documents, sauvegardes et portabilité.
