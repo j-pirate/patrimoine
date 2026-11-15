@@ -2,7 +2,7 @@
 
 Statut : conception de phase 1, non implémentée. Aucun DDL ni aucune migration n'est exécuté dans cette phase. Les noms ci-dessous constituent le catalogue de référence à traduire en migrations lors des phases suivantes.
 
-Mise à jour de lecture : ce catalogue reste le modèle cible complet. Le socle et le registre de phase 3 sont désormais implémentés par les migrations `0001`/`0002`, avec certains regroupements explicités dans [les décisions](decisions.md). Voir [l’avancement](avancement.md) pour distinguer les tables réellement livrées des modules futurs.
+Mise à jour de lecture : ce catalogue reste le modèle cible complet. Le socle et le registre de phase 3 sont désormais implémentés par les migrations `0001`/`0002`, avec certains regroupements explicités dans [les décisions](decisions-architecture.md). Voir [l’avancement](../projet/avancement.md) pour distinguer les tables réellement livrées des modules futurs.
 
 ## Conventions communes
 
@@ -17,7 +17,7 @@ Mise à jour de lecture : ce catalogue reste le modèle cible complet. Le socle 
 | `Bool` | `INTEGER`, `CHECK IN (0,1)`. |
 | `?` | Champ nullable ; tous les autres champs sont obligatoires. Une valeur inconnue demeure `NULL`, sans substitution par zéro. |
 
-Tables `STRICT`, SQLite avec clés étrangères activées à chaque connexion. Les montants, taux, ratios et quantités sont validés avant écriture et de nouveau lors des imports. Une somme n'est pas arrondie pour satisfaire une contrainte de propriété. La précision, les arrondis et les unités sont définis dans [les règles métier](03-regles-metier.md).
+Tables `STRICT`, SQLite avec clés étrangères activées à chaque connexion. Les montants, taux, ratios et quantités sont validés avant écriture et de nouveau lors des imports. Une somme n'est pas arrondie pour satisfaire une contrainte de propriété. La précision, les arrondis et les unités sont définis dans [les règles métier](regles-metier.md).
 
 Les valeurs monétaires portent une devise explicite, généralement au niveau de l'objet parent lorsque celle-ci est unique et immuable. Un montant sans devise n'est pas accepté. La devise d'un compte ayant des mouvements ne se modifie pas : créer un nouveau compte. Les droits sont des fractions `Ratio` entre `0` et `1`, distinctes des pourcentages affichés ; la notation compacte du catalogue désigne toujours deux colonnes SQL, jamais un type SQLite propriétaire. Les valeurs monétaires, cotations, poids et puretés restent des `Dec`.
 
@@ -191,7 +191,7 @@ Les périodes de gestion de fréquences différentes peuvent coexister mais ne s
 | `backup_runs` | `id Id PK`, `started_at Instant`, `completed_at Instant?`, `kind Code` (`sqlite_zip`, `csv_zip`, `xlsx`), `status Code`, `schema_version INTEGER`, `application_version TEXT`, `archive_sha256 TEXT?`, `record_count INTEGER?`, `failure_code TEXT?`. Journal local informatif, jamais source de vérité de l'intégrité d'une archive importée. |
 | `report_runs` | `id Id PK`, `created_at Instant`, `economic_date Date`, `knowledge_cutoff Instant`, `knowledge_sequence INTEGER`, `scope_object_id? FK objects`, `engine_version TEXT`, `policy_version TEXT`, `source_revision_digest TEXT`, `coverage_status Code`. Métadonnées de reproductibilité ; les caches de chiffres restent jetables. |
 
-Le schéma exporte également les blobs et leurs métadonnées : une FK vers un fichier absent est une erreur d'intégrité. Un blob utilisé par une révision historique reste référencé ; son effacement physique n'intervient pas tant que la politique de conservation le requiert. La purge définitive est hors V1 par défaut. Voir [documents et portabilité](04-documents-et-portabilite.md) pour l'atomicité du stockage et de la restauration.
+Le schéma exporte également les blobs et leurs métadonnées : une FK vers un fichier absent est une erreur d'intégrité. Un blob utilisé par une révision historique reste référencé ; son effacement physique n'intervient pas tant que la politique de conservation le requiert. La purge définitive est hors V1 par défaut. Voir [documents et portabilité](conception-documents-portabilite.md) pour l'atomicité du stockage et de la restauration.
 
 ## Graphe des relations principales
 

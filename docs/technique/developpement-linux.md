@@ -1,6 +1,6 @@
 # Développement et qualification Linux
 
-L’application desktop locale inclut les métiers des phases 2 à 7, le gestionnaire documentaire avec portabilité de phase 8 et les tableaux de bord de phase 9. La phase 10 ajoute la construction et la qualification de la livraison Linux, les mesures et les procédures d’installation/récupération. Les exports SQLite et CSV incluent les originaux et leurs historiques ; le XLSX sert à la consultation. Le bilan financier exige une couverture explicite et conserve les montants inconnus. Voir [l’avancement](avancement.md) et [la validation actuelle](22-validation-phase10.md) pour les résultats réellement vérifiés ; les rapports des phases 2 à 9 conservent leurs preuves historiques.
+L’application desktop locale inclut les métiers des phases 2 à 7, le gestionnaire documentaire avec portabilité de phase 8 et les tableaux de bord de phase 9. La phase 10 ajoute la construction et la qualification de la livraison Linux, les mesures et les procédures d’installation/récupération. Les exports SQLite et CSV incluent les originaux et leurs historiques ; le XLSX sert à la consultation. Le bilan financier exige une couverture explicite et conserve les montants inconnus. Voir [l’avancement](../projet/avancement.md) et [la validation actuelle](../historique/validation-phase-10.md) pour les résultats réellement vérifiés ; les rapports des phases 2 à 9 conservent leurs preuves historiques.
 
 ## Outils et dépendances
 
@@ -47,7 +47,7 @@ Pour construire le paquet AppImage en mode release, après les vérifications et
 bash scripts/build-linux.sh
 ```
 
-Le script ne publie aucun fichier. Les paquets et leurs métadonnées sont produits dans `target/release/bundle/appimage/`, avec `SHA256SUMS` et `build-manifest.json`. Les notices tierces sont intégrées aux ressources du paquet. Un exécutable de développement reste distinct de cette livraison. Le [guide Linux](23-installation-et-recuperation-linux.md) décrit installation, mise à jour et récupération ; le [rapport](22-validation-phase10.md) conserve les essais du paquet et leurs limites.
+Le script ne publie aucun fichier. Les paquets et leurs métadonnées sont produits dans `target/release/bundle/appimage/`, avec `SHA256SUMS` et `build-manifest.json`. Les notices tierces sont intégrées aux ressources du paquet. Un exécutable de développement reste distinct de cette livraison. Le [guide Linux](../utilisateur/installation-linux.md) décrit installation, mise à jour et récupération ; le [rapport](../historique/validation-phase-10.md) conserve les essais du paquet et leurs limites.
 
 ## Vérifier
 
@@ -80,7 +80,7 @@ python3 scripts/qualify-performance.py --output .local/performance-pilot --profi
 
 Le profil `full` prépare 100 personnes, 100 sociétés en DAG, 10 000 actifs, 100 000 opérations de journal et 10 000 originaux distincts. Le dossier de sortie doit être neuf ; `--reuse` reprend uniquement une fixture du même profil. Les insertions de préparation suivent le schéma livré et sont ensuite soumises à une véritable ouverture validante du coffre. Deux changements portent la fixture : elle mesure un volume, pas 100 000 commits successifs. Le rapport conserve séparément validation d’ouverture, temps des opérations, mémoire échantillonnée, matériel et interruptions. Il ne constitue pas une mesure de latence du DOM ni une garantie de réponse inférieure à deux secondes.
 
-L’[audit d’accessibilité natif](../scripts/audit-desktop-accessibility.py) utilise axe-core épinglé, le pilote WebKit et `tauri-driver` dans une session graphique de test. Il reçoit un binaire, une sauvegarde synthétique et le chemin du moteur axe local :
+L’[audit d’accessibilité natif](../../scripts/audit-desktop-accessibility.py) utilise axe-core épinglé, le pilote WebKit et `tauri-driver` dans une session graphique de test. Il reçoit un binaire, une sauvegarde synthétique et le chemin du moteur axe local :
 
 ```bash
 python3 scripts/audit-desktop-accessibility.py /chemin/absolu/patrimoine \
@@ -91,7 +91,7 @@ python3 scripts/audit-desktop-accessibility.py /chemin/absolu/patrimoine \
 
 Le test vérifie la sauvegarde puis ouvre sa copie privée, parcourt les écrans et formulaires prévus et contrôle des interactions clavier. Les règles automatiques incomplètes demandent une lecture explicite ; leur absence de violation ne suffit pas à une certification générale d’accessibilité. Le rapport actuel précise aussi la campagne à largeur 900 px.
 
-Le [comparateur d’avis JavaScript](../scripts/audit-js-offline.mjs) lit le lockfile et un clone Git local de la base publique GitHub Advisory Database, avec la version SemVer épinglée dans les dépendances de développement :
+Le [comparateur d’avis JavaScript](../../scripts/audit-js-offline.mjs) lit le lockfile et un clone Git local de la base publique GitHub Advisory Database, avec la version SemVer épinglée dans les dépendances de développement :
 
 ```bash
 mkdir -p .local
@@ -100,9 +100,9 @@ node scripts/audit-js-offline.mjs \
   --output .local/avis-javascript.json
 ```
 
-Le comparateur ne contient pas de client réseau. Le commit de la base, l’empreinte du lockfile, les correspondances et les plages non résolues sont enregistrés. Les avis Rust et bibliothèques natives ont leur propre revue ; la méthode et les limites sont exposées dans la [revue de sécurité](24-revue-securite.md).
+Le comparateur ne contient pas de client réseau. Le commit de la base, l’empreinte du lockfile, les correspondances et les plages non résolues sont enregistrés. Les avis Rust et bibliothèques natives ont leur propre revue ; la méthode et les limites sont exposées dans la [revue de sécurité](revue-securite.md).
 
-Le [collecteur de notices](../scripts/collect-third-party-licences.py) lit les dépendances résolues et, avec `--appdir`, les composants du paquet préparé. Son inventaire et ses limites figurent dans les [licences tierces](licences-tierces.md). Régénérer les notices après une modification des dépendances, puis reconstruire le paquet qui les embarque.
+Le [collecteur de notices](../../scripts/collect-third-party-licences.py) lit les dépendances résolues et, avec `--appdir`, les composants du paquet préparé. Son inventaire et ses limites figurent dans les [licences tierces](licences-tierces.md). Régénérer les notices après une modification des dépendances, puis reconstruire le paquet qui les embarque.
 
 ## Données et récupération
 
@@ -118,13 +118,13 @@ Cette variable est une option de développement/portabilité ; ne pas utiliser `
 
 La section « Sauvegarde et export » produit un ZIP contenant un snapshot SQLite autonome, les originaux et un manifeste SHA-256. L’analyse de restauration ne remplace rien. L’activation exige une confirmation et conserve la génération précédente ; une sauvegarde exportée de l’état actuel est proposée par défaut. Une archive de version future, incohérente ou altérée doit être rejetée.
 
-Pour une récupération indépendante, décompresser une archive de confiance dans un dossier neuf, ouvrir `data/patrimoine.sqlite3` avec un outil SQLite standard et lire les originaux de `documents/`. Les noms d’origine sont conservés dans les métadonnées. Ne pas copier seulement le fichier principal d’une base ouverte en mode WAL. Les détails de format et de sûreté figurent dans [la conception de portabilité](04-documents-et-portabilite.md).
+Pour une récupération indépendante, décompresser une archive de confiance dans un dossier neuf, ouvrir `data/patrimoine.sqlite3` avec un outil SQLite standard et lire les originaux de `documents/`. Les noms d’origine sont conservés dans les métadonnées. Ne pas copier seulement le fichier principal d’une base ouverte en mode WAL. Les détails de format et de sûreté figurent dans [la conception de portabilité](conception-documents-portabilite.md).
 
 Le socle n’introduit aucun chiffrement applicatif ni télémétrie. Les archives contiennent les données en clair : utiliser un support protégé et les protections du système Linux. Le gestionnaire documentaire conserve les versions et associations ; les exports CSV/XLSX et la reconstruction CSV sont disponibles. Une suppression documentaire est un retrait logique, sans purge implicite des originaux historiques.
 
 ## Registre, finances et schéma 6
 
-Les guides [tableaux de bord](21-tableaux-de-bord.md), [famille et propriété](09-famille-et-propriete.md), [devises/historique](11-devises-et-historique.md), [immobilier/loyers](13-immobilier-et-loyers.md), [comptes/financements](15-comptes-et-financements.md), [métaux/sociétés](17-metaux-et-societes.md) et [documents/portabilité](19-documents-et-portabilite.md) décrivent les écrans utilisables. La migration `0006_metals_companies.sql` complète les cinq scripts précédents, conservés à l’identique. L’ouverture d’un ancien coffre et la préparation d’une ancienne sauvegarde des schémas 1 à 5 migrent une copie séparée vers le schéma 6 et gardent la génération source. Les phases 8 à 10 conservent ce schéma 6 et les six scripts inchangés. Le premier format CSV prend en charge ce schéma 6. Les campagnes détaillées dans les rapports de validation exercent également les anciennes bases et les données WAL.
+Les guides [tableaux de bord](../utilisateur/tableaux-de-bord.md), [famille et propriété](../utilisateur/famille-et-propriete.md), [devises/historique](../utilisateur/devises-et-historique.md), [immobilier/loyers](../utilisateur/immobilier-et-loyers.md), [comptes/financements](../utilisateur/comptes-et-financements.md), [métaux/sociétés](../utilisateur/metaux-et-societes.md) et [documents/portabilité](../utilisateur/documents-et-portabilite.md) décrivent les écrans utilisables. La migration `0006_metals_companies.sql` complète les cinq scripts précédents, conservés à l’identique. L’ouverture d’un ancien coffre et la préparation d’une ancienne sauvegarde des schémas 1 à 5 migrent une copie séparée vers le schéma 6 et gardent la génération source. Les phases 8 à 10 conservent ce schéma 6 et les six scripts inchangés. Le premier format CSV prend en charge ce schéma 6. Les campagnes détaillées dans les rapports de validation exercent également les anciennes bases et les données WAL.
 
 Le contrôle d’attribution reprend les valeurs dérivées des métaux en remplacement de leur estimation générique. Le pont de variation garde son périmètre historique du registre et signale cette exclusion ; il ne prétend pas décomposer la performance des nouveaux stocks. Le panneau distinct « Bilan du périmètre » utilise `get_financial_report` pour intégrer métaux, trésorerie, créances, passifs et éliminations. Les valeurs d’origine, taux et fractions exactes transitent sous forme de chaînes. `convert_currency` et `explain_variation` utilisent un snapshot unique borné par K ; les profils datés ne modifient pas les droits. Les anciens points d’entrée `consolidate` et `consolidate_with_loans` restent distincts de ce bilan complet intermodules. Une valeur absente et un sous-total connu ne doivent pas être présentés comme un net complet ; une table vide n’affirme aucune couverture.
 

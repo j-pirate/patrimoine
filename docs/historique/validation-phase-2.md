@@ -1,6 +1,6 @@
 # Validation du socle — phase 2
 
-Périmètre : socle local Linux, paramètres, base SQLite versionnée, documents minimaux et premier cycle de sauvegarde/restauration. Les règles financières, le graphe familial et les exports CSV/XLSX complets relèvent des phases ultérieures. Les critères ci-dessous traduisent [la stratégie de récupération](04-documents-et-portabilite.md) pour ce premier schéma.
+Périmètre : socle local Linux, paramètres, base SQLite versionnée, documents minimaux et premier cycle de sauvegarde/restauration. Les règles financières, le graphe familial et les exports CSV/XLSX complets relèvent des phases ultérieures. Les critères ci-dessous traduisent [la stratégie de récupération](../technique/conception-documents-portabilite.md) pour ce premier schéma.
 
 ## Critères d'acceptation
 
