@@ -1,6 +1,6 @@
 # Tableaux de bord et rapports — utilisation de la phase 9
 
-Guide du **12 novembre 2026, Europe/Paris**. Les [preuves de validation](20-validation-phase9.md) distinguent les calculs exacts, les lectures historiques, l’interface et le parcours Linux. Les graphiques présentent les données enregistrées dans le coffre, sans jeu de démonstration ajouté à l’espace utilisateur.
+Guide du **12 novembre 2026, Europe/Paris**. Les [preuves de validation](../historique/validation-phase-9.md) distinguent les calculs exacts, les lectures historiques, l’interface et le parcours Linux. Les graphiques présentent les données enregistrées dans le coffre, sans jeu de démonstration ajouté à l’espace utilisateur.
 
 ## Choisir le contexte et calculer
 
@@ -72,4 +72,4 @@ Après le calcul, choisir **Exporter le rapport filtré**, puis son emplacement 
 
 Ce fichier sert à consulter ou traiter le rapport sélectionné. Il ne contient pas une base restaurable ni tous les originaux documentaires, et l’application ne l’utilise pas pour activer un coffre. Pour récupérer les données, utiliser les sauvegardes SQLite ou les archives CSV intégrales avec leurs pièces dans **Sauvegarde et export**. Le XLSX de cette section reste lui aussi intégral, indépendamment des filtres de consultation.
 
-Les lectures du tableau de bord et l’export du rapport ne créent aucune révision financière ni nouvel événement de réimportation. Le schéma reste en version 6. La qualification des volumes, performances et paquets de livraison Linux relève de la phase 10 ; les [résultats de cette version](20-validation-phase9.md) précisent les contrôles effectivement réalisés.
+Les lectures du tableau de bord et l’export du rapport ne créent aucune révision financière ni nouvel événement de réimportation. Le schéma reste en version 6. La qualification des volumes, performances et paquets de livraison Linux relève de la phase 10 ; les [résultats de cette version](../historique/validation-phase-9.md) précisent les contrôles effectivement réalisés.

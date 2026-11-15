@@ -1,6 +1,6 @@
 # Règles métier et moteur de consolidation — proposition V1
 
-Statut : conception de phase 1, sans implémentation ni validation automatisée. Les nombres ci-dessous sont des cas de test synthétiques, jamais des données utilisateur. Le modèle relationnel associé est décrit dans [02-modele-relationnel.md](02-modele-relationnel.md).
+Statut : conception de phase 1, sans implémentation ni validation automatisée. Les nombres ci-dessous sont des cas de test synthétiques, jamais des données utilisateur. Le modèle relationnel associé est décrit dans [02-modele-relationnel.md](modele-relationnel.md).
 
 ## 1. Contrat du moteur
 

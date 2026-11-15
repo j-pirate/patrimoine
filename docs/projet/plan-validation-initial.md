@@ -147,7 +147,7 @@ Chaque tâche doit produire un changement relisible, ses migrations éventuelles
 
 ### Migrations à préparer progressivement
 
-Le [plan de migrations du modèle relationnel](02-modele-relationnel.md#plan-de-migrations-et-reprise) est la référence unique pour la numérotation prévisionnelle. Le catalogue cible ne demande pas de créer prématurément toutes les tables. Le socle historique commun existe dès la première table métier. Une dépendance FK nécessaire est créée dans la même migration ou avant ; les tables de paiement de P5 acceptent un lien de trésorerie facultatif jusqu’au module P6, jamais une fausse écriture bancaire.
+Le [plan de migrations du modèle relationnel](../technique/modele-relationnel.md#plan-de-migrations-et-reprise) est la référence unique pour la numérotation prévisionnelle. Le catalogue cible ne demande pas de créer prématurément toutes les tables. Le socle historique commun existe dès la première table métier. Une dépendance FK nécessaire est créée dans la même migration ou avant ; les tables de paiement de P5 acceptent un lien de trésorerie facultatif jusqu’au module P6, jamais une fausse écriture bancaire.
 
 ## 5. Questions réellement bloquantes
 
