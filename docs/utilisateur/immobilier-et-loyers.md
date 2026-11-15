@@ -1,8 +1,8 @@
 # Immobilier et loyers — utilisation de la phase 5
 
-Ce guide décrit le périmètre livré en phase 5. La phase 6 ajoute le [rapprochement bancaire, les financements, dépôts et créanciers explicites](15-comptes-et-financements.md), ainsi que leur bilan financier. Les limites indiquées ci-dessous comme « phase 6 » correspondent à cet état antérieur.
+Ce guide décrit le périmètre livré en phase 5. La phase 6 ajoute le [rapprochement bancaire, les financements, dépôts et créanciers explicites](comptes-et-financements.md), ainsi que leur bilan financier. Les limites indiquées ci-dessous comme « phase 6 » correspondent à cet état antérieur.
 
-Ce module complète le registre commun. La valeur du bien reste celle de l’actif déjà créé dans **Patrimoine**. Les unités locatives, contrats et échéances ne créent pas de deuxième valeur immobilière. Les droits, estimations et taux continuent à utiliser la date économique D et les connaissances K décrites dans [le guide historique](11-devises-et-historique.md).
+Ce module complète le registre commun. La valeur du bien reste celle de l’actif déjà créé dans **Patrimoine**. Les unités locatives, contrats et échéances ne créent pas de deuxième valeur immobilière. Les droits, estimations et taux continuent à utiliser la date économique D et les connaissances K décrites dans [le guide historique](devises-et-historique.md).
 
 ## Décrire le bien et ses unités
 
@@ -81,4 +81,4 @@ Les impayés du rapport sont répartis proportionnellement aux droits historique
 
 Choisir une ancienne séquence K rend les formulaires immobiliers et locatifs non modifiables. Fiches, droits, conditions, échéances, paiements et corrections utilisent les connaissances de cette séquence, sans reprendre de source saisie ensuite. Paramètres, documents et sauvegardes concernent toujours le coffre actuel.
 
-La migration `0004` s’effectue sur une copie contrôlée et conserve la génération source. Les anciennes archives restent intactes ; la sauvegarde courante inclut les nouvelles tables, toutes leurs révisions et les clés d’échéance. Les commandes exécutées et leurs résultats figurent dans [la validation de phase 5](12-validation-phase5.md).
+La migration `0004` s’effectue sur une copie contrôlée et conserve la génération source. Les anciennes archives restent intactes ; la sauvegarde courante inclut les nouvelles tables, toutes leurs révisions et les clés d’échéance. Les commandes exécutées et leurs résultats figurent dans [la validation de phase 5](../historique/validation-phase-5.md).
