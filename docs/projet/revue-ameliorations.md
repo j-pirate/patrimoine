@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 4 — Immobilier et loyers.**
-- **Partie suivante : 5 — Trésorerie, financements et bilan financier.**
+- **Dernière partie terminée : 5 — Trésorerie, financements et bilan financier.**
+- **Partie suivante : 6 — Métaux précieux et sociétés.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -19,7 +19,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 2 | Architecture applicative, contrats et primitives de calcul | Terminée |
 | 3 | Registre, propriété, consolidation, devises et historique | Terminée |
 | 4 | Immobilier et loyers | Terminée |
-| 5 | Trésorerie, financements et bilan financier | À examiner |
+| 5 | Trésorerie, financements et bilan financier | Terminée |
 | 6 | Métaux précieux et sociétés | À examiner |
 | 7 | Documents, sauvegardes et portabilité | À examiner |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | À examiner |
@@ -45,11 +45,11 @@ Contrôle effectué : **220 liens locaux examinés**, aucune destination manquan
 
 ### DOC-01 — Clarifier le net familial lorsqu’une créance interne est dépréciée
 
-**P1 · Point à vérifier, pas un bug du moteur établi.** [Règles initiales](../technique/regles-metier.md#L71), [éliminations](../technique/regles-metier.md#L148), [décision de financement](../technique/decisions-architecture.md#L90).
+**P2 · Ambiguïté documentaire ; piste de bug du moteur écartée en partie 5.** [Règles initiales](../technique/regles-metier.md#L71), [éliminations](../technique/regles-metier.md#L148), [décision de financement](../technique/decisions-architecture.md#L90).
 
 Les règles initiales annoncent un net familial égal à la somme des nets individuels et une élimination identique sur les deux faces. La décision ultérieure retient un appariement nominal et une réduction de la créance proportionnelle à sa valeur comptable. Pour un prêt familial nominal de 100 000 EUR déprécié à 80 000 EUR, les deux conventions ne donnent pas nécessairement le même résultat consolidé.
 
-**Idée :** ajouter cet exemple chiffré à la décision, indiquer explicitement les réductions de chaque face et les conditions de l’égalité des nets. Vérifier la cohérence du contrat courant et des tests pendant la partie 5 ; ne pas transformer une règle historique en assertion générale sans préciser ses exceptions.
+**Idée :** ajouter cet exemple chiffré à la décision, indiquer explicitement les réductions de chaque face et les conditions de l’égalité des nets. Contrôle de partie 5 : `finance.rs:998–1005` apparie le nominal, calcule la valeur comptable commune puis retranche **la même somme des deux côtés**. Pour 100 000 de nominal et 80 000 de créance : élimination 80 000 sur chaque face, créance résiduelle 0, dette résiduelle 20 000, net familial −20 000, égal à la somme des nets individuels. Le test `creditor_impairment_leaves_an_unmatched_debtor_residual` conserve ce reliquat. Préciser ce mécanisme dans la décision ; aucun défaut du moteur n’est établi.
 
 ### DOC-02 — Harmoniser les explications sur les documents à une ancienne connaissance K
 
@@ -278,3 +278,49 @@ Un snapshot artificiel du domaine peut représenter des conditions successives d
 **Idée :** ajouter un cas de correction refusée avec échéance EUR existante, puis vérifier que snapshot, historique et K sont inchangés. Documenter le niveau auquel cet invariant historique est garanti plutôt que conclure à tort qu’un cas artificiel est un défaut de commande.
 
 **Partie 4 terminée — immobilier et loyers.** Six pistes supplémentaires consignées, dont un défaut de complétude reproduit ; aucune correction appliquée. Prochaine partie : trésorerie, financements et bilan financier.
+
+## Partie 5 — Trésorerie, financements et bilan financier
+
+Périmètre : domaines `treasury.rs`, `debts.rs`, `finance.rs`, `financial_adapters.rs`, leurs stores, migration 0005, contrats et interfaces trésorerie/postings/dettes/bilan, suites associées. Le contrat historique `LoanPosition` est aussi vérifié : aucun appel de production avec prêts non vides n’est trouvé ; ne pas le confondre avec le bilan actuel.
+
+Contrôles exécutés : **92 tests existants distincts réussis**, sans échec ni ignoré : 39 dans `treasury_tests`/`debt_tests`, 26 dans `financial_tests`/`financial_adapter_tests`, 24 dans `treasury_store`/`debts_store` et 3 dans `finance::history_root_tests`. Commandes `cargo test -p patrimoine-domain --offline --test treasury_tests --test debt_tests`, `cargo test -p patrimoine-domain --offline --test financial_tests --test financial_adapter_tests`, `cargo test -p patrimoine-infrastructure --offline --test treasury_store --test debts_store` et `cargo test -p patrimoine-infrastructure --lib --offline finance::history_root_tests`. Les suites UI sont lues, pas relancées. Un probe temporaire hors dépôt appelle les services persistants pour FIN-01.
+
+À préserver : ouvertures inconnues distinctes de zéro, principal/intérêts/frais séparés, contrôles des capacités et dates historiques, écritures coordonnées atomiques, refus de révisions obsolètes et déclarations de couverture distinctes des sources manquantes. DOC-01 est résolu ci-dessus comme ambiguïté documentaire. La cession immobilière explicite conserve un traitement distinct des droits simplement clos dans le registre ; aucun défaut du bilan n’est conclu à partir du seul avertissement du registre.
+
+### FIN-01 — Vérifier les parties d’un financement représentant une créance locative
+
+**P1 · Défaut confirmé via les services persistants.** [Validation du lien](../../crates/domain/src/finance.rs#L468), [substitution dans le bilan](../../crates/domain/src/finance.rs#L1271), [sauvegarde persistante](../../crates/infrastructure/src/finance.rs#L312).
+
+Le lien `represented_by_debt_id` vérifie l’existence et la devise du contrat ; le bilan rapproche son principal du reliquat à la date de transfert. Il ne vérifie pas que le débiteur est le locataire ni que les créanciers et leurs droits correspondent à la créance remplacée.
+
+Cas reproduit, personne A, D=2025-03-31 : immeuble 200 000 EUR, créance locative de A sur le locataire 1 000 EUR, banque zéro, et **prêt déjà présent en sens inverse**, dû par A au locataire, de 1 000 EUR. À K=19 : actifs 201 000, passifs 1 000, net 200 000, statut complet. La seule correction ajoutant ce prêt comme représentation de la créance est acceptée à K=20 : actifs 200 000, passifs 1 000, net 199 000, toujours complet, sans `rent_loan_representation_mismatch`. Une dette sans rapport peut ainsi masquer une créance réelle.
+
+**Idée :** contrôler identité du débiteur, créanciers, fractions et continuité temporelle à la date de transfert, puis la cohérence du suivi ultérieur. Refuser un lien incohérent avant commit et conserver ancien K/compteurs ; si une ancienne donnée incohérente est lue, rendre son impact explicite sans présenter le net comme complet. Ajouter les cas parties inversées, autre locataire et créanciers partagés. Le comportement des encaissements postérieurs reste un scénario de régression à définir, pas un deuxième défaut prouvé ici.
+
+### FIN-02 — Afficher l’annulation des prévisions d’échéance
+
+**P2 · Défaut de rendu établi par lecture du chemin de code.** [Rendu](../../src/features/debts.tsx#L190), [montants et statut du domaine](../../crates/domain/src/debts.rs#L966), [retard réservé aux prévisions actives](../../crates/domain/src/debts.rs#L993).
+
+L’écran ignore `schedule.status`. Une échéance `cancelled`, non nulle et sans affectation conserve ses montants historiques mais s’affiche « Non soldée » avec un principal « restant prévu ». Le formulaire permet bien de l’annuler. Aucun encours contractuel faux n’est établi ; l’erreur concerne l’interprétation de la prévision.
+
+**Idée :** afficher « Prévision annulée », distinguer ses montants historiques de sommes encore à régler et couvrir le rendu des deux statuts. Les fixtures de l’écran consultées ont des échéanciers vides.
+
+### FIN-03 — Harmoniser la promesse d’archivage et les nouvelles saisies
+
+**P3 · Incohérence de parcours observée.** [Message d’archivage](../../src/features/debts.tsx#L148), [options des formulaires](../../src/features/debts.tsx#L161), [posting](../../src/features/treasury-postings.tsx#L104).
+
+Le message promet de masquer le contrat archivé des nouvelles saisies, mais les listes proposent tous les contrats sans filtrer `archived`.
+
+**Idée :** choisir une convention cohérente pour les nouvelles opérations, tout en gardant les contrats archivés accessibles pour consulter et corriger leur historique. Étendre également IMMO-04 aux baux successifs proposés par les postings, sans créer un constat distinct.
+
+### FIN-04 — Ordonner chronologiquement les relevés et changes exécutés
+
+**P3 · Amélioration de présentation.** [Collections du rapport](../../crates/domain/src/treasury.rs#L974), [changes](../../crates/domain/src/treasury.rs#L1022), [lecture par identifiant](../../crates/infrastructure/src/registry.rs#L86), [rendu](../../src/features/treasury.tsx#L150).
+
+Les collections gardent l’ordre du snapshot, chargé par identifiant, puis sont affichées directement. Des dates peuvent donc être dispersées selon les UUID.
+
+**Idée :** trier par date puis identifiant de façon déterministe, comme l’échéancier de dette. Aucun montant incorrect n’est établi.
+
+Compléments aux pistes existantes : REG-03 touche aussi les sauvegardes ordinaires des trois stores et les écrans financiers ; les postings coordonnés relisent au contraire leur objet avant commit. IMMO-02 concerne aussi l’enfant de TreasuryPage. REG-02/04 sont renforcés par `infrastructure/src/finance.rs:126–150,216–240` : chargements et validations emboîtés répètent les mêmes invariants et le rejeu des K. Proposer une orchestration unique par snapshot, sans supprimer de contrôle historique ; aucune latence propre n’a été mesurée. Le refus de corriger isolément une transaction partagée entre sources protège l’intégrité : un éventuel parcours collectif serait une amélioration, pas un contournement à introduire.
+
+**Partie 5 terminée — trésorerie, financements et bilan financier.** Quatre pistes supplémentaires, dont un défaut de substitution financière reproduit ; aucune correction appliquée. Prochaine partie : métaux précieux et sociétés.
