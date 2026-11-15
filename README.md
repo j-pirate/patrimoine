@@ -1,3 +1,12 @@
+## Licence
+
+Copyright (C) 2026 [j-pirate]
+
+Ce projet est distribué sous licence
+GNU General Public License version 3.0.
+
+Voir le fichier LICENSE pour les conditions complètes.
+
 # Patrimoine
 
 Application **Linux locale de gestion patrimoniale familiale**, en français. Elle permet de suivre plusieurs membres d'une famille, leurs actifs, leurs biens immobiliers, leurs comptes et leurs participations dans des sociétés.
