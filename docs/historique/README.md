@@ -2,6 +2,8 @@
 
 Rapports conservés pour la traçabilité des phases passées. Ils ne remplacent pas les vérifications les plus récentes.
 
+**Disponibilité des preuves :** plusieurs rapports anciens contiennent des liens vers des fichiers `.local/` produits dans les environnements de qualification. Ces fichiers ne sont pas suivis par Git et leurs liens ne fonctionneront pas sur GitHub. Les archives de distribution et les rapports versionnés restent disponibles dans le dépôt ; ne pas confondre un lien local absent avec une preuve publiée.
+
 - [Rapport de validation de la phase 2](validation-phase-2.md)
 - [Rapport de validation de la phase 3](validation-phase-3.md)
 - [Rapport de validation de la phase 4](validation-phase-4.md)
