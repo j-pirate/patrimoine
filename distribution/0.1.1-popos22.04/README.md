@@ -50,7 +50,7 @@ Cette reconstruction utilise les bibliothèques d’Ubuntu 22.04. Il n’est pas
 - Les **733 fichiers** de notices embarqués sont vérifiés par empreinte, pour **468 composants**, dont 113 paquets Ubuntu. Aucun texte manquant ni bibliothèque partagée non identifiée dans ce périmètre.
 - Le code applicatif, les dépendances verrouillées et les migrations sont inchangés ; seules les adaptations de construction et les notices de la copie isolée diffèrent.
 
-Les essais sont réalisés sur la base **Ubuntu 22.04 avec Xvfb**. Ils vérifient la compatibilité système correspondant à Pop!_OS 22.04, sans reproduire la session graphique ni le pilote GPU du poste de l’utilisateur. Les limites de grand volume et les deux avertissements amont du [rapport antérieur](../../docs/22-validation-phase10.md) restent applicables.
+Les essais sont réalisés sur la base **Ubuntu 22.04 avec Xvfb**. Ils vérifient la compatibilité système correspondant à Pop!_OS 22.04, sans reproduire la session graphique ni le pilote GPU du poste de l’utilisateur. Les limites de grand volume et les deux avertissements amont du [rapport antérieur](../../docs/historique/validation-phase-10.md) restent applicables.
 
 ## Empreintes et preuves
 
@@ -73,7 +73,7 @@ sha256sum Patrimoine_0.1.1_popos22.04_amd64.AppImage
 - [Identité des sources](preuves/source-identity.json) et [contrôle des notices extraites](preuves/extraction-check.json)
 - [Notices Ubuntu et licences tierces](notices-ubuntu22.04.zip)
 
-Le [guide de récupération](../../docs/23-installation-et-recuperation-linux.md) et le [kit autonome](../0.1.1/Patrimoine_0.1.1_recuperation.zip) restent utilisables pour le schéma 6. Les notices ne changent pas la licence du code propre à l’application ; leurs textes et les limites de redistribution restent à consulter.
+Le [guide de récupération](../../docs/utilisateur/installation-linux.md) et le [kit autonome](../0.1.1/Patrimoine_0.1.1_recuperation.zip) restent utilisables pour le schéma 6. Les notices ne changent pas la licence du code propre à l’application ; leurs textes et les limites de redistribution restent à consulter.
 
 ## Construction archivée
 
