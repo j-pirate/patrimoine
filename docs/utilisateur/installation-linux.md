@@ -125,7 +125,7 @@ Pour retrouver un original, joindre `document_versions.blob_sha256` à `document
 
 ## Reconstruire le CSV sans binaire applicatif
 
-Le [kit autonome](../../.local/releases/0.1.1/Patrimoine_0.1.1_recuperation.zip) contient le lecteur et ses six migrations, sans nécessiter le binaire ou un accès réseau. Le dépôt fournit également [recover-csv.py](../../scripts/recover-csv.py), utilisable avec Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. Aucun paquet Python externe n’est nécessaire. Depuis une copie du dépôt correspondant au format de l’archive :
+Le [kit autonome](../../distribution/0.1.1/Patrimoine_0.1.1_recuperation.zip) contient le lecteur et ses six migrations, sans nécessiter le binaire ou un accès réseau. Le dépôt fournit également [recover-csv.py](../../scripts/recover-csv.py), utilisable avec Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. Aucun paquet Python externe n’est nécessaire. Depuis une copie du dépôt correspondant au format de l’archive :
 
 ```bash
 mkdir recuperation
