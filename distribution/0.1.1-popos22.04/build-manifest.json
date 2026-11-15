@@ -22,11 +22,6 @@
       "file": "Patrimoine_0.1.1_popos22.04_amd64.AppImage",
       "bytes": 84875768,
       "sha256": "53ec6527842cbfeac228489af081f1602e5f2c6deb98f7d11980924beaa45e2b"
-    },
-    {
-      "file": "Patrimoine_0.1.1_popos22.04_amd64.deb",
-      "bytes": 7503530,
-      "sha256": "68555ec755f1d13781decbfe51894d991795f9eb008a38e6b380d4970e6b7a6a"
     }
   ],
   "native_packages": [
@@ -559,5 +554,13 @@
   "notes": "Packaging-only isolated-copy adaptations; no changes to application calculations or schema.",
   "source_commit": "b0027e3052d478b913edb5c22303922814961a00",
   "target_distribution": "Pop!_OS 22.04 / Ubuntu 22.04 x86_64",
-  "ubuntu_base_digest": "sha256:74b12b11ffa550fba1929ad4d8d16533c34f6612728469671afba1b03b66881c"
+  "ubuntu_base_digest": "sha256:74b12b11ffa550fba1929ad4d8d16533c34f6612728469671afba1b03b66881c",
+  "distribution_selection": {
+    "date": "2026-11-15",
+    "formats": [
+      "AppImage"
+    ],
+    "reason": "Retrait du paquet deb à la demande de l’utilisateur ; binaire AppImage inchangé.",
+    "historical_build_manifest": "preuves/build-manifest-2026-11-14.json"
+  }
 }

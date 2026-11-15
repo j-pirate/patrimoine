@@ -29,16 +29,15 @@ print('Ubuntu native notices verified:',len(d['packages']),'components')
 PY
 
 bash scripts/build-linux.sh
-npm run tauri -- bundle --ci --bundles deb --config .local/build/appimage-runtime.json
 python3 - <<'PY'
 from pathlib import Path
 import hashlib,json,platform,subprocess
 base=Path('target/release/bundle')
 artifacts=[]
 for p in sorted(base.glob('*/*')):
-    if p.is_file() and p.suffix in ('.AppImage','.deb'):
+    if p.is_file() and p.suffix == '.AppImage':
         artifacts.append({'file':str(p),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
-assert len(artifacts)==2,artifacts
+assert len(artifacts)==1,artifacts
 native=subprocess.check_output(['dpkg-query','-W','-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n'],text=True)
 manifest={'build_os':platform.freedesktop_os_release(),'glibc':platform.libc_ver(),'artifacts':artifacts,'native_packages':native.splitlines(),'application_sources_unchanged':True,'notes':'Packaging-only isolated-copy adaptations; no changes to application calculations or schema.'}
 Path('.local/pop-os22-build-result.json').write_text(json.dumps(manifest,indent=2)+'\n')

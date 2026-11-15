@@ -2,7 +2,7 @@
 
 Revue commencée le **14 novembre 2026, Europe/Paris**, à la demande de l’utilisateur. Référence de lecture : commit `af8c88c319245454ec25c1966f0715198185f952`.
 
-Ce fichier contient des observations et des propositions. Il ne met en œuvre aucune correction. Seul ce document est ajouté ou mis à jour pendant la revue ; les sources, tests, migrations, dépendances et documents existants sont conservés.
+Ce fichier contient des observations et des propositions. Il ne met en œuvre aucune correction. Les correctifs issus de la revue restent différés jusqu’à son achèvement. Exception explicitement demandée le 15 novembre : retrait du paquet `.deb`, de ses liens et de sa génération, en conservant l’AppImage et les archives de validation. La reconstruction compatible Pop!_OS du 14 novembre est intervenue entre les parties 4 et 5, sans changement des calculs, dépendances verrouillées ou migrations. Les correctifs personnels annoncés par l’utilisateur seront intégrés à réception du fichier texte.
 
 ## Point de reprise
 
