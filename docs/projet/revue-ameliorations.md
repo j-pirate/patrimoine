@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 9 — SQLite, migrations, fichiers et interface native Tauri.**
-- **Partie en cours : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
+- **Dernière partie terminée : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
+- **Revue des dix parties achevée le 16 novembre 2026, Europe/Paris. Prochaine phase : préparer les corrections en intégrant le fichier personnel annoncé ; aucun correctif de revue appliqué.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -24,7 +24,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 7 | Documents, sauvegardes et portabilité | Terminée |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | Terminée |
 | 9 | SQLite, migrations, fichiers et interface native Tauri | Terminée |
-| 10 | Tests transversaux, outils, CI, dépendances et maintenance | En cours |
+| 10 | Tests transversaux, outils, CI, dépendances et maintenance | Terminée |
 
 ## Lecture des observations
 
@@ -63,9 +63,9 @@ Les trois premiers textes annoncent que les documents concernent toujours le cof
 
 **P2 · Limitation de navigation observée.** [Guide Linux, lien du kit](../utilisateur/installation-linux.md#L126), [rapport courant](../historique/validation-phase-10.md#L7), [explication du README](../../README.md#L15), [téléchargements versionnés](../../distribution/README.md#L45).
 
-Les 77 renvois vers `.local/` ou `/workspace/.tooling/` fonctionnent dans le cloud mais pas dans un clone ordinaire. Le kit possède déjà une destination versionnée sous `distribution/0.1.1/`. Le ZIP documentaire fournit aussi des copies adaptées des preuves : ce constat ne signifie pas que les preuves finales sont perdues.
+Les 77 renvois vers `.local/` ou `/workspace/.tooling/` fonctionnent dans le cloud mais pas dans un clone ordinaire. Le kit possède déjà une destination versionnée sous `distribution/0.1.1/`. Le ZIP documentaire fournit aussi des copies adaptées des preuves : ce constat ne signifie pas que les preuves finales sont perdues. **Actualisation du 16 novembre :** le reclassement distant intégré pendant la revue a corrigé le lien du kit dans le guide courant. Le contrôle final de 56 fichiers Markdown trouve 424 liens locaux, aucun fichier absent dans cet environnement, mais toujours 77 destinations non suivies par Git. La limitation des preuves hors clone reste donc active ; le lien du kit n’est plus à corriger.
 
-**Idée :** remplacer le lien de téléchargement du kit par sa destination versionnée ; créer un index stable des preuves et renvoyer les pages GitHub vers cet index ou le ZIP correspondant. Distinguer les pièces publiées, les anciennes pièces conservées seulement dans l’environnement et les commandes permettant de reproduire les contrôles. Vérifier les liens à partir des seuls fichiers versionnés, en complément du contrôle local.
+**Idée :** conserver le lien versionné du kit désormais corrigé ; créer un index stable des preuves et renvoyer les pages GitHub vers cet index ou le ZIP correspondant. Distinguer les pièces publiées, les anciennes pièces conservées seulement dans l’environnement et les commandes permettant de reproduire les contrôles. Vérifier les liens à partir des seuls fichiers versionnés, en complément du contrôle local.
 
 ### DOC-04 — Relier les exigences au périmètre effectivement reçu
 
@@ -97,7 +97,7 @@ Le premier texte impose une pureté dans `]0,1]`, le second dans `[0,1]`.
 
 Le parcours natif et la mise à jour sont bien rattachés à l’AppImage finale par SHA-256. Les contrôles d’accessibilité utilisent un ELF de développement et les performances plusieurs binaires de service ; leurs identités sont précisées dans les preuves, mais dispersées. Le manifeste de construction contient les empreintes des dépendances verrouillées, sans commit ni arbre source.
 
-**Idée :** ajouter une matrice « campagne → date → type/empreinte du programme → sources connues → portée ». Pour les constructions futures, enregistrer commit, état modifié et empreinte des sources. Pour les anciennes, signaler les métadonnées non enregistrées sans les inventer. Le ZIP des sources correspond à `2c2fe966` ; les commits suivants jusqu’à la base de revue ajoutent README et distribution, sans divergence applicative démontrée.
+**Idée :** ajouter une matrice « campagne → date → type/empreinte du programme → sources connues → portée ». Pour les constructions futures, enregistrer commit, état modifié et empreinte des sources. Pour les anciennes, signaler les métadonnées non enregistrées sans les inventer. Actualisation : le manifeste Pop!_OS ajoute `source_commit` et les preuves d’identité séparées ; la recette conserve toutefois `application_sources_unchanged=True` en littéral. Dériver cette attestation des empreintes/diffs à l’avenir. Le digest Ubuntu est épinglé, les paquets APT ne proviennent pas d’un snapshot figé ; l’identité binaire de deux reconstructions n’est déjà pas revendiquée. Le ZIP des sources correspond à `2c2fe966` ; les commits suivants jusqu’à la base de revue ajoutent README et distribution, sans divergence applicative démontrée.
 
 ### DOC-08 — Inventorier les anciennes preuves et les critères de réception
 
@@ -567,7 +567,11 @@ ARCH-01/02 restent les pistes transversales pour contrats dupliqués et codes d�
 
 ## Partie 10 — Tests transversaux, outils, CI, dépendances et maintenance
 
-**En cours au 16 novembre 2026.** Reprise : achever les scripts de qualification/performance et la chaîne de notices, puis consolider les preuves et priorités. Les parties 1 à 9 restent closes ; aucun correctif de revue n’est appliqué. Le retrait du `.deb` est complété dans `distribution/0.1.1/README.md`, où le reclassement distant avait laissé une annonce périmée.
+Périmètre achevé le **16 novembre 2026, Europe/Paris** : manifestes/verrous, versions/outils/CI, scripts de préparation et construction, notices et provenance, qualifications desktop/accessibilité/performance/mise à jour AppImage, audits locaux de dépendances, index de livraison et cohérence finale du rapport. Les scripts de récupération étaient clos en partie 7. Le retrait du `.deb` est complété dans `distribution/0.1.1/README.md`, où le reclassement distant avait laissé une annonce périmée.
+
+Contrôles : typecheck réussi ; 7 contrôles OSV réussis et comparaison JS rejouée sur 203 couples dont 46 de production, 37 729 avis et 10 698 déclarations npm : zéro correspondance et zéro plage non résolue. Base inchangée du 12 novembre, pas de recherche d’avis nouveaux au 16. Audit Rust hors ligne sur la base du 12 novembre : 432 dépendances, zéro entrée dans la liste de vulnérabilités et les deux avertissements conservés. Vérifications de syntaxe ciblées (Python AST, bash -n, node --check) réussies. Deux probes CLI confirment MAINT-04 ; un probe synthétique confirme MAINT-06. Les archives des deux distributions passent leurs SHA256SUMS, l’AppImage Pop!_OS reste `53ec6527842cbfeac228489af081f1602e5f2c6deb98f7d11980924beaa45e2b`. Notices et fichiers de provenance contrôlés par empreintes ; les résultats ABI antérieurs sont consultés, pas relancés. Aucune reconstruction ni campagne native complète relancée.
+
+Complément ARCH-01 : inventaire de 94 wrappers/handlers, comparaison de 143 types communs et 1 156 champs, puis cinq probes du transport avec invoke mocké, sans incompatibilité trouvée. Cela ne remplace pas un test IPC natif. La CI inclut déjà le récupérateur Python et les tests Rust/UI ; son contrôle OSV courant est un autotest de l’algorithme, pas une comparaison à des avis récents.
 
 ### MAINT-01 — Exclure les copies de construction de la découverte des tests
 
@@ -592,3 +596,44 @@ README et LICENSE annoncent GPLv3, tandis que Cargo, le générateur, les notice
 Les preuves utilisent des bases publiques du 12 novembre 2026. La relance Rust hors ligne conserve zéro entrée dans la liste de vulnérabilités, **avec deux avertissements** : proc-macro-error non maintenu et GLib 0.18.5 affecté par un défaut de sûreté mémoire. Rejouer la même base ne recherche pas les avis publiés depuis. La chaîne GTK/Tauri impose des contraintes : une montée isolée de GLib n’est pas validée ici.
 
 **Idée :** définir un renouvellement des bases et une revue des deux avertissements lors des nouvelles constructions/changements GTK/Tauri. Conserver commit/date/couverture des bases et le périmètre de l’analyse d’atteignabilité. Aucune mise à jour de verrou ni envoi d’inventaire externe n’est effectué pendant la revue.
+
+### MAINT-04 — Faire dépendre la qualification de la sortie réelle du processus
+
+**P2 · Faux succès du superviseur de performance reproduit.** [Lecture du résultat](../../scripts/qualify-performance.py#L190), [session](../../scripts/qualify-performance.py#L236), [fin de session](../../scripts/qualify-performance.py#L263), [succès global](../../scripts/qualify-performance.py#L307).
+
+Un faux driver imprime un JSON `operation=open, status=passed, open_seconds=0.01`, puis quitte en code 7. Le script de qualification quitte pourtant en code 0 dans les deux modes. En mode isolé, il conserve exit_code=7 sans le prendre en compte ; en session, il le remplace par 0. `provisional_target_met` vaut aussi true. Ce probe prouve un défaut de l’outil, **sans établir que les anciennes campagnes ont rencontré ce scénario**.
+
+**Idée :** conserver séparément le résultat métier et l’état réel du processus, exiger une fin normale, superviser la clôture de session et distinguer « encore actif » de « terminé avec succès ». Couvrir erreur après JSON valide, signal, timeout et JSON invalide.
+
+### MAINT-05 — Contrôler les notices avant chaque construction générique
+
+**P2 · Proposition de garde des constructions futures ; archives actuelles non déclarées défectueuses.** [Construction générique](../../scripts/build-linux.sh#L20), [rapport du collecteur](../../scripts/collect-third-party-licences.py#L311), [garde Ubuntu existante](../../distribution/0.1.1-popos22.04/construction/inside-build.sh#L13).
+
+Le chemin générique embarque les ressources de notices existantes sans vérifier leur fraîcheur par rapport aux verrous/AppDir. Le collecteur produit des listes de notices manquantes et bibliothèques non identifiées, mais peut terminer en succès avec ces listes non vides. La recette Ubuntu possède déjà des assertions puis reconstruit après la collecte finale.
+
+**Idée :** vérifier empreintes des verrous, collecter les notices de l’AppDir final et faire échouer explicitement la construction si des éléments requis restent inconnus/manquants. Préserver les preuves des constructions déjà qualifiées.
+
+### MAINT-06 — Garder l’origine du paquet lors du choix de sa notice native
+
+**P2 · Cas synthétique reproduit dans le collecteur, impact sur les archives existantes non établi.** [Candidat sysroot/hôte](../../scripts/collect-third-party-licences.py#L239), [notice choisie séparément](../../scripts/collect-third-party-licences.py#L269).
+
+Un candidat sysroot existant mais ancien masque un candidat hôte dont le binaire correspond pourtant au fichier embarqué. Autre branche reproduite : un binaire et sa version sont correctement identifiés dans la base hôte, mais le copyright est choisi prioritairement dans le sysroot ancien. Les empreintes cohérentes des notices actuelles ne prouvent ni ne démontrent une occurrence de ce cas dans les paquets distribués.
+
+**Idée :** essayer les candidats jusqu’à correspondance, conserver l’origine/version retenue et choisir la notice de ce même paquet/environnement. Couvrir coexistence de sysroot et hôte divergents, sans mélanger leurs métadonnées.
+
+Compléments de maintenance : les trois bibliothèques Rust pourraient hériter explicitement de `rust-version` et de la licence du workspace ; les versions courantes concordent et la toolchain racine est épinglée. Le setup teste GTK/WebKit avant d’installer aussi patchelf/Xvfb/xauth/D-Bus : vérifier ces prérequis séparément renforcerait le cas où GTK est déjà présent ; tous sont disponibles ici, aucune panne actuelle n’est affirmée. La qualification desktop pourrait proposer des scénarios ciblés pour le diagnostic tout en conservant une campagne complète. Les limites a11y sont annoncées, les résultats axe incomplets restent conservés ; aucune certification intégrale implicite n’est déduite. Les dépassements de performance documentés restent distincts d’un oracle métier réussi.
+
+**Partie 10 terminée — tests transversaux, outils, CI, dépendances et maintenance.** Six pistes supplémentaires ; aucune correction appliquée. **Les dix parties sont maintenant examinées.**
+
+## Priorités pour la phase de correction
+
+| Ordre | Référence | Résultat attendu | Preuve actuelle |
+|---|---|---|---|
+| 1 | FIN-01 | Une créance locative ne disparaît que si le financement représente la même créance | Défaut via services persistants |
+| 2 | MET-01 | Le transfert vise toujours le lot annoncé à l’ouverture du formulaire | Mauvais payload reproduit dans l’UI |
+| 3 | PORT-01 | L’interface indique le coffre réellement actif et permet sa reprise après erreur | Injections EIO, anciennes générations conservées |
+| 4 | STORE-01 | Les nouveaux dossiers documentaires sont durablement publiés avant la référence SQLite | Appels observés ; aucune perte physique reproduite |
+
+Traiter ensuite les défauts P2 de calcul/complétude, d’historique et d’affichage (notamment MET-02/03, DASH-01, SHELL-01/02, FIN-02 et SEARCH-01), puis les parcours documentaires et les garanties d’outillage. Les propositions et hypothèses gardent leur qualification propre : une optimisation non mesurée n’est pas un bug de montant.
+
+À chaque reprise, lire ce fichier et l’identifiant concerné avant de modifier quoi que ce soit. Intégrer le fichier de correctifs personnels annoncé lorsqu’il sera fourni, conserver les décisions utiles, puis transformer les reproductions retenues en tests de régression versionnés au moment de corriger. Les sources, dépendances verrouillées et migrations applicatives n’ont pas été corrigées pendant la revue. L’unique exception exécutée est le retrait demandé du `.deb` avec ses annonces et sa génération courante ; l’AppImage publiée reste inchangée.
