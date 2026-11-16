@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 6 — Métaux précieux et sociétés.**
-- **Partie suivante : 7 — Documents, sauvegardes et portabilité.**
+- **Dernière partie terminée : 7 — Documents, sauvegardes et portabilité.**
+- **Partie suivante : 8 — Tableaux de bord, recherche et composants d’interface communs.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -21,7 +21,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 4 | Immobilier et loyers | Terminée |
 | 5 | Trésorerie, financements et bilan financier | Terminée |
 | 6 | Métaux précieux et sociétés | Terminée |
-| 7 | Documents, sauvegardes et portabilité | À examiner |
+| 7 | Documents, sauvegardes et portabilité | Terminée |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | À examiner |
 | 9 | SQLite, migrations, fichiers et interface native Tauri | À examiner |
 | 10 | Tests transversaux, outils, CI, dépendances et maintenance | À examiner |
@@ -376,3 +376,71 @@ Probes du domaine : un dividende de 500 entre filiale détaillée et parent glob
 **Idée :** fixer ces résultats dans des tests ciblés pour éviter qu’une simplification du traitement opaque ou une neutralisation de tout dividende ne casse les périmètres partiels. Ne pas présenter ces cas corrects comme des défauts.
 
 **Partie 6 terminée — métaux précieux et sociétés.** Cinq pistes supplémentaires, dont trois défauts reproduits ; aucune correction appliquée. Prochaine partie : documents, sauvegardes et portabilité.
+
+## Partie 7 — Documents, sauvegardes et portabilité
+
+Reprise le **16 novembre 2026, Europe/Paris**, à partir du checkpoint `7ddc03a` ; aucun nouveau commit distant à intégrer. Périmètre : domaines et ports documentaires/portabilité, stores et chemins documentaires de `lib.rs`/`db.rs`, archives, CSV, XLSX, activation/restauration, interfaces et guides correspondants, script de récupération indépendant, construction du kit et suites associées. Les primitives de fichiers sont lues pour ces parcours ; leur revue générale reste en partie 9.
+
+Contrôles exécutés pendant cette partie, y compris avant l’interruption : **100 tests existants distincts réussis**, sans échec ni ignoré : `documents_store` 12, `csv_portability` 9, `csv::tests` 2, `portability::tests` 2, `recovery_adversarial` 29, `xlsx_export` 4, `xlsx::tests` 4, interface documents/portabilité 22, récupérateur Python 16. Commandes Rust ciblées `cargo test -p patrimoine-infrastructure --offline --test documents_store --test csv_portability --test recovery_adversarial --test xlsx_export` et filtres `--lib csv::tests`, `--lib portability::tests`, `--lib xlsx::tests` ; UI `npm test -- src/features/documents.test.tsx src/features/portability.test.tsx --exclude '.local/**'` ; Python `python3 scripts/test-recover-csv.py`. Les copies de tests de `.local/pop-os22/source` ne sont pas recomptées. Des probes temporaires hors dépôt vérifient métadonnées, copies, conflits, 2 801 chaînes CSV et injections logicielles d’erreurs d’E/S. Aucune panne physique n’est prétendue testée.
+
+À préserver : originaux et anciens K conservés après remplacement/retrait, vérification des octets avant ouverture/export, schéma local approuvé et insertions paramétrées, refus d’archive incohérente, validation métier de la candidate avant activation, historique exact et provenance technique unique du réimport, anciennes générations conservées. XLSX produit du texte inerte et conserve les longs textes sans troncature silencieuse. Le récupérateur externe n’exécute pas de SQL reçu et annonce correctement qu’il ne remplace pas les validations financières Rust. DOC-02 est confirmé côté comportement : bibliothèque à K, opérations intégrales sur le coffre actuel.
+
+### PORT-01 — Exposer l’état réellement activé après une erreur de finalisation
+
+**P1 · Défaut de reprise reproduit par injection logicielle d’E/S.** [Bascule et nettoyage](../../crates/infrastructure/src/lib.rs#L217), [propagation](../../crates/infrastructure/src/lib.rs#L543), [interface](../../src/features/portability.tsx#L78), [rafraîchissement attendu](../../src/App.tsx#L110).
+
+Une erreur EIO injectée lors du retrait de `recovery/activation.json`, après bascule de CURRENT, fait retourner une erreur alors que la nouvelle génération et ses données sont déjà actives. L’interface saute son rafraîchissement et conserve l’ancien résumé d’analyse, registre et K. Le journal résiduel fait échouer une nouvelle activation avec EEXIST jusqu’à réouverture. Une erreur ponctuelle de renommage de CURRENT conserve bien l’ancien coffre par rollback, mais laisse également ce journal bloquant. Dans les probes, la reprise à la réouverture réussit ; aucune perte ni corruption n’est démontrée.
+
+**Idée :** distinguer échec avant bascule, activation effectuée et reprise encore nécessaire. Relire la génération effective, rafraîchir l’interface en conséquence et clôturer le journal ou guider explicitement la réouverture. Préserver les anciennes générations et éviter un rollback implicite après une activation déjà effectuée. Ce cas de remplacement complet dépasse le retour de mutation ordinaire de REG-03.
+
+### PORT-02 — Guider la reprise d’une sauvegarde dont la publication n’est pas durablement confirmée
+
+**P2 · État de sortie reproduit, erreur justifiée.** [Publication](../../crates/infrastructure/src/files.rs#L197), [sauvegarde](../../crates/infrastructure/src/lib.rs#L435), [refus de remplacement](../../crates/infrastructure/src/files.rs#L181).
+
+Une EIO injectée sur la synchronisation du dossier parent laisse un ZIP final complet, lisible et validable, tout en retournant une erreur. Réessayer le même nom est refusé parce que ce fichier existe. L’échec de fsync empêche de garantir la durabilité : il ne faut donc pas annoncer un succès assuré au seul motif que le ZIP est visible.
+
+**Idée :** préciser que la destination peut déjà exister, proposer de la vérifier puis choisir un nouveau nom si nécessaire, sans écraser le fichier ni supprimer automatiquement une sauvegarde potentiellement utilisable. Distinguer disponibilité immédiate et durabilité après panne.
+
+### DOCU-01 — Unifier les métadonnées documentaires entre les chemins d’accès
+
+**P2 · Incohérences reproduites.** [MIME d’import](../../crates/infrastructure/src/lib.rs#L334), [MIME de remplacement](../../crates/infrastructure/src/documents.rs#L255), [date du résumé](../../crates/infrastructure/src/db.rs#L159), [date initiale de la bibliothèque](../../crates/infrastructure/src/documents.rs#L51).
+
+Importer un CSV, DOCX, XLSX, ODT, ODS ou RTF attribue un MIME générique ; remplacer ensuite le document par les mêmes octets lui attribue un MIME précis, avec SHA inchangé. L’ouverture reste fonctionnelle grâce à la liste d’extensions. Une simple correction de description change aussi `added_at` dans le résumé public `list_documents`, alors que la bibliothèque conserve la date de première révision. Aucun mauvais `added_at` affiché par l’interface courante n’est établi : elle utilise le chemin bibliothèque.
+
+**Idée :** partager les règles MIME et définir séparément date d’ajout et date de révision. Vérifier la cohérence des contrats sur import, remplacement identique et correction de description.
+
+### DOCU-02 — Garder les associations retirées identifiables
+
+**P2 · Défaut de présentation et proposition de lisibilité.** [Catalogue des cibles](../../crates/infrastructure/src/documents.rs#L95), [tableau](../../src/features/documents.tsx#L122), [explication promise](../utilisateur/documents-et-portabilite.md#L44).
+
+Une cible métier retirée conserve son association mais peut n’être désignée que par type et UUID ; le tableau omet aussi l’indication `retired`, présente dans les sélecteurs et annoncée par le guide.
+
+**Idée :** afficher le retrait dans le tableau et conserver un libellé historique identifiable à K, avec l’identifiant comme référence complémentaire. Ne pas masquer les anciens liens ni réactiver implicitement la cible.
+
+### DOCU-03 — Gérer la rétention des copies de consultation
+
+**P2 · Proposition de gestion du stockage.** [Création des copies](../../crates/infrastructure/src/documents.rs#L604).
+
+Chaque ouverture crée une copie privée distincte dans `recovery/document-views/<uuid>`. Le nettoyage ne concerne que l’échec de préparation ; deux ouvertures du même original laissent deux copies, encore présentes après fermeture/réouverture dans le probe. Aucun défaut d’intégrité des originaux n’est établi.
+
+**Idée :** définir une rétention limitée des seules copies de consultation, expliquer leur emplacement et prévoir un nettoyage compatible avec les lecteurs encore ouverts. Ne pas purger les blobs ni versions historiques.
+
+### DOCU-04 — Expliquer la reprise d’un formulaire après conflit
+
+**P2 · Amélioration de parcours confirmée par un probe UI.** [Rechargement](../../src/features/documents.tsx#L37), [source du formulaire](../../src/features/documents.tsx#L82), [soumission](../../src/features/documents.tsx#L92).
+
+Après conflit puis rechargement d’une révision r2, le formulaire conserve sa saisie et sa source r1. Une nouvelle soumission renvoie encore r1 et peut être refusée à nouveau. Le contrôle optimiste protège les données ; il ne doit pas être retiré.
+
+**Idée :** indiquer explicitement de fermer puis rouvrir le formulaire depuis la nouvelle source, ou proposer une reprise contrôlée avec comparaison des changements. Conserver les champs pour permettre leur récupération, sans remplacer silencieusement la révision attendue.
+
+### PORT-03 — Traiter les tables CSV progressivement
+
+**P2 · Optimisation proposée, aucun échec mémoire mesuré.** [Lecture complète](../../crates/infrastructure/src/portability.rs#L455), [matérialisation des cellules](../../crates/infrastructure/src/csv.rs#L170), [copies de ligne](../../crates/infrastructure/src/portability.rs#L549).
+
+Le lecteur charge une table en octets puis matérialise toutes ses cellules et copie des lignes. Les limites de 128 Mio/table, deux millions de cellules et 1 Mio/cellule bornent le volume logique ; elles ne mesurent pas les allocations cumulées du parseur.
+
+**Idée :** mesurer puis envisager une lecture progressive conservant grammaire, limites, diagnostics de ligne et transaction de candidate. Préserver les refus et l’exactitude du texte ; ne pas annoncer de pic chiffré ni d’OOM non observé.
+
+Compléments : REG-05 concerne également le focus de la confirmation de retrait d’association ; REG-03 les rafraîchissements documents/portabilité après écriture. La piste `valid_from=null` est écartée : le backend exige une date. La durabilité des ancêtres de nouveaux répertoires documentaires reste à examiner avec les primitives en partie 9 ; aucune panne physique n’est conclue ici.
+
+**Partie 7 terminée — documents, sauvegardes et portabilité.** Sept pistes supplémentaires ; aucune correction appliquée. Prochaine partie : tableaux de bord, recherche et composants d’interface communs.
