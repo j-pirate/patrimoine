@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 8 — Tableaux de bord, recherche et composants d’interface communs.**
-- **Partie suivante : 9 — SQLite, migrations, fichiers et interface native Tauri.**
+- **Dernière partie terminée : 9 — SQLite, migrations, fichiers et interface native Tauri.**
+- **Partie suivante : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -23,7 +23,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 6 | Métaux précieux et sociétés | Terminée |
 | 7 | Documents, sauvegardes et portabilité | Terminée |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | Terminée |
-| 9 | SQLite, migrations, fichiers et interface native Tauri | À examiner |
+| 9 | SQLite, migrations, fichiers et interface native Tauri | Terminée |
 | 10 | Tests transversaux, outils, CI, dépendances et maintenance | À examiner |
 
 ## Lecture des observations
@@ -504,3 +504,63 @@ Les axes de dates sont catégoriels : deux dates successives occupent le même e
 Compléments : la fermeture de recherche refocalise son bouton après que la navigation a focalisé le titre ; un probe confirme que ce second RAF reprend le focus. Étendre REG-05 pour distinguer fermeture simple et navigation vers une page. REG-02/04 concernent aussi les bilans répétés du dashboard (courant, membres, historique, date finale recalculée), sans latence propre mesurée. Un probe confirme aussi qu’un brouillon de paramètres disparaît à la navigation : une conservation locale ou une indication d’abandon reste une proposition de confort. La largeur CSS minimale de 360 px et le contraste du focus restent à qualifier sur les tailles/zooms réellement pris en charge, sans panne desktop supplémentaire affirmée ici.
 
 **Partie 8 terminée — tableaux de bord, recherche et composants d’interface communs.** Six pistes supplémentaires, dont cinq défauts reproduits ; aucune correction appliquée. Prochaine partie : SQLite, migrations, fichiers et interface native Tauri.
+
+## Partie 9 — SQLite, migrations, fichiers et interface native Tauri
+
+Périmètre : `db.rs`, six migrations, fichiers et démarrage/verrou/générations de `lib.rs`, handlers natifs, capacités/CSP, transport `api.ts`, contrats et suites correspondantes. Les flux déjà examinés en partie 7 sont rapprochés des primitives générales, sans dupliquer PORT-01/02.
+
+Contrôles exécutés : **26 tests existants distincts réussis**, sans échec ni ignoré : `registry_migrations` 14, `vault` 4, récupération ciblée CURRENT/journal/verrou/génération manquante 8. Les quatre tests vault lancés par deux sous-revues sont comptés une seule fois. Inventaire statique : **94 invoke, 94 handlers et 94 enregistrements**, arguments et retours nominalement concordants ; ce n’est pas un test IPC natif exécuté. Les six empreintes SQL correspondent au récupérateur autonome. Probes hors dépôt : métadonnées techniques altérées, observation des appels fsync/mkdir/rename sans modification d’E/S, six publications avec puis sans capacité de lien physique, trois échecs de démarrage du binaire ELF existant et un bloc source d’ouverture extrait. Aucun nouveau paquet construit ; aucune panne physique ni essai réel FAT/exFAT prétendu.
+
+À préserver : validation du schéma exact et des checksums, copies candidates pour les migrations, conservation des octets/générations sources, snapshot WAL via l’API SQLite, mutex et spawn_blocking, sélection explicite des chemins externes, absence de permission shell/fs frontend et ouverture sans shell. Aucun contournement d’accès ni défaut de migration confirmé.
+
+### STORE-01 — Compléter la durabilité des nouveaux dossiers documentaires
+
+**P1 · Garantie de durabilité à compléter ; perte non reproduite.** [Création récursive](../../crates/infrastructure/src/files.rs#L68), [import](../../crates/infrastructure/src/lib.rs#L321), [remplacement](../../crates/infrastructure/src/documents.rs#L406).
+
+L’observation des appels confirme que les nouveaux dossiers `documents/`, `documents/sha256/` et leur préfixe sont créés, mais seul le dossier final du blob est explicitement synchronisé avant le succès. SQLite synchronise sa propre base et son dossier ; aucun fsync des deux ancêtres documentaires n’est observé. Le protocole ne garantit donc pas explicitement la persistance de toute la chaîne référencée par la transaction SQLite après une panne. Il ne s’agit pas d’une perte constatée : aucune coupure physique n’a été exercée.
+
+**Idée :** publier les nouveaux répertoires avec synchronisation de leurs parents dans l’ordre nécessaire avant de confirmer la référence en base ; couvrir import, remplacement et réutilisation d’un blob. Qualifier la reprise avec un modèle de panne adapté, en conservant les originaux et sans modifier les migrations livrées.
+
+### STORE-02 — Prendre en charge ou expliquer les supports sans liens physiques
+
+**P2 · Dépendance de système de fichiers confirmée.** [Publication exclusive](../../crates/infrastructure/src/files.rs#L197).
+
+La publication finale impose `hard_link`. Les systèmes FAT/exFAT usuels sur clés USB n’offrent pas cette capacité. Six parcours d’export réussissent normalement ; une injection ciblée EPERM sur link/linkat les fait échouer proprement avant publication, sans fichier final/temporaire ni mutation du coffre. Ce probe ne remplace pas un test sur un vrai support FAT/exFAT ; l’environnement testé utilise overlay.
+
+**Idée :** proposer une publication exclusive adaptée aux supports pris en charge, en préservant le refus d’écraser une destination apparue entre-temps, ou annoncer clairement cette limite. Contournement actuel : exporter sur un disque local compatible, vérifier le fichier puis le copier sur le support. Ce cas diffère de PORT-02, où une destination est déjà publiée.
+
+### STORE-03 — Valider les métadonnées techniques et la correspondance des audits
+
+**P2 · Données techniques incohérentes acceptées dans un coffre synthétique altéré hors API.** [Validation](../../crates/infrastructure/src/db.rs#L276), [FK indépendantes](../../crates/infrastructure/migrations/0001_foundation.sql#L21).
+
+Des timestamps techniques `not-a-timestamp` et un command_id non UUID passent réouverture, sauvegarde et analyse de restauration ; l’historique expose la date invalide. Un audit de révision A redirigé vers objet/changement B, tout en conservant revision_id A, passe aussi ces validations. Les FK individuelles sont satisfaites, sans garantir leur correspondance commune. Les commandes ordinaires ne sont pas démontrées produire ces états et aucun montant faux n’est établi. Les contrôles positifs refusent bien checksum de migration erroné et trigger supplémentaire.
+
+**Idée :** valider formats techniques et cohérence audit/révision/objet/changement au niveau applicatif, avec diagnostics précis, sans réécrire les migrations. Préserver la distinction entre validation interne et authenticité cryptographique d’une archive.
+
+### STORE-04 — Prévoir une échéance ou annulation du snapshot
+
+**P2 · Proposition de résilience ; blocage non reproduit.** [Copie SQLite](../../crates/infrastructure/src/db.rs#L343), [sauvegarde](../../crates/infrastructure/src/archives.rs#L102).
+
+`Backup::run_to_completion` de la dépendance épinglée recommence sur Busy/Locked sans échéance globale. Le timeout SQLite de cinq secondes existe bien, mais ne borne pas cette boucle de nouvelles tentatives. Le mutex limite la concurrence interne ; un verrou persistant d’un outil externe reste une frontière à qualifier.
+
+**Idée :** ajouter une échéance ou une annulation avec nettoyage de la candidate, sans interrompre une publication déjà effectuée ni confondre attente et corruption.
+
+### NATIVE-01 — Présenter les erreurs de démarrage au lancement graphique
+
+**P2 · Proposition étayée par trois parcours du binaire existant.** [Sortie terminal](../../src-tauri/src/main.rs#L927), [ouverture avant interface](../../src-tauri/src/main.rs#L935).
+
+Chemin de coffre relatif, verrou occupé et CURRENT invalide quittent avec code 1 et seul stderr avant la fenêtre principale. Les données sont conservées. Au double-clic, l’utilisateur peut ne pas voir cette explication.
+
+**Idée :** présenter une erreur native lisible avec la cause et l’action adaptée, tout en conservant le diagnostic terminal. Distinguer aussi la vraie contention du verrou d’une autre erreur de `try_lock_exclusive`, actuellement toutes classées « déjà ouvert » (`lib.rs:73`). Ce périmètre commence après l’entrée dans le programme : il ne prétend pas intercepter une incompatibilité du chargeur glibc.
+
+### NATIVE-02 — Rendre les échecs du lecteur de document consultables
+
+**P2 · Proposition de diagnostic ; aucune fausse confirmation d’ouverture effective établie.** [Lancement et attente](../../src-tauri/src/main.rs#L879), [message UI exact](../../src/features/documents.tsx#L69).
+
+Le code de sortie de xdg-open est ignoré. Un probe du bloc source extrait, avec un lanceur quittant en code 3, confirme le retour Ok. L’interface dit seulement que l’ouverture a été demandée, ce qui décrit correctement l’envoi de cette demande.
+
+**Idée :** récupérer le statut d’échec et proposer l’export manuel ou le choix du lecteur, sans bloquer le mutex du coffre pendant la consultation. Rapprocher la rétention de la copie de DOCU-03.
+
+ARCH-01/02 restent les pistes transversales pour contrats dupliqués et codes d’erreur ; l’inventaire courant n’a trouvé aucun raccordement manquant. Les probes n’ont modifié aucun fichier suivi ni coffre d’utilisateur.
+
+**Partie 9 terminée — SQLite, migrations, fichiers et interface native Tauri.** Six pistes supplémentaires ; aucune correction appliquée. Prochaine partie : tests transversaux, outils, CI, dépendances et maintenance.
