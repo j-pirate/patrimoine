@@ -6,8 +6,8 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 
 ## Point de reprise
 
-- **Dernière partie terminée : 7 — Documents, sauvegardes et portabilité.**
-- **Partie suivante : 8 — Tableaux de bord, recherche et composants d’interface communs.**
+- **Dernière partie terminée : 8 — Tableaux de bord, recherche et composants d’interface communs.**
+- **Partie suivante : 9 — SQLite, migrations, fichiers et interface native Tauri.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -22,7 +22,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 5 | Trésorerie, financements et bilan financier | Terminée |
 | 6 | Métaux précieux et sociétés | Terminée |
 | 7 | Documents, sauvegardes et portabilité | Terminée |
-| 8 | Tableaux de bord, recherche et composants d’interface communs | À examiner |
+| 8 | Tableaux de bord, recherche et composants d’interface communs | Terminée |
 | 9 | SQLite, migrations, fichiers et interface native Tauri | À examiner |
 | 10 | Tests transversaux, outils, CI, dépendances et maintenance | À examiner |
 
@@ -444,3 +444,63 @@ Le lecteur charge une table en octets puis matérialise toutes ses cellules et c
 Compléments : REG-05 concerne également le focus de la confirmation de retrait d’association ; REG-03 les rafraîchissements documents/portabilité après écriture. La piste `valid_from=null` est écartée : le backend exige une date. La durabilité des ancêtres de nouveaux répertoires documentaires reste à examiner avec les primitives en partie 9 ; aucune panne physique n’est conclue ici.
 
 **Partie 7 terminée — documents, sauvegardes et portabilité.** Sept pistes supplémentaires ; aucune correction appliquée. Prochaine partie : tableaux de bord, recherche et composants d’interface communs.
+
+## Partie 8 — Tableaux de bord, recherche et composants d’interface communs
+
+Périmètre : `domain/src/dashboard.rs`, port et store dashboard, export JSON du rapport, types, interfaces tableau de bord/graphiques/recherche, App et wrappers de navigation, composants communs, styles, point d’entrée HTML/React et guide. Les modules métiers déjà examinés sont relus seulement à leurs raccordements.
+
+Contrôles exécutés : **66 tests existants distincts réussis**, sans échec ni ignoré : 14 unités `dashboard::tests`, 11 `dashboard_store`, 23 UI tableau de bord/graphiques/recherche, 18 App/phase4/composants communs. Commandes `cargo test -p patrimoine-domain --offline --lib dashboard::tests`, `cargo test -p patrimoine-infrastructure --offline --test dashboard_store`, suites frontend ciblées via `npm test -- … --exclude '.local/**'` ; les copies isolées de construction ne sont pas recomptées. Probes temporaires : pays historique et fenêtre société via services persistants, trois scénarios shell et trois recherche/focus via tests UI hors dépôt.
+
+À préserver : éliminations appliquées avant filtrage, fractions exactes et inconnus, K unique pour tous les snapshots, séparation bilan/indicateurs, sections non filtrées exclues explicitement de l’export filtré. Les graphiques ne convertissent en Number que leur géométrie ; étiquettes et tables gardent les textes du moteur. Aucun nouveau défaut d’addition globale n’est établi.
+
+### DASH-01 — Ne pas attribuer un pays courant à une position historique de pays inconnu
+
+**P2 · Affectation historique erronée reproduite via Vault.** [Complément de pays](../../crates/domain/src/dashboard.rs#L398), [source volontairement inconnue](../../crates/domain/src/consolidation.rs#L444).
+
+Actif de 100 EUR, D=2020-06-01, aucune période descriptive : le rapport financier garde `country=None` et explique que le pays historique n’est pas attribué par hypothèse. Au même D/K, le tableau de bord complète pourtant ce None depuis le pays descriptif courant de l’actif : FR. Le filtre FR retient une position de 100 EUR et le regroupement l’affecte à FR. Aucun montant global faux n’est démontré ; filtre et répartition géographique historiques sont erronés.
+
+**Idée :** conserver le pays inconnu tant qu’aucune source datée ne permet son attribution. Aligner l’annotation du tableau de bord sur le moteur source et vérifier les cas actif, résidence d’entité et profil daté corrigé à K ultérieur.
+
+### DASH-02 — Appliquer le plafond de points aux séries effectivement construites
+
+**P2 · Refus inutile reproduit via Vault.** [Dates calculées avant branchement](../../crates/infrastructure/src/dashboard.rs#L184), [vue société](../../crates/infrastructure/src/dashboard.rs#L220).
+
+La vue société ne construit aucun historique financier, mais le plafond de 61 points lui est appliqué avant ce branchement. Une société sans observation sur 2019-01-01→2025-01-01 est refusée avec le pas mensuel ; la même demande annuelle est acceptée avec `history=[]` et zéro observation. Aucun montant faux ni perte n’est établi.
+
+**Idée :** vérifier la capacité seulement pour les séries produites, ou définir et expliquer une limite globale si elle est intentionnelle. Couvrir une longue fenêtre de société sans courbe patrimoniale, indépendamment du plafond familial.
+
+### SEARCH-01 — Ouvrir les opérations d’espèces dans le module correspondant
+
+**P2 · Mauvaise destination reproduite par deux probes UI.** [Routage générique](../../src/features/global-search.tsx#L18), [seuls comptes conservés](../../src/features/global-search.tsx#L46), [exception limitée au compte](../../src/features/global-search.tsx#L63), [filtrage bancaire](../../src/features/treasury.tsx#L67).
+
+Une transaction n’ayant qu’une ligne de compte espèces, ainsi qu’un relevé de caisse, produisent une navigation vers `bank`. Le module bancaire filtre ensuite ces objets et ne les montre pas. Seul le résultat représentant directement le compte espèces dispose actuellement d’une destination adaptée.
+
+**Idée :** conserver les références nécessaires au classement des opérations/relevés et choisir la destination selon leurs comptes. Définir un parcours explicite pour une opération mixte banque/espèces. Le guide promet l’ouverture du module ; une sélection automatique de l’objet serait une amélioration distincte.
+
+### SHELL-01 — Agréger les opérations actives avant de libérer la navigation
+
+**P2 · Chevauchement reproduit par probe UI.** [Callbacks du registre](../../src/features/registry.tsx#L85), [raccordement du contrôle](../../src/features/registry.tsx#L182), [consolidation](../../src/features/registry.tsx#L257), [wrapper App](../../src/App.tsx#L185).
+
+Le calcul de consolidation et une sauvegarde d’actif peuvent attendre simultanément. Ils écrivent dans le même booléen d’activité ; terminer le calcul remet navigation et date D à disposition alors que la sauvegarde est encore en cours. Aucun contournement des validations persistantes n’est établi.
+
+**Idée :** agréger des états identifiés par opération/composant et garder le blocage jusqu’à leur extinction complète. Vérifier les deux ordres de résolution et le démontage d’un enfant sans effacer l’activité d’un autre.
+
+### SHELL-02 — Garder les données masquées jusqu’au dernier chargement K
+
+**P2 · Mauvaise étiquette de connaissances temporaire reproduite par probe UI.** [Sélection et finalisation](../../src/App.tsx#L104), [montage du registre](../../src/App.tsx#L168), [sélection depuis Historique](../../src/features/history.tsx#L46).
+
+Depuis Historique, choisir K4 puis K2, naviguer vers Famille et terminer seulement la réponse K4. Son `finally` libère `knowledgeLoading` alors que K2 attend encore ; le registre courant K5 peut s’afficher sous le contexte K2. La résolution K2 rétablit le bon affichage. Les écritures historiques restent désactivées.
+
+**Idée :** protéger aussi la finalisation par l’identité de requête, et masquer le registre tant que son chargement est actif ou que son K ne correspond pas au contexte. Couvrir les réponses dans les deux ordres et les changements de page.
+
+### DASH-03 — Proportionner éventuellement l’abscisse à la durée écoulée
+
+**P3 · Proposition de lecture graphique, aucun montant faux.** [Historique](../../src/features/dashboard-charts.tsx#L56), [observations société](../../src/features/dashboard-charts.tsx#L157).
+
+Les axes de dates sont catégoriels : deux dates successives occupent le même espacement, même pour une première/dernière période incomplète ou des observations séparées par une lacune. Dates et valeurs exactes restent présentes dans les tables.
+
+**Idée :** utiliser un axe temporel proportionnel ou expliciter l’espacement par observation. Préserver les interruptions de valeurs inconnues et ne pas faire interpréter la pente comme un rendement.
+
+Compléments : la fermeture de recherche refocalise son bouton après que la navigation a focalisé le titre ; un probe confirme que ce second RAF reprend le focus. Étendre REG-05 pour distinguer fermeture simple et navigation vers une page. REG-02/04 concernent aussi les bilans répétés du dashboard (courant, membres, historique, date finale recalculée), sans latence propre mesurée. Un probe confirme aussi qu’un brouillon de paramètres disparaît à la navigation : une conservation locale ou une indication d’abandon reste une proposition de confort. La largeur CSS minimale de 360 px et le contraste du focus restent à qualifier sur les tailles/zooms réellement pris en charge, sans panne desktop supplémentaire affirmée ici.
+
+**Partie 8 terminée — tableaux de bord, recherche et composants d’interface communs.** Six pistes supplémentaires, dont cinq défauts reproduits ; aucune correction appliquée. Prochaine partie : SQLite, migrations, fichiers et interface native Tauri.
