@@ -1,6 +1,6 @@
 # Télécharger et utiliser Patrimoine 0.1.1
 
-**Vous utilisez Pop!_OS 22.04 ou Ubuntu 22.04 ? [Téléchargez le paquet compatible ici](../0.1.1-popos22.04/README.md)** : `.deb` de 7,5 Mo ou AppImage entière de 84,9 Mo, sans six ZIP à reconstituer. La procédure ci-dessous concerne le paquet Debian 13 d’origine.
+**Vous utilisez Pop!_OS 22.04 ou Ubuntu 22.04 ? [Téléchargez le paquet compatible ici](../0.1.1-popos22.04/README.md)** : AppImage entière de 84,9 Mo, sans six ZIP à reconstituer. La procédure ci-dessous concerne le paquet Debian 13 d’origine.
 
 Application locale pour **Linux Debian 13 x86_64**, avec session graphique et bibliothèques GTK 3/WebKitGTK 4.1. Node et Rust ne sont pas nécessaires pour utiliser le programme.
 

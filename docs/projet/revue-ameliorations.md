@@ -7,7 +7,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 ## Point de reprise
 
 - **Dernière partie terminée : 9 — SQLite, migrations, fichiers et interface native Tauri.**
-- **Partie suivante : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
+- **Partie en cours : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 
@@ -24,7 +24,7 @@ Ce fichier contient des observations et des propositions. Il ne met en œuvre au
 | 7 | Documents, sauvegardes et portabilité | Terminée |
 | 8 | Tableaux de bord, recherche et composants d’interface communs | Terminée |
 | 9 | SQLite, migrations, fichiers et interface native Tauri | Terminée |
-| 10 | Tests transversaux, outils, CI, dépendances et maintenance | À examiner |
+| 10 | Tests transversaux, outils, CI, dépendances et maintenance | En cours |
 
 ## Lecture des observations
 
@@ -564,3 +564,31 @@ Le code de sortie de xdg-open est ignoré. Un probe du bloc source extrait, avec
 ARCH-01/02 restent les pistes transversales pour contrats dupliqués et codes d’erreur ; l’inventaire courant n’a trouvé aucun raccordement manquant. Les probes n’ont modifié aucun fichier suivi ni coffre d’utilisateur.
 
 **Partie 9 terminée — SQLite, migrations, fichiers et interface native Tauri.** Six pistes supplémentaires ; aucune correction appliquée. Prochaine partie : tests transversaux, outils, CI, dépendances et maintenance.
+
+## Partie 10 — Tests transversaux, outils, CI, dépendances et maintenance
+
+**En cours au 16 novembre 2026.** Reprise : achever les scripts de qualification/performance et la chaîne de notices, puis consolider les preuves et priorités. Les parties 1 à 9 restent closes ; aucun correctif de revue n’est appliqué. Le retrait du `.deb` est complété dans `distribution/0.1.1/README.md`, où le reclassement distant avait laissé une annonce périmée.
+
+### MAINT-01 — Exclure les copies de construction de la découverte des tests
+
+**P2 · Découverte dupliquée confirmée.** [Configuration Vitest](../../vite.config.ts#L10), [commande de contrôle](../../scripts/check.sh#L5).
+
+`vitest list --filesOnly` découvre 38 fichiers : 19 suites suivies et leurs 19 copies sous `.local/pop-os22/source`. `.gitignore` n’est pas une exclusion du runner. Le cas documents/portabilité a effectivement exécuté 44 tests au lieu de 22 sans exclusion explicite. Ce n’est pas une panne du CI sur clone propre.
+
+**Idée :** borner les suites au répertoire source ou exclure les copies et répertoires d’outils. Préserver les suites présentes, et distinguer tests uniques, relances et copies dans les rapports.
+
+### MAINT-02 — Harmoniser les métadonnées avec la licence ajoutée au dépôt
+
+**P2 · Contradiction confirmée après l’ajout distant de GPLv3.** [Licence du dépôt](../../LICENSE), [workspace](../../Cargo.toml#L10), [générateur](../../scripts/collect-third-party-licences.py#L314), [guide](../technique/licences-tierces.md#L3).
+
+README et LICENSE annoncent GPLv3, tandis que Cargo, le générateur, les notices et leur manifeste conservent `UNLICENSED`. Les trois crates bibliothèques n’héritent pas non plus de la licence du workspace. Le packaging embarque les notices existantes.
+
+**Idée :** aligner métadonnées, génération et explications des constructions futures sur le choix de licence publié. Conserver les licences des tiers et les preuves historiques telles qu’elles étaient ; ne pas prétendre que les binaires déjà construits ont été reconstruits ou que leurs métadonnées ont changé.
+
+### MAINT-03 — Organiser le renouvellement des bases d’avis et le suivi des avertissements
+
+**P2 · Proposition de maintenance, pas découverte d’une nouvelle vulnérabilité.** [Revue de sécurité datée](../technique/revue-securite.md#L20), [comparateur](../../scripts/audit-js-offline.mjs).
+
+Les preuves utilisent des bases publiques du 12 novembre 2026. La relance Rust hors ligne conserve zéro entrée dans la liste de vulnérabilités, **avec deux avertissements** : proc-macro-error non maintenu et GLib 0.18.5 affecté par un défaut de sûreté mémoire. Rejouer la même base ne recherche pas les avis publiés depuis. La chaîne GTK/Tauri impose des contraintes : une montée isolée de GLib n’est pas validée ici.
+
+**Idée :** définir un renouvellement des bases et une revue des deux avertissements lors des nouvelles constructions/changements GTK/Tauri. Conserver commit/date/couverture des bases et le périmètre de l’analyse d’atteignabilité. Aucune mise à jour de verrou ni envoi d’inventaire externe n’est effectué pendant la revue.
