@@ -163,7 +163,7 @@ fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
             let k = finance
                 .knowledge_sequence
                 .checked_sub(1)
-                .ok_or_else(|| invalid(RENT_REPRESENTATION_ERROR))?;
+                .ok_or_else(|| AppError::new(ErrorCode::Validation, RENT_REPRESENTATION_ERROR))?;
             let previous_mismatches = rent_representation_mismatches(
                 &registry::snapshot(c, Some(k))?,
                 &properties::snapshot(c, Some(k))?,
@@ -173,7 +173,10 @@ fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
                 &snapshot(c, Some(k))?,
             )?;
             if !mismatches.is_subset(&previous_mismatches) {
-                return Err(invalid(RENT_REPRESENTATION_ERROR));
+                return Err(AppError::new(
+                    ErrorCode::Validation,
+                    RENT_REPRESENTATION_ERROR,
+                ));
             }
         }
     }
