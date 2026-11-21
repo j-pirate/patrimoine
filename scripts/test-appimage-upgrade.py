@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import socket
 import sqlite3
 import subprocess
 import tempfile
@@ -174,8 +175,14 @@ def main():
                 nonlocal driver, process, logfile
                 started = time.monotonic()
                 logfile = (args.artifacts / f'{label}-driver.log').open('w')
-                driver = driver_module.WebDriver()
-                process = subprocess.Popen(['tauri-driver', '--port', '4444', '--native-port', '4445'], env=environment, stdout=logfile, stderr=subprocess.STDOUT, start_new_session=True)
+                with socket.socket() as service, socket.socket() as native:
+                    service.bind(('127.0.0.1', 0))
+                    native.bind(('127.0.0.1', 0))
+                    port = service.getsockname()[1]
+                    native_port = native.getsockname()[1]
+                driver = driver_module.WebDriver(port)
+                process = subprocess.Popen(['tauri-driver', '--port', str(port), '--native-port', str(native_port)],
+                                           env=environment, stdout=logfile, stderr=subprocess.STDOUT, start_new_session=True)
                 driver_module.wait_until(lambda: driver.request('GET', '/status', timeout=2), 'pilote natif', timeout=20)
                 driver.start(installed)
                 driver_module.wait_until(lambda: driver.execute("return !!window.__TAURI_INTERNALS__ && document.querySelector('h1')?.textContent==='Tableau de bord';"), 'fenêtre AppImage', timeout=45)

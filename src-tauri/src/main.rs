@@ -1,17 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use patrimoine_application::{
-    CompanyService, DashboardService, DebtService, DocumentService, FinancialService, MetalService,
-    PortabilityService, PropertyService, RegistryService, RentalService, TreasuryService,
-    VaultService,
+    CompanyService, DashboardService, DebtService, DocumentService, FinancialService,
+    GuidedCreationService, MetalService, PortabilityService, PropertyService, RegistryService,
+    RentalService, TreasuryService, VaultService,
 };
 use patrimoine_domain::{
     AppError, Asset, BackupSummary, CompanyPolicy, ConsolidationReport, ConsolidationRequest,
-    DocumentSummary, Entity, ExchangeRate, FxQuery, FxResult, Membership, Ownership, Participation,
-    ProfilePeriod, RegistryHistory, RegistrySnapshot, RestoreInspection, SaveAssetInput,
-    SaveCompanyPolicyInput, SaveEntityInput, SaveExchangeRateInput, SaveMembershipInput,
-    SaveOwnershipInput, SaveParticipationInput, SaveProfilePeriodInput, SaveValuationInput,
-    Settings, Valuation, VariationReport, VariationRequest, VaultStatus, VoidRecordInput,
+    DocumentSummary, Entity, ExchangeRate, FxQuery, FxResult, GuidedAccountInput,
+    GuidedCompanyInput, GuidedFamilyInput, GuidedMetalInput, GuidedPropertyInput, GuidedRecord,
+    Membership, Ownership, Participation, ProfilePeriod, RegistryHistory, RegistrySnapshot,
+    RestoreInspection, SaveAssetInput, SaveCompanyPolicyInput, SaveEntityInput,
+    SaveExchangeRateInput, SaveMembershipInput, SaveOwnershipInput, SaveParticipationInput,
+    SaveProfilePeriodInput, SaveValuationInput, Settings, Valuation, VariationReport,
+    VariationRequest, VaultStatus, VoidRecordInput,
 };
 use patrimoine_infrastructure::Vault;
 use std::path::PathBuf;
@@ -200,6 +202,69 @@ async fn activate_restore(
 #[tauri::command]
 async fn list_registry(state: State<'_, DesktopState>) -> Result<RegistrySnapshot, AppError> {
     with_vault(state, |vault| vault.list_registry()).await
+}
+
+#[tauri::command]
+async fn read_onboarding_state(
+    state: State<'_, DesktopState>,
+    generation_id: String,
+) -> Result<Option<String>, AppError> {
+    with_vault(state, move |vault| {
+        vault.read_onboarding_state(&generation_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn write_onboarding_state(
+    state: State<'_, DesktopState>,
+    generation_id: String,
+    data: String,
+) -> Result<(), AppError> {
+    with_vault(state, move |vault| {
+        vault.write_onboarding_state(&generation_id, &data)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn create_guided_family(
+    state: State<'_, DesktopState>,
+    input: GuidedFamilyInput,
+) -> Result<GuidedRecord, AppError> {
+    with_vault(state, move |vault| vault.create_guided_family(input)).await
+}
+
+#[tauri::command]
+async fn create_guided_property(
+    state: State<'_, DesktopState>,
+    input: GuidedPropertyInput,
+) -> Result<GuidedRecord, AppError> {
+    with_vault(state, move |vault| vault.create_guided_property(input)).await
+}
+
+#[tauri::command]
+async fn create_guided_account(
+    state: State<'_, DesktopState>,
+    input: GuidedAccountInput,
+) -> Result<GuidedRecord, AppError> {
+    with_vault(state, move |vault| vault.create_guided_account(input)).await
+}
+
+#[tauri::command]
+async fn create_guided_metal(
+    state: State<'_, DesktopState>,
+    input: GuidedMetalInput,
+) -> Result<GuidedRecord, AppError> {
+    with_vault(state, move |vault| vault.create_guided_metal(input)).await
+}
+
+#[tauri::command]
+async fn create_guided_company(
+    state: State<'_, DesktopState>,
+    input: GuidedCompanyInput,
+) -> Result<GuidedRecord, AppError> {
+    with_vault(state, move |vault| vault.create_guided_company(input)).await
 }
 
 #[tauri::command]
@@ -1035,6 +1100,13 @@ fn run(vault: Vault) -> Result<(), Box<dyn std::error::Error>> {
             inspect_restore,
             activate_restore,
             list_registry,
+            read_onboarding_state,
+            write_onboarding_state,
+            create_guided_family,
+            create_guided_property,
+            create_guided_account,
+            create_guided_metal,
+            create_guided_company,
             save_entity,
             save_membership,
             save_participation,

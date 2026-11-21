@@ -68,6 +68,7 @@ describe('Portabilité intégrale', () => {
 
   it('exporte toutes les tables et les originaux sans transmettre un filtre de consultation', async () => {
     const user = show();
+    await user.click(screen.getByText('Détails sur les formats et la restauration'));
     expect(screen.getByText(/indépendamment du membre, de la date, des connaissances K/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Exporter une archive CSV intégrale' }));
     await screen.findByText('L’archive CSV intégrale a été créée avec les originaux documentaires.');
@@ -93,6 +94,7 @@ describe('Portabilité intégrale', () => {
     await screen.findByText(/Le classeur XLSX complet a été créé pour consultation/);
     expect(api.exportXlsx).toHaveBeenCalledExactlyOnceWith('/test/consultation.xlsx');
     expect(screen.getByText('XLSX de consultation')).toBeVisible();
+    await user.click(screen.getByText('Détails sur les formats et la restauration'));
     expect(screen.getByText(/Le XLSX est un format de consultation, sans import XLSX/)).toBeVisible();
     expect(api.exportCsvArchive).not.toHaveBeenCalled();
   });

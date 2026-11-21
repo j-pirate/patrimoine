@@ -85,8 +85,8 @@ export function DashboardAllocationChart({ buckets, title }: { buckets: Dashboar
   const id = useId();
   const data = buckets.map(bucket => ({ label: bucket.label, assets: geometry(bucket.known_assets_eur), liabilities: geometry(bucket.known_liabilities_eur), bucket }));
   return <section className="dashboard-chart" aria-labelledby={`${id}-title`}>
-    <div className="section-title"><h2 id={`${id}-title`}>{title}</h2><span className="badge">EUR · après éliminations</span></div>
-    <p className="muted small">Répartition des positions connues sélectionnées. Les montants inconnus restent signalés dans le tableau ; les garanties conditionnelles sont hors bilan.</p>
+    <div className="section-title"><h2 id={`${id}-title`}>{title}</h2><span className="muted small">En euros</span></div>
+    <p className="muted small">Valeurs connues des biens et des dettes. Le tableau indique quels montants restent inconnus.</p>
     {buckets.length ? <div className="dashboard-chart-frame" role="group" aria-label={`${title}, actifs et passifs connus en EUR`}>
       <ResponsiveContainer width="100%" height={Math.max(220, Math.min(480, 60 + buckets.length * 48))} minWidth={0}>
         <BarChart data={data} layout="vertical" margin={{ ...chartMargin, left: 2 }} accessibilityLayer>
@@ -100,8 +100,8 @@ export function DashboardAllocationChart({ buckets, title }: { buckets: Dashboar
             return <div className="dashboard-chart-tooltip"><strong>{bucket.label}</strong><p>Actifs connus : {money(bucket.known_assets_eur)}</p><p>Passifs connus : {money(bucket.known_liabilities_eur)}</p>{bucket.unknown_count > 0 && <p>{bucket.unknown_count} montant{bucket.unknown_count > 1 ? 's' : ''} inconnu{bucket.unknown_count > 1 ? 's' : ''}</p>}</div>;
           }} />
           <Legend iconType="circle" />
-          <Bar dataKey="assets" name="Actifs connus" fill={colors.assets} radius={[0, 3, 3, 0]} isAnimationActive={false} />
-          <Bar dataKey="liabilities" name="Passifs connus" fill={colors.liabilities} radius={[0, 3, 3, 0]} isAnimationActive={false} />
+          <Bar dataKey="assets" name="Biens et droits connus" fill={colors.assets} radius={[0, 3, 3, 0]} isAnimationActive={false} />
+          <Bar dataKey="liabilities" name="Dettes et obligations connues" fill={colors.liabilities} radius={[0, 3, 3, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div> : <p className="dashboard-chart-empty">Aucune position dans cette répartition.</p>}

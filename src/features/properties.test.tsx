@@ -50,6 +50,7 @@ beforeEach(() => {
 describe('Fiches immobilières et unités techniques', () => {
   it('attache la fiche à l’actif existant et transmet la surface exacte sans créer un second actif', async () => {
     const { user, onChanged } = open(null, { ...snapshot, properties: [], units: [] });
+    await user.click(screen.getByText('Gérer les fiches et les droits d’un bien déjà enregistré'));
     await user.click(screen.getByRole('button', { name: 'Ajouter une fiche immobilière' }));
     await user.selectOptions(screen.getByLabelText('Actif immobilier existant'), 'house');
     await user.selectOptions(screen.getByLabelText('Type de bien'), 'house');
@@ -84,6 +85,7 @@ describe('Fiches immobilières et unités techniques', () => {
     await user.type(screen.getByLabelText('Référence de l’unité'), 'LOT-B');
     await user.type(screen.getByLabelText('Nom de l’unité'), 'Unité en travaux');
     await user.click(screen.getByLabelText('Unité disponible à la location dans cette période'));
+    await user.click(screen.getByText('Options avancées'));
     fireEvent.change(screen.getByLabelText('Fin de validité (exclue)'), { target: { value: '2027-01-01' } });
     await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Période d’indisponibilité');
     await user.click(screen.getByRole('button', { name: 'Enregistrer l’unité' }));
@@ -94,6 +96,7 @@ describe('Fiches immobilières et unités techniques', () => {
 
   it('distingue prix inconnu et frais explicitement nuls, puis le début de suivi sans coût supposé', async () => {
     const { user } = open();
+    await user.click(screen.getByText('Acquisitions et cessions'));
     await user.click(screen.getByRole('button', { name: 'Enregistrer une acquisition' }));
     await user.selectOptions(screen.getByLabelText('Bien concerné'), 'house');
     await user.type(screen.getByLabelText('Frais d’acquisition'), '0');
@@ -114,6 +117,7 @@ describe('Fiches immobilières et unités techniques', () => {
 
   it('exige une confirmation de cession et transmet la séquence de toute l’opération atomique', async () => {
     const { user, onChanged } = open();
+    await user.click(screen.getByText('Acquisitions et cessions'));
     await user.click(screen.getByRole('button', { name: 'Enregistrer une cession' }));
     await user.selectOptions(screen.getByLabelText('Bien concerné'), 'house');
     fireEvent.change(screen.getByLabelText('Date de cession'), { target: { value: '2026-12-01' } });
@@ -130,6 +134,8 @@ describe('Fiches immobilières et unités techniques', () => {
 
   it('protège K=0 tout en demandant le rapport à cette même borne', async () => {
     const { user } = open(0);
+    await user.click(screen.getByText('Gérer les fiches et les droits d’un bien déjà enregistré'));
+    await user.click(screen.getByText('Acquisitions et cessions'));
     for (const name of ['Ajouter une fiche immobilière', 'Ajouter une unité', 'Enregistrer une acquisition', 'Enregistrer une cession']) expect(screen.getByRole('button', { name })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Modifier la fiche de Maison de test' })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText('Bien à contrôler'), 'house');
@@ -141,6 +147,7 @@ describe('Fiches immobilières et unités techniques', () => {
 
   it('corrige date, prix, devise et notes de cession uniquement après confirmation du recalcul des droits', async () => {
     const { user, onChanged } = open(null, { ...snapshot, events: [disposal] });
+    await user.click(screen.getByText('Acquisitions et cessions'));
     await user.click(screen.getByRole('button', { name: 'Corriger la cession' }));
     expect(screen.getByLabelText('Bien concerné')).toBeDisabled();
     expect(screen.getByLabelText('Bien concerné')).toHaveValue('house');
@@ -169,6 +176,7 @@ describe('Fiches immobilières et unités techniques', () => {
   it('conserve la correction motivée de cession après un conflit et redemande confirmation si la date change', async () => {
     vi.mocked(api.savePropertyEvent).mockRejectedValue({ code: 'conflict', message: 'La cession a déjà été corrigée dans une autre révision.' });
     const { user, onChanged } = open(null, { ...snapshot, events: [disposal] });
+    await user.click(screen.getByText('Acquisitions et cessions'));
     await user.click(screen.getByRole('button', { name: 'Corriger la cession' }));
     await user.clear(screen.getByLabelText('Notes'));
     await user.type(screen.getByLabelText('Notes'), 'Pièce nouvelle conservée');
@@ -189,17 +197,22 @@ describe('Fiches immobilières et unités techniques', () => {
 
   it('rend les montants inconnus et financements absents explicitement non calculables', async () => {
     const { user } = open();
-    await user.selectOptions(screen.getByLabelText('Bien à contrôler'), 'house');
-    await user.click(screen.getByRole('button', { name: 'Contrôler la valeur du bien' }));
-    await screen.findByRole('heading', { name: 'Maison de test · 2026-11-05' });
-    expect(screen.getByText('Non calculable · couverture des financements insuffisante')).toBeVisible();
-    expect(screen.getAllByText('Non calculable').length).toBeGreaterThan(3);
+    const view = screen.getByRole('button', { name: 'Voir Maison de test' });
+    expect(within(view.closest('tr')!).getByText('Non renseigné à cette date')).toBeVisible();
+    await user.click(view);
+    expect(await screen.findByRole('heading', { name: 'Maison de test · 2026-11-05' })).toHaveFocus();
+    expect(api.getPropertyReport).toHaveBeenCalledWith({ asset_id: 'house', date: '2026-11-05', knowledge_sequence: null });
+    expect(screen.getByText('Financements insuffisamment renseignés')).toBeVisible();
+    expect(screen.getAllByText('Non calculable').filter(item => item.closest('details') === null).length).toBeGreaterThan(3);
     expect(screen.queryByText('0.00 EUR')).not.toBeInTheDocument();
-    expect(screen.getByText(/Le coût ne remplace jamais une estimation manquante/)).toBeVisible();
+    expect(screen.getByText(/Le coût d’achat et l’estimation sont présentés séparément/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Fermer le détail' }));
+    expect(view).toHaveFocus();
   });
   it('REG-03 conserve la confirmation de cession si le parent refuse son actualisation', async () => {
     const { user, onChanged } = open();
     onChanged.mockRejectedValueOnce(new Error('Relecture immobilière indisponible'));
+    await user.click(screen.getByText('Acquisitions et cessions'));
     await user.click(screen.getByRole('button', { name: 'Enregistrer une cession' }));
     await user.selectOptions(screen.getByLabelText('Bien concerné'), 'house');
     await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Acte enregistré');

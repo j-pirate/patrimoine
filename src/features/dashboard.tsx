@@ -116,63 +116,75 @@ export default function DashboardPage({ registry, context, status, onNavigate }:
 
   return <div className="dashboard-workspace">
     <section className="dashboard-intro" aria-label="Synthèse patrimoniale">
-      <div><span className="eyebrow">VUE D’ENSEMBLE</span><h2>{scopeName}</h2><p>Vos positions, leurs sources et les points à compléter, à la date choisie.</p></div>
-      <div className="dashboard-local-state"><span><span className="status-dot" aria-hidden="true" />Accessible</span><small>Coffre local · calculs en EUR</small></div>
+      <div><h2>{scopeName}</h2><p>{context.personId && !companyId ? 'Part des biens et des dettes de cette personne.' : 'Votre situation au jour choisi, en euros.'}</p></div>
+      <div className="dashboard-local-state"><span><span className="status-dot" aria-hidden="true" />Accessible</span></div>
     </section>
-    <section className="card dashboard-filters" aria-label="Filtres du tableau de bord">
+    {error && <RegistryNotice error>{error}</RegistryNotice>}
+    {message && <RegistryNotice>{message}</RegistryNotice>}
+    {loading && <p role="status" className="dashboard-loading">Calcul de votre situation patrimoniale…</p>}
+    {!report && !loading && !error && <RegistryNotice>Les filtres ont changé. Ouvrez les options et actualisez le tableau de bord pour afficher les résultats.</RegistryNotice>}
+    {!registry.entities.length && !registry.assets.length && <section className="card dashboard-empty"><h2>Construire une vue à partir de vos données</h2><p>Ajoutez un membre, un bien immobilier ou un compte. Le tableau de bord se remplit à mesure de vos saisies.</p><div className="button-row"><button type="button" className="button" onClick={() => onNavigate('family')}>Renseigner la famille</button><button type="button" className="button secondary" onClick={() => onNavigate('property')}>Ouvrir l’immobilier</button><button type="button" className="button secondary" onClick={() => onNavigate('bank')}>Ouvrir les comptes bancaires</button></div></section>}
+    <div className={report ? 'dashboard-results' : 'dashboard-calculation'} role={report ? 'region' : undefined} aria-label={report ? 'Résultats du tableau de bord' : undefined} data-knowledge-sequence={report?.knowledge_sequence}>
+      {report && <>
+        <div className="dashboard-result-heading"><h2>{report.company ? 'Pilotage de la société' : report.filters_applied ? 'Résultats filtrés' : 'Votre situation patrimoniale'}</h2><span className="muted">Au <time dateTime={report.request.date}>{report.request.date.split('-').reverse().join('/')}</time></span></div>
+        {report.filters_applied && <RegistryNotice>Les montants correspondent aux filtres choisis. Les alertes restent celles du périmètre complet.</RegistryNotice>}
+        {report.totals && <Totals totals={report.totals} />}
+        {!!report.warnings.length && <Alerts report={report} />}
+      </>}
+    <details className="card dashboard-filters dashboard-disclosure">
+      <summary>Filtres, période et export du rapport</summary>
       <form onSubmit={event => { void calculate(event); }}>
         <fieldset disabled={exporting}>
           <div className="dashboard-filter-grid">
             <div><label htmlFor="dashboard-from-date">Début de la période</label><input id="dashboard-from-date" type="date" required max={context.date} value={fromDate} onChange={event => setFromDate(event.currentTarget.value)} /></div>
-            <div><label htmlFor="dashboard-interval">Pas de l’historique</label><select id="dashboard-interval" value={interval} onChange={event => setInterval(event.currentTarget.value as 'monthly' | 'annual')}><option value="monthly">Mensuel</option><option value="annual">Annuel</option></select></div>
-            <div><label htmlFor="dashboard-company">Vue de société</label><select id="dashboard-company" value={companyId} onChange={event => chooseCompany(event.currentTarget.value)}><option value="">Périmètre global sélectionné</option>{registry.entities.filter(entity => entity.kind === 'company').map(entity => <option value={entity.id} key={entity.id}>{name(entity.id)}</option>)}</select></div>
+            <div><label htmlFor="dashboard-interval">Fréquence de l’historique</label><select id="dashboard-interval" value={interval} onChange={event => setInterval(event.currentTarget.value as 'monthly' | 'annual')}><option value="monthly">Mensuelle</option><option value="annual">Annuelle</option></select></div>
+            <div><label htmlFor="dashboard-company">Vue de société</label><select id="dashboard-company" value={companyId} onChange={event => chooseCompany(event.currentTarget.value)}><option value="">Vue familiale ou individuelle</option>{registry.entities.filter(entity => entity.kind === 'company').map(entity => <option value={entity.id} key={entity.id}>{name(entity.id)}</option>)}</select></div>
           </div>
           <fieldset className="dashboard-position-filters" disabled={!!companyId}>
-            <legend>Filtrer les positions</legend>
+            <legend>Filtrer les biens et les dettes</legend>
             <div className="dashboard-filter-grid">
               <div><label htmlFor="dashboard-country">Pays</label><select id="dashboard-country" value={filters.country ?? ''} onChange={event => updateFilter('country', event.currentTarget.value)}><option value="">Tous les pays</option>{countries.map(country => <option key={country} value={country}>{country}</option>)}</select></div>
               <div><label htmlFor="dashboard-currency">Devise d’origine</label><select id="dashboard-currency" value={filters.currency ?? ''} onChange={event => updateFilter('currency', event.currentTarget.value)}><option value="">Toutes les devises</option>{displayCurrencies.map(currency => <option key={currency}>{currency}</option>)}</select></div>
-              <div><label htmlFor="dashboard-category">Type de position</label><select id="dashboard-category" value={filters.category ?? ''} onChange={event => updateFilter('category', event.currentTarget.value)}><option value="">Tous les types</option>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-              <div className="dashboard-owner-filter"><label htmlFor="dashboard-owner">Propriétaire associé (positions entières)</label><select id="dashboard-owner" value={filters.owner_entity_id ?? ''} onChange={event => updateFilter('owner_entity_id', event.currentTarget.value)}><option value="">Tous les propriétaires associés</option>{registry.entities.map(entity => <option key={entity.id} value={entity.id}>{name(entity.id)}</option>)}</select></div>
-              <div><label htmlFor="dashboard-query">Rechercher une position</label><input id="dashboard-query" type="search" maxLength={200} value={filters.query} onChange={event => updateFilter('query', event.currentTarget.value)} placeholder="Nom, identifiant ou source" /></div>
+              <div><label htmlFor="dashboard-category">Catégorie</label><select id="dashboard-category" value={filters.category ?? ''} onChange={event => updateFilter('category', event.currentTarget.value)}><option value="">Toutes les catégories</option>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+              <div className="dashboard-owner-filter"><label htmlFor="dashboard-owner">Propriétaire associé</label><select id="dashboard-owner" aria-describedby="dashboard-owner-hint" value={filters.owner_entity_id ?? ''} onChange={event => updateFilter('owner_entity_id', event.currentTarget.value)}><option value="">Tous les propriétaires associés</option>{registry.entities.map(entity => <option key={entity.id} value={entity.id}>{name(entity.id)}</option>)}</select></div>
+              <div><label htmlFor="dashboard-query">Rechercher dans le rapport</label><input id="dashboard-query" type="search" maxLength={200} value={filters.query} onChange={event => updateFilter('query', event.currentTarget.value)} placeholder="Nom, identifiant ou source" /></div>
             </div>
-            <p className="field-hint">Les filtres sélectionnent les positions du périmètre après élimination des doubles comptes. Le propriétaire associé sélectionne des positions entières ; il ne recalcule pas une quote-part juridique.</p>
+            <p id="dashboard-owner-hint" className="field-hint">Le filtre par propriétaire conserve le montant entier de chaque ligne du rapport. Pour calculer la part d’une personne, choisissez-la dans le périmètre de consultation.</p>
           </fieldset>
-          {companyId && <p className="field-hint">Le pilotage de société présente ses sources propres. Les filtres de positions sont désactivés dans cette vue.</p>}
+          {companyId && <p className="field-hint">La vue de société utilise ses propres données. Revenez à la vue familiale ou individuelle pour appliquer ces filtres.</p>}
           <div className="dashboard-filter-actions"><button type="submit" className="button" disabled={loading || !fromDate || fromDate > context.date}>{loading ? 'Calcul du tableau de bord…' : 'Actualiser le tableau de bord'}</button><button type="button" className="button secondary" disabled={!report || loading || exporting} onClick={() => { void exportReport(); }}>{exporting ? 'Export du rapport…' : 'Exporter le rapport filtré'}</button><span>Du {fromDate || '…'} au {context.date} · K={knowledge}</span></div>
         </fieldset>
       </form>
-    </section>
-    {error && <RegistryNotice error>{error}</RegistryNotice>}
-    {message && <RegistryNotice>{message}</RegistryNotice>}
-    {loading && <p role="status" className="dashboard-loading">Lecture des sources et calcul de l’historique…</p>}
-    {!report && !loading && !error && <RegistryNotice>La période ou les filtres ont changé. Actualisez le tableau de bord pour afficher les résultats correspondants.</RegistryNotice>}
-    {!registry.entities.length && <section className="card dashboard-empty"><span className="eyebrow">VOTRE POINT DE DÉPART</span><h2>Construire une vue à partir de vos données</h2><p>Ajoutez les membres, actifs et sources financières. Une valeur absente reste inconnue ; le tableau de bord ne contient aucun montant de démonstration.</p><div className="button-row"><button type="button" className="button secondary" onClick={() => onNavigate('family')}>Renseigner la famille</button><button type="button" className="button secondary" onClick={() => onNavigate('assets')}>Consulter le patrimoine</button></div></section>}
-    {report && <div className="dashboard-results" role="region" aria-label="Résultats du tableau de bord" data-knowledge-sequence={report.knowledge_sequence}>
-      <div className="dashboard-result-heading"><div><span className="eyebrow">SITUATION AU {report.request.date}</span><h2>{report.company ? 'Pilotage de la société' : report.filters_applied ? 'Positions sélectionnées du périmètre' : 'Votre situation patrimoniale'}</h2></div><span className={`badge ${report.totals?.net_eur === null || report.company?.status === 'partial' ? 'warning-badge' : ''}`}>{report.company ? 'Sources de société' : report.totals?.net_eur === null ? 'Situation incomplète' : 'Situation calculable'}</span></div>
-      {report.filters_applied && <RegistryNotice>Les montants ci-dessous concernent les positions filtrées. Les alertes de couverture du périmètre complet restent visibles ; un filtre ne rend pas une donnée inconnue calculable.</RegistryNotice>}
-      {report.totals && <Totals totals={report.totals} report={report} />}
-      <Alerts report={report} />
+    </details>
+    {report && <>
       {report.company ? <CompanyPanel report={report.company} fromDate={report.request.from_date} /> : <>
-        <div className="dashboard-charts-grid"><DashboardHistoryChart points={report.history} /><DashboardAllocationChart buckets={report.by_category} title="Répartition par type de position" /></div>
-        <div className="dashboard-charts-grid"><DashboardAllocationChart buckets={report.by_country} title="Répartition par pays" /><DashboardAllocationChart buckets={report.by_currency} title="Répartition par devise d’origine" /></div>
-        {!!report.members.length && <DashboardMembersChart members={report.members} />}
+        <DashboardAllocationChart buckets={report.by_category} title="Répartition par catégorie" />
+        <details className="card dashboard-disclosure dashboard-advanced">
+          <summary>Évolution et autres répartitions</summary>
+          <div className="dashboard-disclosure-content">
+            <DashboardHistoryChart points={report.history} />
+            <p>Variation du patrimoine net sur la période : <b>{amount(report.period_change?.net_change_eur ?? null)}</b>. {report.period_change && <>Écart des différences connues : <b>{amount(report.period_change.known_net_change_eur)}</b>. Cet écart ne mesure pas une performance.</>}</p>
+            <div className="dashboard-charts-grid"><DashboardAllocationChart buckets={report.by_country} title="Répartition par pays" /><DashboardAllocationChart buckets={report.by_currency} title="Répartition par devise d’origine" /></div>
+            {!!report.members.length && <DashboardMembersChart members={report.members} />}
+          </div>
+        </details>
+        <details className="card dashboard-disclosure dashboard-ledger"><summary>Détail des biens, dettes et calculs</summary><div className="dashboard-disclosure-content">
         <Positions report={report} name={name} />
         {report.variation && <section className="card dashboard-variation"><h2>Pont des estimations du registre</h2><p>Ce pont partiel concerne les estimations historiques du registre, hors filtres des positions. Il n’explique pas la variation complète du bilan ni un rendement. Les métaux dérivés et les nouveaux stocks financiers gardent les limites indiquées par leur moteur.</p><div className="table-scroll"><table><caption>Décomposition du registre, du {report.variation.from_date} au {report.variation.to_date}</caption><thead><tr><th>Composante</th><th>Variation en EUR</th></tr></thead><tbody>{report.variation.steps.map(step => <tr key={step.code}><td>{step.label}</td><td>{amount(step.amount_eur)}</td></tr>)}<tr><td>Résidu de ce pont</td><td>{amount(report.variation.residual_eur)}</td></tr></tbody></table></div><p className="field-hint">Statut du pont : {report.variation.status}. L’export d’une vue filtrée conserve les positions sélectionnées et signale l’exclusion de ce pont sans filtre.</p></section>}
+        </div></details>
       </>}
-      {report.rental && <section className="card dashboard-rentals"><h2>Locations du périmètre</h2><p>Du {report.rental.from_date} au {report.rental.to_date} (fin exclue), situation au {report.rental.date}. Le pays sélectionné s’applique à ces indicateurs. Les autres filtres de positions ne recalculent pas les loyers, les impayés ou le NOI.</p><div className="dashboard-rental-grid"><Metric label="Loyers courus" value={report.rental.economic_rent_eur} /><Metric label="Loyers encaissés" value={report.rental.rent_received_eur} /><Metric label="Loyers restant dus" value={report.rental.outstanding_rent_eur} /><Metric label="NOI couru" value={report.rental.noi_eur} /></div><p className="field-hint">Le restant dû inclut les échéances exigibles ; les retards et leurs dates figurent dans les détails. Les encaissements et le revenu couru sont distincts.</p>{report.rental.dues.some(due => due.overdue_days > 0) && <details><summary>Échéances en retard et sources</summary><ul>{report.rental.dues.filter(due => due.overdue_days > 0).map(due => <li key={due.due_id}>{due.due_on} · {due.overdue_days} jours · loyer restant {amount(due.outstanding_rent, due.currency)}<code className="dashboard-source-ids">{due.source_ids.join(', ')}</code></li>)}</ul></details>}</section>}
-      <section className="card dashboard-sources"><h2>Contexte et sources du rapport</h2><p>{scopeName} · date économique {report.request.date} · connaissances K={report.knowledge_sequence} · moteur {report.engine_version}. Chaque date historique est recalculée avec ce même K.</p><details><summary>Sources du rapport ({report.source_ids.length})</summary><code className="dashboard-source-ids">{report.source_ids.join(', ') || 'Aucune source enregistrée dans ce périmètre.'}</code></details><p className="field-hint">L’export JSON conserve les filtres, positions, historique, valeurs exactes, références et avertissements de cette consultation. Avec des filtres actifs, il signale l’exclusion des sections calculées sur un périmètre sans filtre. Pour récupérer l’intégralité du coffre et ses originaux, utilisez Sauvegarde et export.</p></section>
-    </div>}
+      {report.rental && <RentalSummary rental={report.rental} />}
+      <details className="card dashboard-sources dashboard-disclosure"><summary>Contexte et sources du rapport</summary><div className="dashboard-disclosure-content"><p>{scopeName} · date économique {report.request.date} · connaissances K={report.knowledge_sequence} · moteur {report.engine_version}. Chaque date historique est recalculée avec ce même K.</p><details><summary>Sources du rapport ({report.source_ids.length})</summary><code className="dashboard-source-ids">{report.source_ids.join(', ') || 'Aucune source enregistrée dans ce périmètre.'}</code></details><p className="field-hint">L’export JSON conserve les filtres, positions, historique, valeurs exactes, références et avertissements de cette consultation. Avec des filtres actifs, il signale l’exclusion des sections calculées sur un périmètre sans filtre. Pour récupérer l’intégralité du coffre et ses originaux, utilisez Sauvegarde et export.</p></div></details>
+    </>}
+    </div>
   </div>;
 }
 
-function Totals({ totals, report }: { totals: DashboardTotals; report: DashboardReport }) {
-  const change = report.period_change;
+function Totals({ totals }: { totals: DashboardTotals }) {
   return <div className="dashboard-total-grid">
-    <article className="dashboard-metric dashboard-metric-main" aria-label="Patrimoine net"><span className="eyebrow">PATRIMOINE NET</span><strong data-value={totals.net_eur ?? 'unknown'}>{amount(totals.net_eur)}</strong><p>{totals.net_eur === null ? <>Différence connue : <b>{amount(totals.known_net_eur)}</b>. Ce sous-total n’est pas un net complet.</> : 'Actifs moins passifs, après éliminations internes.'}</p></article>
-    <article className="dashboard-metric" aria-label="Actifs consolidés"><span className="eyebrow">ACTIFS CONSOLIDÉS</span><strong data-value={totals.assets_eur ?? 'unknown'}>{amount(totals.assets_eur)}</strong><p>{totals.assets_eur === null ? <>Sous-total connu : <b>{amount(totals.known_assets_eur)}</b>.</> : 'Inclut les participations à valeur globale nette.'}</p></article>
-    <article className="dashboard-metric" aria-label="Passifs consolidés"><span className="eyebrow">PASSIFS CONSOLIDÉS</span><strong data-value={totals.liabilities_eur ?? 'unknown'}>{amount(totals.liabilities_eur)}</strong><p>{totals.liabilities_eur === null ? <>Sous-total connu : <b>{amount(totals.known_liabilities_eur)}</b>.</> : 'Dettes et obligations suivies dans ce périmètre.'}</p></article>
-    <article className="dashboard-metric" aria-label="Variation sur la période"><span className="eyebrow">VARIATION SUR LA PÉRIODE</span><strong data-value={change?.net_change_eur ?? 'unknown'}>{amount(change?.net_change_eur ?? null)}</strong><p>{change ? <>Écart des différences connues : <b>{amount(change.known_net_change_eur)}</b>. Cet écart ne mesure pas une performance.</> : 'Les deux dates doivent disposer de sources comparables.'}</p></article>
+    <article className="dashboard-metric" aria-label="Patrimoine brut"><span className="dashboard-metric-label">Patrimoine brut</span><strong data-value={totals.assets_eur ?? 'unknown'}>{amount(totals.assets_eur)}</strong><p>{totals.assets_eur === null ? <>Sous-total connu : <b>{amount(totals.known_assets_eur)}</b>.</> : 'Valeur des biens et droits suivis.'}</p></article>
+    <article className="dashboard-metric" aria-label="Dettes et obligations"><span className="dashboard-metric-label">Dettes et obligations</span><strong data-value={totals.liabilities_eur ?? 'unknown'}>{amount(totals.liabilities_eur)}</strong><p>{totals.liabilities_eur === null ? <>Sous-total connu : <b>{amount(totals.known_liabilities_eur)}</b>.</> : 'Sommes restant dues dans cette vue.'}</p></article>
+    <article className="dashboard-metric dashboard-metric-main" aria-label="Patrimoine net"><span className="dashboard-metric-label">Patrimoine net</span><strong data-value={totals.net_eur ?? 'unknown'}>{amount(totals.net_eur)}</strong><p>{totals.net_eur === null ? <>Différence connue : <b>{amount(totals.known_net_eur)}</b>. Ce sous-total n’est pas un net complet.</> : 'Patrimoine brut moins dettes et obligations.'}</p></article>
   </div>;
 }
 
@@ -180,10 +192,26 @@ function Metric({ label, value }: { label: string; value: string | null }) {
   return <div><span>{label}</span><strong data-value={value ?? 'unknown'}>{amount(value)}</strong></div>;
 }
 
+function RentalSummary({ rental }: { rental: NonNullable<DashboardReport['rental']> }) {
+  const late = rental.dues.filter(due => due.overdue_days > 0);
+  return <details className="card dashboard-rentals dashboard-disclosure">
+    <summary>Loyers et dépenses</summary>
+    <p>Du {rental.from_date} au {rental.to_date} (fin exclue), situation au {rental.date}. Seul le filtre par pays s’applique à ces indicateurs.</p>
+    <div className="dashboard-rental-grid">
+      <Metric label="Loyers courus" value={rental.economic_rent_eur} />
+      <Metric label="Loyers encaissés" value={rental.rent_received_eur} />
+      <Metric label="Loyers restant dus" value={rental.outstanding_rent_eur} />
+      <Metric label="Revenu locatif net couru (NOI)" value={rental.noi_eur} />
+    </div>
+    <p className="field-hint">Les loyers courus correspondent à la période d’occupation. Les loyers encaissés correspondent aux paiements reçus. Le restant dû inclut les échéances exigibles.</p>
+    {late.length > 0 && <details><summary>Échéances en retard et sources</summary><ul>{late.map(due => <li key={due.due_id}>{due.due_on} · {due.overdue_days} jours · loyer restant {amount(due.outstanding_rent, due.currency)}<code className="dashboard-source-ids">{due.source_ids.join(', ')}</code></li>)}</ul></details>}
+  </details>;
+}
+
 function Alerts({ report }: { report: DashboardReport }) {
-  return <section className={`dashboard-quality ${report.warnings.length ? 'dashboard-quality-warning' : ''}`} aria-label="Qualité des données">
-    <div><span className="dashboard-quality-icon" aria-hidden="true">{report.warnings.length ? '!' : '✓'}</span><div><h2>{report.warnings.length ? `${report.warnings.length} alerte${report.warnings.length > 1 ? 's' : ''} à examiner` : 'Aucune alerte signalée par les moteurs'}</h2><p>{report.warnings.length ? 'Les résultats calculables restent visibles. Les sources manquantes ne sont jamais remplacées par zéro.' : 'La portée du rapport et les références restent consultables ci-dessous.'}</p></div></div>
-    {!!report.warnings.length && <details><summary>Afficher toutes les alertes et leurs références</summary><ul>{report.warnings.map((warning, index) => <li key={`${warning.code}-${warning.object_id}-${index}`}><strong>{warning.message}</strong><code>{warning.code} · {warning.object_id}</code></li>)}</ul></details>}
+  return <section className="dashboard-quality dashboard-quality-warning" aria-label="Qualité des données">
+    <div><span className="dashboard-quality-icon" aria-hidden="true">!</span><div><h2>{report.warnings.length} alerte{report.warnings.length > 1 ? 's' : ''} à examiner</h2><p>Les montants connus restent visibles. Une information manquante reste inconnue.</p></div></div>
+    <details><summary>Afficher toutes les alertes et leurs références</summary><ul>{report.warnings.map((warning, index) => <li key={`${warning.code}-${warning.object_id}-${index}`}><strong>{warning.message}</strong><code>{warning.code} · {warning.object_id}</code></li>)}</ul></details>
   </section>;
 }
 

@@ -70,6 +70,7 @@ describe('Registre familial et droits datés', () => {
   it('transmet explicitement la période familiale avec fin exclusive', async () => {
     vi.mocked(api.saveMembership).mockResolvedValue(registry.memberships[0]);
     const { user } = openRegistry('family');
+    await user.click(screen.getByText('Périodes d’appartenance à la famille', { selector: 'summary' }));
     await user.click(screen.getByRole('button', { name: 'Ajouter une période familiale' }));
     await user.selectOptions(screen.getByLabelText('Personne à inclure dans la famille'), person.id);
     fireEvent.change(screen.getByLabelText('Date de début'), { target: { value: '2027-01-01' } });
@@ -121,7 +122,11 @@ describe('Registre familial et droits datés', () => {
 
   it.each(['archivage', 'réactivation', 'annulation'])('REG-05 focalise la confirmation de %s puis restaure son déclencheur', async action => {
     const { user } = openRegistry('family', action === 'réactivation' ? { ...registry, entities: [{ ...person, archived: true }] } : registry);
-    if (action === 'réactivation') await user.click(screen.getByRole('checkbox', { name: 'Afficher les fiches archivées' }));
+    if (action === 'réactivation') {
+      await user.click(screen.getByText('Filtres et options d’affichage', { selector: 'summary' }));
+      await user.click(screen.getByRole('checkbox', { name: 'Afficher les fiches archivées' }));
+    }
+    if (action === 'annulation') await user.click(screen.getByText('Périodes d’appartenance à la famille', { selector: 'summary' }));
     const table = screen.getByRole('table', { name: action === 'annulation' ? 'Périodes du périmètre familial' : 'Personnes, membres et tiers' });
     const trigger = within(table).getByRole('button', { name: action === 'annulation' ? 'Annuler l’enregistrement' : action === 'réactivation' ? 'Réactiver' : 'Archiver' });
     await user.click(trigger);
@@ -164,5 +169,30 @@ describe('Registre familial et droits datés', () => {
     expect(api.getConsolidation).toHaveBeenCalledWith({ context: 'person', person_id: person.id, date: '2026-11-04', knowledge_sequence: null });
     expect(screen.getByText(/ne présente pas un patrimoine net exhaustif/)).toBeVisible();
     expect(screen.getByText('Les passifs ne sont pas encore inventoriés.')).toBeVisible();
+  });
+
+  it('retrouve un bien sans propriétaire en vue familiale et l’exclut de la vue individuelle', async () => {
+    const props = { page: 'assets' as const, registry, onBusyChange: vi.fn(), onChanged: vi.fn(), context: { personId: null as string | null, date: '2026-11-04' } };
+    const view = render(<RegistryPage {...props} />);
+    const user = userEvent.setup();
+    const trigger = screen.getByRole('button', { name: 'Voir Bien commun' });
+    expect(screen.getByText('Propriétaire à renseigner')).toBeVisible();
+    await user.click(trigger);
+    const details = screen.getByRole('region', { name: 'Détails de la fiche' });
+    expect(details).toHaveFocus();
+    expect(within(details).getAllByText('À renseigner')).toHaveLength(2);
+    await user.click(within(details).getByRole('button', { name: 'Retour à la liste' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+    view.rerender(<RegistryPage {...props} context={{ ...props.context, personId: person.id }} />);
+    expect(screen.queryByRole('button', { name: 'Voir Bien commun' })).not.toBeInTheDocument();
+    expect(api.getConsolidation).not.toHaveBeenCalled();
+  });
+
+  it('affiche une société à compléter dans la vue familiale même sans associé', () => {
+    const company: Entity = { ...person, id: 'company', revision_id: 'company-r1', kind: 'company', display_name: 'Entreprise familiale', first_name: null, last_name: null };
+    openRegistry('companies', { ...registry, entities: [person, company] });
+    const table = screen.getByRole('table', { name: 'Sociétés' });
+    expect(within(table).getByText('Entreprise familiale')).toBeVisible();
+    expect(within(table).getByText('Associés à renseigner')).toBeVisible();
   });
 });

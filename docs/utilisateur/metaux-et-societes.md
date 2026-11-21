@@ -8,7 +8,7 @@ La date économique **D** et les connaissances **K** restent celles du bandeau c
 
 ## Créer un lot physique et confirmer son stock
 
-Dans **Or et argent → Lots**, choisir **Créer un lot de métal**. Rattacher le lot à un actif déjà créé dans **Patrimoine** ; **Gérer les actifs et leurs propriétaires** permet de préparer cet actif et ses droits. Un lot complète un actif unique. Il ne peut pas utiliser un actif déjà spécialisé comme compte ou bien immobilier.
+Dans **Autres biens et dettes → Or et argent**, choisissez **Ajouter un lot de métal**. Saisissez la quantité déjà détenue, le poids d’un objet, sa pureté et son propriétaire unique. La valeur pourra être calculée à partir d’un cours enregistré séparément. Pour conserver les liens avec un bien générique déjà saisi, ouvrez **Lots → Options avancées** et choisissez son rattachement. Un lot complète un seul bien et ne peut pas utiliser la fiche d’un compte ou d’un bien immobilier.
 
 Renseigner le métal, la forme, la désignation, le poids brut **d’une unité physique**, l’unité de poids, la pureté, le début du suivi, la devise des coûts, le titulaire initial et le lieu initial. La pureté est une fraction décimale strictement supérieure à `0` et inférieure ou égale à `1`, par exemple `0,9`, et non un pourcentage à interpréter. La quantité restante peut être nulle après une vente complète ; cette possibilité ne s’applique pas à la pureté. Les unités sont **Gramme**, **Kilogramme** et **Once troy (31,1034768 g)**. Une once ordinaire n’est pas une once troy.
 
@@ -65,7 +65,7 @@ Dans **Contrôler un lot**, sélectionner le lot puis **Calculer le lot de méta
 
 ## Conserver les fiches et méthodes des sociétés
 
-Dans **Sociétés**, **Fiches et participations** conserve le registre existant : profils, propriétaires, participations et méthode datée **détaillée** ou **valeur globale des capitaux propres**. Les [règles de propriété](famille-et-propriete.md), [dates et connaissances](devises-et-historique.md), [couvertures et financements](comptes-et-financements.md) restent applicables.
+Dans **Autres biens et dettes → Sociétés**, choisissez **Ajouter une société**. Renseignez les associés connus dans la saisie ou utilisez ensuite **Fiches et participations → Ajouter une participation**. La méthode datée, **détaillée** ou **valeur globale des capitaux propres**, se choisit dans les options avancées. [Règles de propriété](famille-et-propriete.md) · [Dates et historique](devises-et-historique.md)
 
 La valeur globale réellement retenue se saisit par les valorisations du registre et sa méthode explicite. Un chiffre d’affaires, une trésorerie indicative ou une estimation de gestion ne remplace pas cette valorisation par synchronisation implicite.
 

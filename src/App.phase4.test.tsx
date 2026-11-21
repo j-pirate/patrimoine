@@ -5,6 +5,7 @@ import App from './App';
 import { api } from './services/api';
 import { emptyRegistry } from './services/registry-types';
 import type { Entity } from './services/registry-types';
+import { openModule } from './test/navigation';
 
 vi.mock('./services/api', async importOriginal => {
   const actual = await importOriginal<typeof import('./services/api')>();
@@ -20,7 +21,8 @@ beforeEach(() => {
   vi.mocked(api.getStatus).mockResolvedValue({ generation_id: 'vault', data_dir: '/local', schema_version: 3,
     app_version: '0.1.0', document_count: 0, mutation_sequence: 4, country_count: 4, currency_count: 5, recovery_required: false, recovery_message: null,
     settings: { workspace_name: 'Coffre de test', display_currency: 'EUR' } });
-  vi.mocked(api.listRegistry).mockResolvedValue({ ...emptyRegistry, entities: [person], knowledge_sequence: 4 });
+  vi.mocked(api.listRegistry).mockResolvedValue({ ...emptyRegistry, entities: [person], knowledge_sequence: 4,
+    memberships: [{ id: 'member-alice', revision_id: 'member-r1', person_id: person.id, valid_from: '2000-01-01', valid_to: null, relationship: '' }] });
   vi.mocked(api.listRegistryAt).mockResolvedValue(emptyRegistry);
   vi.mocked(api.listRegistryHistory).mockResolvedValue({ latest_sequence: 4, events: [{ sequence: 4,
     recorded_at: '2026-11-04T12:00:00Z', object_id: 'alice', revision_id: 'r2', kind: 'entity', label: 'Alice actuelle',
@@ -33,6 +35,7 @@ describe('Date économique et connaissances globales', () => {
     await screen.findByText('Coffre de test');
     await user.click(screen.getByRole('button', { name: 'Famille' }));
     await screen.findByRole('table', { name: 'Personnes, membres et tiers' });
+    await user.click(screen.getByText('Date et historique', { selector: 'summary' }));
     await user.selectOptions(screen.getByLabelText('Connaissances disponibles'), '0');
     await waitFor(() => expect(api.listRegistryAt).toHaveBeenCalledExactlyOnceWith(0));
     const create = await screen.findByRole('button', { name: 'Créer une personne' });
@@ -48,8 +51,9 @@ describe('Date économique et connaissances globales', () => {
   it('choisit une séquence depuis le journal et conserve D indépendante de K', async () => {
     const user = userEvent.setup(); render(<App />);
     await screen.findByText('Coffre de test');
+    await user.click(screen.getByText('Date et historique', { selector: 'summary' }));
     fireEvent.change(screen.getByLabelText('Date de référence'), { target: { value: '2021-06-30' } });
-    await user.click(screen.getByRole('button', { name: 'Historique' }));
+    await openModule(user, 'Historique');
     await user.click(await screen.findByRole('button', { name: 'Consulter la séquence 4' }));
     await waitFor(() => expect(api.listRegistryAt).toHaveBeenCalledWith(4));
     expect(screen.getByLabelText('Connaissances disponibles')).toHaveValue('4');

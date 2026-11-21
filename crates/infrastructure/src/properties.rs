@@ -54,6 +54,30 @@ fn normalize_optional(value: &mut Option<String>) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn insert_property(
+    c: &Connection,
+    revision: &str,
+    input: &SavePropertyInput,
+) -> Result<()> {
+    c.execute(
+        "INSERT INTO property_details VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        params![
+            revision,
+            input.asset_id,
+            input.property_type,
+            input.city,
+            input.address,
+            input.surface_m2,
+            input.status,
+            input.valid_from,
+            input.valid_to,
+            input.notes
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
 impl Vault {
     fn write_property<T>(
         &mut self,
@@ -253,25 +277,7 @@ impl PropertyService for Vault {
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
             &input.reason,
-            |tx, _, rev| {
-                tx.execute(
-                    "INSERT INTO property_details VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-                    params![
-                        rev,
-                        input.asset_id,
-                        input.property_type,
-                        input.city,
-                        input.address,
-                        input.surface_m2,
-                        input.status,
-                        input.valid_from,
-                        input.valid_to,
-                        input.notes
-                    ],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, _, rev| insert_property(tx, rev, &input),
             |saved, key| {
                 saved
                     .properties
@@ -458,7 +464,7 @@ impl PropertyService for Vault {
     }
 }
 
-fn validate_identities(c: &Connection) -> Result<()> {
+pub(crate) fn validate_identities(c: &Connection) -> Result<()> {
     for (table, key) in [
         ("property_details", "asset_id"),
         ("rental_units", "property_asset_id"),

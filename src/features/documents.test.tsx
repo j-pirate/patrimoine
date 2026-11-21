@@ -45,6 +45,7 @@ describe('Bibliothèque documentaire et versions', () => {
     vi.mocked(api.chooseDocumentImport).mockResolvedValue('/test/source.pdf');
     const { user, p } = await open();
     await screen.findByText('Votre espace documentaire est vide');
+    await user.click(screen.getByText('Ajouter une description à l’import'));
     await user.type(screen.getByLabelText('Description du document à importer (facultative)'), 'Document signé et original');
     await user.click(screen.getByRole('button', { name: 'Importer un document' }));
     await screen.findByRole('heading', { name: current.original_name });
@@ -206,6 +207,7 @@ describe('Bibliothèque documentaire et versions', () => {
     await screen.findByText('Aucun document ne correspond aux filtres.');
     expect(api.saveDocumentMetadata).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 'document', expected_revision_id: 'document-r2', status: 'deleted', confirmed: true }));
     expect(api.removeDocumentLink).not.toHaveBeenCalled();
+    await user.click(screen.getByText('Filtres d’association et de statut'));
     await user.selectOptions(screen.getByLabelText('Statut des documents'), '');
     await screen.findByRole('heading', { name: current.original_name });
     expect(screen.getByRole('button', { name: 'Rétablir le document' })).toBeEnabled();
@@ -276,6 +278,7 @@ describe('Bibliothèque documentaire et versions', () => {
   it('filtre les associations sur leur période civile sans masquer leur source dans la bibliothèque', async () => {
     const { user, rerender, p } = await open();
     expect(screen.getByText('Hors de la période choisie')).toBeVisible();
+    await user.click(screen.getByText('Filtres d’association et de statut'));
     await user.selectOptions(screen.getByLabelText('Type d’objet associé à la date'), 'asset');
     await screen.findByText('Aucun document ne correspond aux filtres.');
     rerender(<DocumentsPage {...p} context={{ ...context, date: '2026-05-01' }} />);

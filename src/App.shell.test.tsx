@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
 import { api } from './services/api';
 import { emptyRegistry } from './services/registry-types';
+import { openModule } from './test/navigation';
 vi.mock('./services/api', async importOriginal => {
  const actual = await importOriginal<typeof import('./services/api')>();
  return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map(key => [key,vi.fn()])) };
@@ -12,7 +13,8 @@ vi.mock('./features/dashboard',()=>({ default:()=> <p>Tableau synthétique</p> }
 vi.mock('./features/financial-report',()=>({ default:()=> <p>Bilan synthétique</p> }));
 vi.mock('./features/global-search',()=>({ default:()=> null }));
 const alice = { id:'alice', revision_id:'alice-r5',kind:'person' as const,display_name:'Alice actuelle K5',first_name:null,last_name:null,birth_date:null,residence_country:'FR',preferred_currency:'EUR',activity:'',notes:'',archived:false };
-const registry = { ...emptyRegistry,knowledge_sequence:5,entities:[alice] };
+const registry = { ...emptyRegistry,knowledge_sequence:5,entities:[alice],
+ memberships:[{id:'member-alice',revision_id:'member-r1',person_id:alice.id,valid_from:'2000-01-01',valid_to:null,relationship:''}] };
 const status = {generation_id:'vault',data_dir:'/local',schema_version:6,app_version:'0.1.1',document_count:0,mutation_sequence:5,country_count:4,currency_count:5,recovery_required:false,recovery_message:null,settings:{workspace_name:'Coffre de test',display_currency:'EUR' as const}};
 function deferred<T>() { let resolve!:(value:T)=>void; let reject!:(reason:unknown)=>void; const promise=new Promise<T>((a,b)=>{resolve=a;reject=b}); return {promise,resolve,reject}; }
 beforeEach(()=>{
@@ -24,7 +26,7 @@ it.each(['ancienne', 'récente'])('SHELL-02 garde le dernier K exact quand la r�
  const old=deferred<typeof registry>(),latest=deferred<typeof registry>();
  vi.mocked(api.listRegistryAt).mockImplementation(k=>k===4?old.promise:latest.promise);
  const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');
- await user.click(screen.getByRole('button',{name:'Historique'}));
+ await openModule(user,'Historique');
  await user.click(await screen.findByRole('button',{name:'Consulter la séquence 4'}));
  await user.click(screen.getByRole('button',{name:'Consulter la séquence 2'}));
  await user.click(screen.getByRole('button',{name:'Famille'}));
@@ -50,11 +52,11 @@ it.each(['ancienne', 'récente'])('SHELL-02 garde le dernier K exact quand la r�
 it.each(['calcul', 'sauvegarde'])('SHELL-01 conserve le blocage quand %s termine avant l’autre opération',async first=>{
  const calculation=deferred<never>(),saving=deferred<never>();
  vi.mocked(api.getConsolidation).mockReturnValue(calculation.promise);vi.mocked(api.saveAsset).mockReturnValue(saving.promise);
- const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await user.click(screen.getByRole('button',{name:'Patrimoine'}));
+ const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await openModule(user,'Patrimoine');
  await user.click(screen.getByRole('button',{name:'Créer un actif'}));
  await user.type(screen.getByLabelText('Nom de l’actif'),'Actif encore en sauvegarde');
  await user.selectOptions(screen.getByLabelText('Pays de l’actif'),'FR');
- await user.type(screen.getByLabelText('Classe d’actif'),'autre');
+ await user.type(screen.getByLabelText('Catégorie du bien'),'autre');
  await user.type(screen.getByLabelText('Motif de l’enregistrement'),'Contrôle concurrence');
  await user.click(screen.getByRole('button',{name:'Contrôler les attributions'}));
  expect(screen.getByRole('button',{name:'Famille'})).toBeDisabled();
@@ -71,20 +73,20 @@ it.each(['calcul', 'sauvegarde'])('SHELL-01 conserve le blocage quand %s termine
  expect(screen.getByLabelText('Date de référence')).toBeEnabled();
 });
 it('conserve le brouillon des paramètres après changement de page',async()=>{
- const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await user.click(screen.getByRole('button',{name:'Paramètres'}));
+ const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await openModule(user,'Paramètres');
  const input=await screen.findByLabelText('Nom de l’espace familial');
  await user.clear(input);await user.type(input,'Brouillon à conserver');
- await user.click(screen.getByRole('button',{name:'Famille'}));await user.click(screen.getByRole('button',{name:'Paramètres'}));
+ await openModule(user,'Famille');await openModule(user,'Paramètres');
  expect(await screen.findByLabelText('Nom de l’espace familial')).toHaveValue('Brouillon à conserver');expect(api.saveSettings).not.toHaveBeenCalled();
 });
 
 it('REG-03 garde une confirmation globale quand la relecture démonte le formulaire enregistré',async()=>{
  vi.mocked(api.saveAsset).mockResolvedValue({id:'asset',revision_id:'asset-r1',name:'Actif enregistré',country:'FR',category:'autre',notes:'',archived:false});
- const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await user.click(screen.getByRole('button',{name:'Patrimoine'}));
+ const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await openModule(user,'Patrimoine');
  await user.click(screen.getByRole('button',{name:'Créer un actif'}));
  await user.type(screen.getByLabelText('Nom de l’actif'),'Actif enregistré');
  await user.selectOptions(screen.getByLabelText('Pays de l’actif'),'FR');
- await user.type(screen.getByLabelText('Classe d’actif'),'autre');
+ await user.type(screen.getByLabelText('Catégorie du bien'),'autre');
  await user.type(screen.getByLabelText('Motif de l’enregistrement'),'Création confirmée');
  vi.mocked(api.listRegistry).mockRejectedValue({message:'Lecture indisponible après le commit'});
  await user.click(screen.getByRole('button',{name:'Créer l’enregistrement'}));
@@ -96,13 +98,13 @@ it('REG-03 garde une confirmation globale quand la relecture démonte le formula
 
 it('conserve la valeur normalisée après sauvegarde du brouillon et nouvelle navigation',async()=>{
  vi.mocked(api.saveSettings).mockResolvedValue({...status.settings,workspace_name:'Nom enregistré'});
- const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await user.click(screen.getByRole('button',{name:'Paramètres'}));
+ const user=userEvent.setup();render(<App/>);await screen.findByText('Coffre de test');await openModule(user,'Paramètres');
  const input=await screen.findByLabelText('Nom de l’espace familial');
  await user.clear(input);await user.type(input,'  Nom enregistré  ');
  await user.click(screen.getByRole('button',{name:'Enregistrer les paramètres'}));
  await screen.findByText('Les paramètres ont été enregistrés dans le coffre local.');
  expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith({...status.settings,workspace_name:'Nom enregistré'});
- await user.click(screen.getByRole('button',{name:'Famille'}));await user.click(screen.getByRole('button',{name:'Paramètres'}));
+ await openModule(user,'Famille');await openModule(user,'Paramètres');
  expect(await screen.findByLabelText('Nom de l’espace familial')).toHaveValue('Nom enregistré');
 });
 
@@ -111,7 +113,7 @@ it('REG-03 conserve le succès des paramètres quand seul le journal échoue', a
  const updated = { ...status.settings, workspace_name: 'Nom conservé' };
  vi.mocked(api.saveSettings).mockResolvedValue(updated);
  const user = userEvent.setup(); render(<App />); await screen.findByText('Coffre de test');
- await user.click(screen.getByRole('button', { name: 'Paramètres' }));
+ await openModule(user,'Paramètres');
  const input = await screen.findByLabelText('Nom de l’espace familial');
  await user.clear(input); await user.type(input, updated.workspace_name);
  vi.mocked(api.listRegistryHistory).mockRejectedValueOnce({ message: 'Journal indisponible' });

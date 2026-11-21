@@ -8,6 +8,7 @@ mod debts;
 mod documents;
 mod files;
 mod finance;
+mod guided;
 mod metals;
 mod phase7;
 mod portability;

@@ -13,6 +13,7 @@ import type { MetalCashLink, MetalLot, MetalMovement, MetalPremium, MetalQuote, 
 import type { DocumentLibrarySnapshot, DocumentLink, DocumentRecord, ReplaceDocumentInput, SaveDocumentLinkInput, SaveDocumentMetadataInput } from './documents-types';
 import type { ExportSummary } from './portability-types';
 import type { DashboardReport, DashboardRequest } from './dashboard-types';
+import type { GuidedAccountInput, GuidedCompanyInput, GuidedFamilyInput, GuidedMetalInput, GuidedPropertyInput, GuidedRecord } from './guided-types';
 
 export const displayCurrencies = ['EUR', 'TND', 'CHF', 'AED', 'USD'] as const;
 export type DisplayCurrency = (typeof displayCurrencies)[number];
@@ -124,6 +125,13 @@ export const api = {
   listRegistry: () => invoke<RegistrySnapshot>('list_registry'),
   listRegistryAt: (knowledgeSequence: number | null) => invoke<RegistrySnapshot>('list_registry_at', { knowledgeSequence }),
   listRegistryHistory: () => invoke<RegistryHistory>('list_registry_history'),
+  readOnboardingState: (generationId: string) => invoke<string | null>('read_onboarding_state', { generationId }),
+  writeOnboardingState: (generationId: string, data: string) => invoke<void>('write_onboarding_state', { generationId, data }),
+  createGuidedFamily: (input: GuidedFamilyInput) => invoke<GuidedRecord>('create_guided_family', { input }),
+  createGuidedProperty: (input: GuidedPropertyInput) => invoke<GuidedRecord>('create_guided_property', { input }),
+  createGuidedAccount: (input: GuidedAccountInput) => invoke<GuidedRecord>('create_guided_account', { input }),
+  createGuidedMetal: (input: GuidedMetalInput) => invoke<GuidedRecord>('create_guided_metal', { input }),
+  createGuidedCompany: (input: GuidedCompanyInput) => invoke<GuidedRecord>('create_guided_company', { input }),
   saveExchangeRate: (input: SaveRecord<ExchangeRate>) => invoke<ExchangeRate>('save_exchange_rate', { input }),
   saveProfilePeriod: (input: SaveRecord<ProfilePeriod>) => invoke<ProfilePeriod>('save_profile_period', { input }),
   convertCurrency: (query: FxQuery) => invoke<FxResult>('convert_currency', { query }),

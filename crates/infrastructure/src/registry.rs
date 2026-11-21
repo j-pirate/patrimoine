@@ -18,7 +18,7 @@ fn pairs(f: &Option<Fraction>) -> (Option<&str>, Option<&str>) {
         None => (None, None),
     }
 }
-fn normalize_share(share: &mut Option<Fraction>) -> Result<()> {
+pub(crate) fn normalize_share(share: &mut Option<Fraction>) -> Result<()> {
     if let Some(value) = share {
         *value = exact::normalize_fraction(value)?;
     }
@@ -272,6 +272,174 @@ pub(crate) fn begin_shared(
     .map_err(db::error)?;
     Ok((object, revision))
 }
+
+pub(crate) fn insert_entity(
+    c: &Connection,
+    key: &str,
+    revision: &str,
+    input: &SaveEntityInput,
+) -> Result<()> {
+    c.execute(
+        "INSERT OR IGNORE INTO entities VALUES(?1,?2)",
+        params![key, input.kind],
+    )
+    .map_err(db::error)?;
+    let existing: String = c
+        .query_row("SELECT kind FROM entities WHERE id=?1", [key], |r| r.get(0))
+        .map_err(db::error)?;
+    if existing != input.kind {
+        return Err(AppError::new(
+            "validation",
+            "La nature personne ou société d’une identité existante ne peut pas changer.",
+        ));
+    }
+    c.execute(
+        "INSERT INTO entity_profiles VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+        params![
+            revision,
+            key,
+            input.display_name,
+            input.first_name,
+            input.last_name,
+            input.birth_date,
+            input.residence_country,
+            input.preferred_currency,
+            input.activity,
+            input.notes,
+            input.archived
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_membership(
+    c: &Connection,
+    revision: &str,
+    input: &SaveMembershipInput,
+) -> Result<()> {
+    c.execute(
+        "INSERT INTO family_memberships VALUES(?1,?2,?3,?4,?5)",
+        params![
+            revision,
+            input.person_id,
+            input.valid_from,
+            input.valid_to,
+            input.relationship
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_participation(
+    c: &Connection,
+    revision: &str,
+    input: &SaveParticipationInput,
+) -> Result<()> {
+    let (ln, ld) = pairs(&input.legal_share);
+    let (en, ed) = pairs(&input.economic_share);
+    let (vn, vd) = pairs(&input.voting_share);
+    c.execute(
+        "INSERT INTO company_participations VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+        params![
+            revision,
+            input.owner_entity_id,
+            input.company_id,
+            ln,
+            ld,
+            en,
+            ed,
+            vn,
+            vd,
+            input.valid_from,
+            input.valid_to
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_asset(
+    c: &Connection,
+    key: &str,
+    revision: &str,
+    input: &SaveAssetInput,
+) -> Result<()> {
+    c.execute("INSERT OR IGNORE INTO assets VALUES(?1)", [key])
+        .map_err(db::error)?;
+    c.execute(
+        "INSERT INTO asset_profiles VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        params![
+            revision,
+            key,
+            input.name,
+            input.country,
+            input.category,
+            input.notes,
+            input.archived
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_ownership(
+    c: &Connection,
+    revision: &str,
+    input: &SaveOwnershipInput,
+) -> Result<()> {
+    let (ln, ld) = pairs(&input.legal_share);
+    let (en, ed) = pairs(&input.economic_share);
+    c.execute(
+        "INSERT INTO asset_ownerships VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        params![
+            revision,
+            input.asset_id,
+            input.owner_entity_id,
+            ln,
+            ld,
+            en,
+            ed,
+            input.valid_from,
+            input.valid_to
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_valuation(
+    c: &Connection,
+    revision: &str,
+    input: &SaveValuationInput,
+) -> Result<()> {
+    c.execute(
+        "INSERT INTO valuations VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        params![
+            revision,
+            input.target_kind,
+            input.target_id,
+            input.amount,
+            input.currency,
+            input.effective_on,
+            input.source
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn validate_current(c: &Connection) -> Result<RegistrySnapshot> {
+    validate_profile_sources(c)?;
+    let result = snapshot(c, None)?;
+    validate_registry(&result)?;
+    crate::properties::validate_current(c)?;
+    crate::rentals::validate_current(c)?;
+    crate::finance::validate_current(c)?;
+    Ok(result)
+}
+
 impl Vault {
     fn write_registry<T>(
         &mut self,
@@ -289,13 +457,7 @@ impl Vault {
             .map_err(db::error)?;
         let (object, revision) = begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &object, &revision)?;
-        validate_profile_sources(&tx)?;
-        let result = snapshot(&tx, None)?;
-        validate_registry(&result)?;
-        crate::properties::validate_current(&tx)?;
-        crate::rentals::validate_current(&tx)?;
-        crate::finance::validate_current(&tx)?;
-        let result = read(result, &object)?;
+        let result = read(validate_current(&tx)?, &object)?;
         tx.commit().map_err(db::error)?;
         Ok(result)
     }
@@ -377,11 +539,20 @@ impl RegistryService for Vault {
         Ok(report)
     }
     fn save_entity(&mut self, i: SaveEntityInput) -> Result<Entity> {
-        self.write_registry("entity",i.id.as_deref(),i.expected_revision_id.as_deref(),&i.reason,|tx,key,rev|{
-            tx.execute("INSERT OR IGNORE INTO entities VALUES(?1,?2)",params![key,i.kind]).map_err(db::error)?;
-            let existing:String=tx.query_row("SELECT kind FROM entities WHERE id=?1",[key],|r|r.get(0)).map_err(db::error)?;
-            if existing!=i.kind{return Err(AppError::new("validation","La nature personne ou société d’une identité existante ne peut pas changer."));}
-            tx.execute("INSERT INTO entity_profiles VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",params![rev,key,i.display_name,i.first_name,i.last_name,i.birth_date,i.residence_country,i.preferred_currency,i.activity,i.notes,i.archived]).map_err(db::error)?;Ok(())}, |saved, key| saved.entities.into_iter().find(|v| v.id == key).ok_or_else(|| invalid("La fiche enregistrée est introuvable.")))
+        self.write_registry(
+            "entity",
+            i.id.as_deref(),
+            i.expected_revision_id.as_deref(),
+            &i.reason,
+            |tx, key, rev| insert_entity(tx, key, rev, &i),
+            |saved, key| {
+                saved
+                    .entities
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("La fiche enregistrée est introuvable."))
+            },
+        )
     }
     fn save_membership(&mut self, i: SaveMembershipInput) -> Result<Membership> {
         self.write_registry(
@@ -389,14 +560,7 @@ impl RegistryService for Vault {
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
             &i.reason,
-            |tx, _, rev| {
-                tx.execute(
-                    "INSERT INTO family_memberships VALUES(?1,?2,?3,?4,?5)",
-                    params![rev, i.person_id, i.valid_from, i.valid_to, i.relationship],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, _, rev| insert_membership(tx, rev, &i),
             |saved, key| {
                 saved
                     .memberships
@@ -415,29 +579,7 @@ impl RegistryService for Vault {
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
             &i.reason,
-            |tx, _, rev| {
-                let (ln, ld) = pairs(&i.legal_share);
-                let (en, ed) = pairs(&i.economic_share);
-                let (vn, vd) = pairs(&i.voting_share);
-                tx.execute(
-                    "INSERT INTO company_participations VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-                    params![
-                        rev,
-                        i.owner_entity_id,
-                        i.company_id,
-                        ln,
-                        ld,
-                        en,
-                        ed,
-                        vn,
-                        vd,
-                        i.valid_from,
-                        i.valid_to
-                    ],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, _, rev| insert_participation(tx, rev, &i),
             |saved, key| {
                 saved
                     .participations
@@ -453,16 +595,7 @@ impl RegistryService for Vault {
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
             &i.reason,
-            |tx, key, rev| {
-                tx.execute("INSERT OR IGNORE INTO assets VALUES(?1)", [key])
-                    .map_err(db::error)?;
-                tx.execute(
-                    "INSERT INTO asset_profiles VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                    params![rev, key, i.name, i.country, i.category, i.notes, i.archived],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, key, rev| insert_asset(tx, key, rev, &i),
             |saved, key| {
                 saved
                     .assets
@@ -480,26 +613,7 @@ impl RegistryService for Vault {
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
             &i.reason,
-            |tx, _, rev| {
-                let (ln, ld) = pairs(&i.legal_share);
-                let (en, ed) = pairs(&i.economic_share);
-                tx.execute(
-                    "INSERT INTO asset_ownerships VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                    params![
-                        rev,
-                        i.asset_id,
-                        i.owner_entity_id,
-                        ln,
-                        ld,
-                        en,
-                        ed,
-                        i.valid_from,
-                        i.valid_to
-                    ],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, _, rev| insert_ownership(tx, rev, &i),
             |saved, key| {
                 saved
                     .ownerships
@@ -516,22 +630,7 @@ impl RegistryService for Vault {
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
             &i.reason,
-            |tx, _, rev| {
-                tx.execute(
-                    "INSERT INTO valuations VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                    params![
-                        rev,
-                        i.target_kind,
-                        i.target_id,
-                        i.amount,
-                        i.currency,
-                        i.effective_on,
-                        i.source
-                    ],
-                )
-                .map_err(db::error)?;
-                Ok(())
-            },
+            |tx, _, rev| insert_valuation(tx, rev, &i),
             |saved, key| {
                 saved
                     .valuations

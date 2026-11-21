@@ -3,6 +3,7 @@
 Accès direct aux guides destinés aux utilisateurs de Patrimoine.
 
 - [Installer et récupérer les données](installation-linux.md)
+- [Faire ses premiers pas dans Patrimoine](premiers-pas.md)
 - [Famille, membres et propriété](famille-et-propriete.md)
 - [Devises et historique](devises-et-historique.md)
 - [Immobilier et loyers](immobilier-et-loyers.md)

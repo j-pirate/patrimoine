@@ -6,7 +6,7 @@ import { Field, RegistryNotice } from './registry-ui';
 import type { ViewContext } from './registry-ui';
 
 const kinds: Record<string, string> = {
-  entity: 'Personne ou société', membership: 'Périmètre familial', participation: 'Participation', asset: 'Actif',
+  entity: 'Personne ou société', membership: 'Périmètre familial', participation: 'Participation', asset: 'Bien',
   ownership: 'Propriété', valuation: 'Estimation', company_policy: 'Méthode de société', exchange_rate: 'Taux de change',
   profile_period: 'Période de profil', document: 'Document', document_link: 'Association documentaire', workspace: 'Paramètres',
   property: 'Fiche immobilière', rental_unit: 'Unité locative', property_event: 'Acquisition ou cession',
@@ -38,8 +38,8 @@ export default function HistoryPage({ history, historyError, context, onChooseSe
     finally { setPending(false); }
   }
   return <div className="registry-workspace">
-    <RegistryNotice><strong>Deux dates distinctes.</strong> La date de référence décrit la situation économique ; la séquence de connaissance décrit les informations disponibles à un moment de la saisie. Une correction rétroactive conserve ses révisions précédentes. Un état historique est présenté en lecture seule.</RegistryNotice>
-    <section className="card"><div className="section-title"><div><h2>Journal des modifications</h2><p>Le journal du coffre actuel permet de choisir une séquence de connaissance. Consulter une ancienne séquence ne restaure ni ne remplace les données.</p></div><button type="button" className="button secondary" disabled={pending} onClick={() => { void onReload(); }}>Actualiser le journal</button></div>
+    <section className="card"><div className="section-title"><div><h2>Journal des modifications</h2><p>Retrouvez vos modifications et consultez le coffre tel qu’il apparaissait après chacune d’elles, en lecture seule.</p></div><button type="button" className="button secondary" disabled={pending} onClick={() => { void onReload(); }}>Actualiser le journal</button></div>
+      <details><summary>Comprendre la date et le numéro de modification</summary><p>La date de référence choisit le jour auquel les biens, les droits et les soldes sont évalués. Le numéro de modification, aussi appelé séquence de connaissance, fixe la dernière saisie prise en compte. Une correction rétroactive conserve les versions précédentes dans le journal.</p></details>
       {historyError && <RegistryNotice error>{historyError}</RegistryNotice>}
       {history && <><p className="field-hint">Dernière séquence du coffre : {history.latest_sequence}. {context.knowledgeSequence == null ? 'Consultation avec les connaissances actuelles.' : `Lecture seule de la séquence ${context.knowledgeSequence}.`}</p>
         {history.events.length ? <div className="table-scroll"><table><caption className="sr-only">Révisions du registre et du coffre</caption><thead><tr><th scope="col">Séquence et saisie</th><th scope="col">Objet</th><th scope="col">Motif</th><th scope="col">Consultation</th></tr></thead><tbody>{[...history.events].sort((a, b) => b.sequence - a.sequence).map((event, index) => <tr key={`${event.sequence}-${event.revision_id}-${index}`}>
@@ -48,7 +48,7 @@ export default function HistoryPage({ history, historyError, context, onChooseSe
         {context.knowledgeSequence != null && <button type="button" className="button" disabled={pending} onClick={() => onChooseSequence(null)}>Revenir aux connaissances actuelles</button>}
       </>}
     </section>
-    <section className="card"><h2>Expliquer une variation du registre</h2><p>Comparer le sous-total des estimations du registre. Les stocks métal calculés, flux de trésorerie et passifs détaillés sont hors de ce pont historique. Ce contrôle n’est ni un rendement d’investissement ni la variation du bilan financier complet.</p>
+    <section className="card"><h2>Comparer les estimations du registre</h2><p>Choisissez deux dates pour voir comment les estimations enregistrées ont évolué.</p><details><summary>Ce que la comparaison couvre</summary><p>Ce calcul porte sur les estimations du registre. Le tableau de bord rassemble aussi les lots de métaux valorisés, la trésorerie et les dettes. Une variation d’estimation ne mesure pas un rendement.</p></details>
       <form onSubmit={event => { void explain(event); }}><fieldset disabled={pending}><div className="form-grid"><Field id="variation-from" label="Début de comparaison"><input id="variation-from" type="date" required value={fromDate} onChange={event => { setFromDate(event.currentTarget.value); setVariation(null); }} /></Field><Field id="variation-to" label="Fin de comparaison"><input id="variation-to" type="date" required value={toDate} onChange={event => { setToDate(event.currentTarget.value); setVariation(null); }} /></Field></div><button type="submit" className="button" disabled={pending}>{pending ? 'Comparaison en cours…' : 'Expliquer la variation'}</button></fieldset></form>
       {error && <RegistryNotice error>{error}</RegistryNotice>}
       {variation && <div className="variation-result"><div className="summary-grid"><div><span>Sous-total connu initial</span><strong>{variation.opening.status === 'non_calculable' ? 'Non calculable' : `${variation.opening.gross_eur} EUR`}</strong></div><div><span>Sous-total connu final</span><strong>{variation.closing.status === 'non_calculable' ? 'Non calculable' : `${variation.closing.gross_eur} EUR`}</strong></div><div><span>Variation des sous-totaux connus</span><strong>{variation.delta_eur} EUR</strong></div></div>
@@ -59,6 +59,5 @@ export default function HistoryPage({ history, historyError, context, onChooseSe
         {variation.warnings.length > 0 && <RegistryNotice><ul>{variation.warnings.map((warning, index) => <li key={index}>{warning.message}</li>)}</ul></RegistryNotice>}
       </div>}
     </section>
-    <RegistryNotice>Le tableau de bord présente le bilan intermodules et ses historiques. Ce pont conserve la portée des estimations du registre ; sa variation de stocks ne mesure pas un rendement.</RegistryNotice>
   </div>;
 }

@@ -6,6 +6,7 @@ import { api } from './services/api';
 import type { RestoreInspection, VaultStatus } from './services/api';
 import type { DocumentLibrarySnapshot } from './services/documents-types';
 import { emptyRegistry } from './services/registry-types';
+import { openModule } from './test/navigation';
 
 vi.mock('./services/api', async importOriginal => {
   const actual = await importOriginal<typeof import('./services/api')>();
@@ -29,7 +30,7 @@ async function openPage(name: string) {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Famille de test');
-  await user.click(screen.getByRole('button', { name }));
+  await openModule(user, name);
   return user;
 }
 
@@ -199,6 +200,7 @@ describe('Contexte familial du registre', () => {
     });
     const user = await openPage('Patrimoine');
     await user.selectOptions(screen.getByLabelText('Périmètre de consultation'), person.id);
+    await user.click(screen.getByText('Date et historique', { selector: 'summary' }));
     fireEvent.change(screen.getByLabelText('Date de référence'), { target: { value: '2025-06-30' } });
     await user.click(screen.getByRole('button', { name: 'Contrôler les attributions' }));
     await screen.findByText('200000.00 EUR');

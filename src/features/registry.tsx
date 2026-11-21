@@ -80,6 +80,8 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
   const confirmationFocus = useFocusedRegion(!!confirmation);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [viewed, setViewed] = useState<Entity | Asset | null>(null);
+  const viewFocus = useFocusedRegion(viewed !== null);
   const [allRegistry, setAllRegistry] = useState(false);
   const [allPeriods, setAllPeriods] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -87,27 +89,35 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
   const readOnly = context.knowledgeSequence != null;
   useEffect(() => { onBusyChange(pending || consolidationBusy); return () => onBusyChange(false); }, [pending, consolidationBusy, onBusyChange]);
   useEffect(() => { setEditor(null); setConfirmation(null); setError(''); setMessage(''); }, [page, context.knowledgeSequence]);
+  useEffect(() => { setViewed(null); }, [page, context.personId, context.date, context.knowledgeSequence, registry.knowledge_sequence]);
   useEffect(() => { if (editor || confirmation) editorRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }, [editor, confirmation]);
 
   const people = registry.entities.filter(item => item.kind === 'person');
   const companies = registry.entities.filter(item => item.kind === 'company');
   const reachable = reachableEntities(registry, context);
   const relevantEntity = (id: string) => allRegistry || reachable.has(id);
+  const activeMemberships = registry.memberships.filter(item => activeAt(item.valid_from, item.valid_to, context.date));
+  const activeParticipations = registry.participations.filter(item => activeAt(item.valid_from, item.valid_to, context.date));
+  const activeOwnerships = registry.ownerships.filter(item => activeAt(item.valid_from, item.valid_to, context.date));
+  const members = new Set(activeMemberships.map(item => item.person_id));
+  const heldCompanies = new Set(activeParticipations.map(item => item.company_id));
+  const heldAssets = new Set(activeOwnerships.map(item => item.asset_id));
+  const relevantCompany = (id: string) => relevantEntity(id) || (!context.personId && !heldCompanies.has(id));
   const visibleProfile = (item: Entity | Asset) => showArchived || !item.archived;
   const entityName = (id: string) => { const item = registry.entities.find(item => item.id === id); return item ? entityAt(registry, item, context.date).display_name : id; };
   const assetName = (id: string) => { const item = registry.assets.find(item => item.id === id); return item ? assetAt(registry, item, context.date).name : id; };
-  const assetRelevant = (id: string) => allRegistry || registry.ownerships.some(edge => edge.asset_id === id && relevantEntity(edge.owner_entity_id) && activeAt(edge.valid_from, edge.valid_to, context.date));
+  const assetRelevant = (id: string) => allRegistry || (!context.personId && !heldAssets.has(id)) || activeOwnerships.some(edge => edge.asset_id === id && reachable.has(edge.owner_entity_id));
   const period = (item: { valid_from: string; valid_to: string | null }) => periodIncluded(item, context.date, allPeriods);
 
   function openEditor(kind: EditorKind, record: RecordItem | null = null) {
     if (readOnly) return;
     const next = makeEditor(kind, record, context);
     if (kind === 'profile_period' && !record) next.values.target_kind = page === 'assets' ? 'asset' : 'entity';
-    setEditor(next); setConfirmation(null); setError(''); setMessage('');
+    setEditor(next); setViewed(null); setConfirmation(null); setError(''); setMessage('');
   }
   function openConfirmation(action: Confirmation['action'], kind: EditorKind, record: RecordItem) {
     if (readOnly) return;
-    setConfirmation({ action, kind, record }); setConfirmationReason(''); setEditor(null); setError(''); setMessage('');
+    setConfirmation({ action, kind, record }); setConfirmationReason(''); setEditor(null); setViewed(null); setError(''); setMessage('');
   }
   async function mutate(action: () => Promise<unknown>, success: string) {
     setPending(true); setError(''); setMessage('');
@@ -133,8 +143,10 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
       company_policy: () => api.saveCompanyPolicy({ ...meta, company_id: v.company_id, mode: v.mode as CompanyPolicy['mode'], coverage_complete: v.coverage_complete === 'yes', liability_qualified: v.liability_qualified === 'yes', ...dated }),
       profile_period: () => api.saveProfilePeriod({ ...meta, target_kind: v.target_kind as ProfilePeriod['target_kind'], target_id: v.target_id, profile_revision_id: v.profile_revision_id, ...dated }),
     };
-    if (!record) setAllRegistry(true);
-    await mutate(tasks[kind], record ? 'La correction a été enregistrée. Les révisions précédentes sont conservées.' : 'L’enregistrement a été créé dans le registre local.');
+    await mutate(async () => {
+      await tasks[kind]();
+      if (!record && (kind === 'person' || context.personId)) setAllRegistry(true);
+    }, record ? 'La correction a été enregistrée. Les versions précédentes sont conservées.' : 'L’enregistrement a été créé dans le registre local.');
   }
   async function confirmMutation(event: FormEvent) {
     event.preventDefault(); if (!confirmation || readOnly) return;
@@ -150,49 +162,89 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
     }, action === 'void' ? 'L’enregistrement a été annulé avec conservation de son historique.' : action === 'archive' ? 'La fiche a été archivée. Ses droits et son historique sont conservés.' : 'La fiche a été réactivée.');
   }
   function actions(kind: EditorKind, record: RecordItem, profile = false) {
-    return <div className="row-actions"><button type="button" className="button secondary small-button" title={profile ? 'Modifier le profil de base des connaissances actuelles' : undefined} disabled={pending || readOnly} onClick={() => openEditor(kind, record)}>Modifier</button>{profile ? <button type="button" className="text-button" disabled={pending || readOnly} onClick={() => openConfirmation((record as Entity | Asset).archived ? 'unarchive' : 'archive', kind, record)}>{(record as Entity | Asset).archived ? 'Réactiver' : 'Archiver'}</button> : <button type="button" className="text-button" disabled={pending || readOnly} onClick={() => openConfirmation('void', kind, record)}>Annuler l’enregistrement</button>}</div>;
+    return <div className="row-actions">
+      {('display_name' in record || 'name' in record) && <button type="button" className="button secondary small-button" disabled={pending} aria-label={`Voir ${'display_name' in record ? entityName(record.id) : assetName(record.id)}`} onClick={() => { setViewed(record); setEditor(null); setConfirmation(null); }}>Voir</button>}
+      <button type="button" className="button secondary small-button" title={profile ? 'Modifier la fiche actuelle' : undefined} disabled={pending || readOnly} onClick={() => openEditor(kind, record)}>Modifier</button>
+      {profile ? <button type="button" className="text-button" disabled={pending || readOnly} onClick={() => openConfirmation((record as Entity | Asset).archived ? 'unarchive' : 'archive', kind, record)}>{(record as Entity | Asset).archived ? 'Réactiver' : 'Archiver'}</button> : <button type="button" className="text-button" disabled={pending || readOnly} onClick={() => openConfirmation('void', kind, record)}>Annuler l’enregistrement</button>}
+    </div>;
   }
-  function table(title: string, headers: string[], rows: ReactNode[], addLabel: string, kind: EditorKind) {
-    return <section className="card registry-table"><div className="section-title"><h2>{title}</h2><button type="button" className="button secondary" disabled={pending || readOnly} onClick={() => openEditor(kind)}>{addLabel}</button></div>{rows.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr>{headers.map(header => <th key={header} scope="col">{header}</th>)}</tr></thead><tbody>{rows}</tbody></table></div> : <p className="muted">Aucun enregistrement dans le périmètre affiché. Affichez tout le registre pour consulter les autres fiches.</p>}</section>;
+  function table(title: string, headers: string[], rows: ReactNode[], addLabel: string, kind: EditorKind, empty = 'Aucune information pour la sélection actuelle.') {
+    return <section className="card registry-table"><div className="section-title"><h2>{title}</h2><button type="button" className="button secondary" disabled={pending || readOnly} onClick={() => openEditor(kind)}>{addLabel}</button></div>{rows.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr>{headers.map(header => <th key={header} scope="col">{header}</th>)}</tr></thead><tbody>{rows}</tbody></table></div> : <p className="muted">{empty}</p>}</section>;
   }
+
+  const displayedProfile = viewed && ('display_name' in viewed ? entityAt(registry, viewed, context.date) : assetAt(registry, viewed, context.date));
+  const displayedEstimate = displayedProfile && 'name' in displayedProfile
+    ? registry.valuations.filter(item => item.target_kind === 'asset' && item.target_id === displayedProfile.id && item.effective_on <= context.date)
+      .sort((a, b) => b.effective_on.localeCompare(a.effective_on))[0]
+    : undefined;
 
   return <div className="registry-workspace" aria-busy={pending}>
     {readOnly && <RegistryNotice><strong>Lecture seule historique.</strong> Les données et leurs versions sont celles connues à la séquence {context.knowledgeSequence}. Revenez aux connaissances actuelles pour modifier le registre.</RegistryNotice>}
-    <RegistryNotice>Les noms, pays et classes affichés suivent les périodes de profil au {context.date}. Sans période explicite, le profil de base connu à K est affiché sans présumer son ancienneté. « Modifier » sur une fiche ouvre son profil de base des connaissances actuelles ; les droits et montants sont indépendants de ces métadonnées.</RegistryNotice>
-    <div className="card registry-filters"><label className="checkbox-label"><input type="checkbox" checked={allRegistry} disabled={pending} onChange={event => setAllRegistry(event.target.checked)} /><span>Afficher tout le registre, y compris les tiers et les fiches non attribuées</span></label><label className="checkbox-label"><input type="checkbox" checked={allPeriods} disabled={pending} onChange={event => setAllPeriods(event.target.checked)} /><span>Afficher aussi les périodes passées et futures</span></label><label className="checkbox-label"><input type="checkbox" checked={showArchived} disabled={pending} onChange={event => setShowArchived(event.target.checked)} /><span>Afficher les fiches archivées</span></label><p className="field-hint">Les liens sont filtrés au {context.date} ; la fin d’une période est exclue. Le registre conserve toutes les dates pour permettre leur correction. L’archivage d’une fiche ne termine pas ses droits.</p></div>
+    <details className="card registry-filters advanced-disclosure">
+      <summary>Filtres et options d’affichage{allRegistry || allPeriods || showArchived ? ' · filtres actifs' : ''}</summary>
+      <label className="checkbox-label"><input type="checkbox" checked={allRegistry} disabled={pending} onChange={event => setAllRegistry(event.target.checked)} /><span>{page === 'family' ? 'Inclure les personnes extérieures à la famille' : 'Afficher toutes les fiches, au-delà du périmètre sélectionné'}</span></label>
+      <label className="checkbox-label"><input type="checkbox" checked={allPeriods} disabled={pending} onChange={event => setAllPeriods(event.target.checked)} /><span>Afficher aussi les périodes passées et futures</span></label>
+      <label className="checkbox-label"><input type="checkbox" checked={showArchived} disabled={pending} onChange={event => setShowArchived(event.target.checked)} /><span>Afficher les fiches archivées</span></label>
+      <p className="field-hint">Les liens affichés sont ceux en vigueur au {context.date}. Une date de fin marque le premier jour hors période. Les noms et adresses suivent les profils datés disponibles. À défaut, la fiche connue pour cette consultation est affichée.</p>
+    </details>
     {error && <RegistryNotice error><strong>Enregistrement impossible.</strong><p>{error}</p><p>En cas de conflit de révision, rechargez le registre et rouvrez la fiche. Votre saisie n’a pas remplacé une version plus récente.</p><button type="button" className="button secondary" disabled={pending} onClick={() => { setEditor(null); setConfirmation(null); void mutate(onChanged, 'Le registre a été rechargé. Rouvrez la fiche pour reprendre votre correction.'); }}>Recharger le registre</button></RegistryNotice>}
     {message && <RegistryNotice>{message}</RegistryNotice>}
     <div ref={editorRef}>
+      {displayedProfile && <section className="card" ref={viewFocus} tabIndex={-1} aria-label="Détails de la fiche">
+        <div className="section-title"><h2>{'name' in displayedProfile ? displayedProfile.name : displayedProfile.display_name}</h2><button type="button" className="button secondary" onClick={() => setViewed(null)}>Retour à la liste</button></div>
+        <dl className="details">
+          {'name' in displayedProfile ? <>
+            <div><dt>Catégorie et pays</dt><dd>{displayedProfile.category} · {displayedProfile.country}</dd></div>
+            <div><dt>Dernière estimation du bien entier</dt><dd>{displayedEstimate ? `${displayedEstimate.amount} ${displayedEstimate.currency} · ${displayedEstimate.effective_on}` : 'À renseigner'}</dd></div>
+            <div><dt>Propriétaires déclarés</dt><dd>{activeOwnerships.filter(item => item.asset_id === displayedProfile.id).map(item => entityName(item.owner_entity_id)).join(', ') || 'À renseigner'}</dd></div>
+          </> : <>
+            <div><dt>{displayedProfile.kind === 'company' ? 'Pays d’immatriculation' : 'Pays de résidence'}</dt><dd>{displayedProfile.residence_country || 'À renseigner'}</dd></div>
+            {displayedProfile.kind === 'company' ? <>
+              <div><dt>Activité</dt><dd>{displayedProfile.activity || 'À renseigner'}</dd></div>
+              <div><dt>Associés déclarés</dt><dd>{activeParticipations.filter(item => item.company_id === displayedProfile.id).map(item => entityName(item.owner_entity_id)).join(', ') || 'À renseigner'}</dd></div>
+            </> : <div><dt>Appartenance à la famille</dt><dd>{members.has(displayedProfile.id) ? 'Membre à la date de consultation' : 'Extérieur à la famille à la date de consultation'}</dd></div>}
+          </>}
+          {displayedProfile.notes && <div><dt>Notes</dt><dd>{displayedProfile.notes}</dd></div>}
+        </dl>
+      </section>}
       {editor && !readOnly && <EditorFrame title={`${editor.record ? 'Modifier' : 'Créer'} · ${editorTitles[editor.kind]}`} pending={pending} onCancel={() => setEditor(null)}><RegistryForm editor={editor} setEditor={setEditor} registry={registry} pending={pending} onSubmit={save} /></EditorFrame>}
       {confirmation && !readOnly && <section ref={confirmationFocus} tabIndex={-1} className="card restore-review" aria-label="Confirmer la modification du registre"><h2>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</h2><p>{confirmation.action === 'void' ? 'Cette correction annule cet enregistrement dans l’état courant de connaissance. Ses révisions restent conservées. Pour terminer une période à une date donnée, modifiez sa date de fin.' : 'L’historique et les relations de propriété sont conservés. Archiver une fiche ne cède pas ses actifs et ne la retire pas automatiquement du périmètre familial.'}</p><form onSubmit={event => { void confirmMutation(event); }}><fieldset disabled={pending}><label htmlFor="confirmation-reason">Motif de la modification</label><textarea id="confirmation-reason" required maxLength={1000} value={confirmationReason} onChange={event => setConfirmationReason(event.target.value)} /><div className="button-row"><button type="submit" className="button danger" disabled={pending || !confirmationReason.trim()}>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</button><button type="button" className="button secondary" onClick={() => setConfirmation(null)}>Conserver l’état actuel</button></div></fieldset></form></section>}
     </div>
     {page === 'family' && <>
-      {table('Personnes, membres et tiers', ['Personne', 'Périmètre à la date choisie', 'Résidence', 'Actions'], people.filter(item => visibleProfile(item) && (allRegistry || !context.personId || item.id === context.personId)).map(item => <tr key={item.id}><td><strong>{entityName(item.id)}</strong>{item.archived && <small>Archivé</small>}</td><td>{registry.memberships.some(member => member.person_id === item.id && activeAt(member.valid_from, member.valid_to, context.date)) ? 'Membre de la famille' : 'Extérieur au périmètre'}</td><td>{entityAt(registry, item, context.date).residence_country || 'Non renseignée'}</td><td>{actions('person', item, true)}</td></tr>), 'Créer une personne', 'person')}
-      {table('Périodes du périmètre familial', ['Personne', 'Période', 'Lien familial', 'Actions'], registry.memberships.filter(item => period(item) && (allRegistry || !context.personId || item.person_id === context.personId)).map(item => <tr key={item.id}><td>{entityName(item.person_id)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{item.relationship || 'Non renseigné'}</td><td>{actions('membership', item)}</td></tr>), 'Ajouter une période familiale', 'membership')}
-      <p className="muted small">Une personne n’est incluse dans les calculs familiaux qu’aux dates d’une période d’appartenance. Les tiers peuvent détenir des actifs et des parts sans être membres du périmètre.</p>
+      {table('Personnes, membres et tiers', ['Personne', 'Lien avec la famille', 'Résidence', 'Actions'], people.filter(item => visibleProfile(item) && (allRegistry || (context.personId ? item.id === context.personId : members.has(item.id)))).map(item => <tr key={item.id}><td><strong>{entityName(item.id)}</strong>{item.archived && <small>Archivé</small>}</td><td>{members.has(item.id) ? 'Membre de la famille' : 'Extérieur à la famille'}</td><td>{entityAt(registry, item, context.date).residence_country || 'Non renseignée'}</td><td>{actions('person', item, true)}</td></tr>), 'Créer une personne', 'person', people.length ? 'Aucune personne dans cette vue. Les filtres permettent d’afficher les personnes extérieures à la famille.' : 'Aucun membre enregistré. Ajoutez un membre de la famille ou créez la fiche d’un contact, par exemple un locataire.')}
+      <details className="card advanced-disclosure">
+        <summary>Périodes d’appartenance à la famille</summary>
+        <p className="field-hint">Les droits d’un membre sont pris en compte dans les totaux familiaux aux dates où il fait partie de la famille. Un locataire ou un copropriétaire extérieur peut avoir sa propre fiche en tant que contact.</p>
+        {table('Périodes du périmètre familial', ['Personne', 'Période', 'Lien familial', 'Actions'], registry.memberships.filter(item => period(item) && (allRegistry || !context.personId || item.person_id === context.personId)).map(item => <tr key={item.id}><td>{entityName(item.person_id)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{item.relationship || 'Non renseigné'}</td><td>{actions('membership', item)}</td></tr>), 'Ajouter une période familiale', 'membership')}
+      </details>
     </>}
     {page === 'companies' && <>
-      {table('Sociétés', ['Nom', 'Pays', 'Activité', 'Actions'], companies.filter(item => visibleProfile(item) && relevantEntity(item.id)).map(item => <tr key={item.id}><td><strong>{entityName(item.id)}</strong>{item.archived && <small>Archivée</small>}</td><td>{entityAt(registry, item, context.date).residence_country || 'Non renseigné'}</td><td>{entityAt(registry, item, context.date).activity || 'Non renseignée'}</td><td>{actions('company', item, true)}</td></tr>), 'Créer une société', 'company')}
-      {table('Participations datées', ['Associé / propriétaire', 'Société détenue', 'Droits juridiques / économiques / votes', 'Période', 'Actions'], registry.participations.filter(item => period(item) && (relevantEntity(item.owner_entity_id) || relevantEntity(item.company_id))).map(item => <tr key={item.id}><td>{entityName(item.owner_entity_id)}</td><td>{entityName(item.company_id)}</td><td>{fractionLabel(item.legal_share)} / {fractionLabel(item.economic_share)} / {fractionLabel(item.voting_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('participation', item)}</td></tr>), 'Ajouter une participation', 'participation')}
-      {table('Méthodes de consolidation datées', ['Société', 'Méthode', 'Qualification', 'Période', 'Actions'], registry.company_policies.filter(item => period(item) && relevantEntity(item.company_id)).map(item => <tr key={item.id}><td>{entityName(item.company_id)}</td><td>{item.mode === 'detailed' ? 'Actifs sous-jacents détaillés' : 'Valeur globale des capitaux propres'}</td><td>{item.coverage_complete ? 'Couverture déclarée complète' : 'Couverture incomplète'}<br />{item.liability_qualified ? 'Responsabilité qualifiée' : 'Responsabilité à qualifier'}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('company_policy', item)}</td></tr>), 'Définir une méthode', 'company_policy')}
-      {valuationTable('company')}
-      <RegistryNotice>Le mode détaillé utilise les actifs sous-jacents. Le mode global retient la valeur nette des capitaux propres et exclut les sous-jacents sur ce chemin. Ils ne sont jamais additionnés. Les observations périodiques, distributions et financements sont disponibles dans leurs modules ; ils restent distincts de cette méthode de valorisation.</RegistryNotice>
+      {table('Sociétés', ['Nom', 'Pays', 'Activité', 'Actions'], companies.filter(item => visibleProfile(item) && relevantCompany(item.id)).map(item => <tr key={item.id}><td><strong>{entityName(item.id)}</strong>{item.archived && <small>Archivée</small>}{!heldCompanies.has(item.id) && <small>Associés à renseigner</small>}</td><td>{entityAt(registry, item, context.date).residence_country || 'Non renseigné'}</td><td>{entityAt(registry, item, context.date).activity || 'Non renseignée'}</td><td>{actions('company', item, true)}</td></tr>), 'Créer une société', 'company', companies.length ? 'Aucune société dans cette vue. Élargissez la sélection dans les filtres.' : 'Ajoutez une société pour retrouver ses informations et ses associés ici.')}
+      {table('Associés et participations', ['Associé', 'Société', 'Parts juridiques / économiques / votes', 'Période', 'Actions'], registry.participations.filter(item => period(item) && (relevantEntity(item.owner_entity_id) || relevantCompany(item.company_id))).map(item => <tr key={item.id}><td>{entityName(item.owner_entity_id)}</td><td>{entityName(item.company_id)}</td><td>{fractionLabel(item.legal_share)} / {fractionLabel(item.economic_share)} / {fractionLabel(item.voting_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('participation', item)}</td></tr>), 'Ajouter une participation', 'participation', 'Ajoutez une participation lorsque vous connaissez les droits d’un associé. Une société et ses associés ont chacun leur propre fiche.')}
+      <details className="card advanced-disclosure">
+        <summary>Options avancées de consolidation et de valorisation</summary>
+        <p className="field-hint">Choisissez de tenir compte des biens et dettes de la société en détail ou de sa valeur nette globale. Le calcul évite le double comptage.</p>
+        {table('Méthodes de consolidation datées', ['Société', 'Méthode', 'Qualification', 'Période', 'Actions'], registry.company_policies.filter(item => period(item) && relevantCompany(item.company_id)).map(item => <tr key={item.id}><td>{entityName(item.company_id)}</td><td>{item.mode === 'detailed' ? 'Actifs sous-jacents détaillés' : 'Valeur globale des capitaux propres'}</td><td>{item.coverage_complete ? 'Couverture déclarée complète' : 'Couverture incomplète'}<br />{item.liability_qualified ? 'Responsabilité qualifiée' : 'Responsabilité à qualifier'}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('company_policy', item)}</td></tr>), 'Définir une méthode', 'company_policy')}
+        {valuationTable('company')}
+      </details>
     </>}
     {page === 'assets' && <>
-      {table('Actifs génériques', ['Actif', 'Pays', 'Classe', 'Actions'], registry.assets.filter(item => visibleProfile(item) && assetRelevant(item.id)).map(item => <tr key={item.id}><td><strong>{assetName(item.id)}</strong>{item.archived && <small>Archivé</small>}</td><td>{assetAt(registry, item, context.date).country}</td><td>{assetAt(registry, item, context.date).category}</td><td>{actions('asset', item, true)}</td></tr>), 'Créer un actif', 'asset')}
-      {table('Propriétés datées', ['Actif', 'Propriétaire juridique', 'Droit juridique', 'Droit économique', 'Période', 'Actions'], registry.ownerships.filter(item => period(item) && (allRegistry || relevantEntity(item.owner_entity_id))).map(item => <tr key={item.id}><td>{assetName(item.asset_id)}</td><td>{entityName(item.owner_entity_id)}</td><td>{fractionLabel(item.legal_share)}</td><td>{fractionLabel(item.economic_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('ownership', item)}</td></tr>), 'Attribuer une propriété', 'ownership')}
+      {table('Biens enregistrés', ['Bien', 'Pays', 'Catégorie', 'Actions'], registry.assets.filter(item => visibleProfile(item) && assetRelevant(item.id)).map(item => <tr key={item.id}><td><strong>{assetName(item.id)}</strong>{item.archived && <small>Archivé</small>}{!heldAssets.has(item.id) && <small>Propriétaire à renseigner</small>}</td><td>{assetAt(registry, item, context.date).country}</td><td>{assetAt(registry, item, context.date).category}</td><td>{actions('asset', item, true)}</td></tr>), 'Créer un actif', 'asset', registry.assets.length ? 'Aucun bien dans cette vue. Élargissez la sélection dans les filtres.' : 'Les biens ajoutés dans les différentes rubriques apparaissent ici. Créez un actif pour suivre un autre type de bien.')}
+      {table('Propriétaires et droits', ['Bien', 'Propriétaire juridique', 'Part juridique', 'Part économique', 'Période', 'Actions'], registry.ownerships.filter(item => period(item) && (allRegistry || relevantEntity(item.owner_entity_id))).map(item => <tr key={item.id}><td>{assetName(item.asset_id)}</td><td>{entityName(item.owner_entity_id)}</td><td>{fractionLabel(item.legal_share)}</td><td>{fractionLabel(item.economic_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('ownership', item)}</td></tr>), 'Attribuer une propriété', 'ownership', 'Ajoutez les droits de propriété lorsqu’ils sont connus. La part économique est la part de la valeur qui revient à chaque propriétaire.')}
       {valuationTable('asset')}
       <ConsolidationPanel context={context} knowledgeSequence={registry.knowledge_sequence} onBusyChange={setConsolidationBusy} />
     </>}
-    {table('Périodes des profils descriptifs', ['Objet', 'Profil exact appliqué', 'Période', 'Actions'], registry.profile_periods.filter(item => period(item) && (page === 'assets' ? item.target_kind === 'asset' && assetRelevant(item.target_id) : item.target_kind === 'entity' && registry.entities.some(entity => entity.id === item.target_id && entity.kind === (page === 'family' ? 'person' : 'company')) && (page === 'family' ? allRegistry || !context.personId || item.target_id === context.personId : relevantEntity(item.target_id)))).map(item => {
+    <details className="card advanced-disclosure"><summary>Profils datés et historique des fiches</summary>
+    {table('Périodes des profils descriptifs', ['Personne, société ou bien', 'Profil appliqué', 'Période', 'Actions'], registry.profile_periods.filter(item => period(item) && (page === 'assets' ? item.target_kind === 'asset' && assetRelevant(item.target_id) : item.target_kind === 'entity' && registry.entities.some(entity => entity.id === item.target_id && entity.kind === (page === 'family' ? 'person' : 'company')) && (page === 'family' ? allRegistry || (context.personId ? item.target_id === context.personId : members.has(item.target_id)) : relevantCompany(item.target_id)))).map(item => {
       const profile = item.target_kind === 'asset' ? [...registry.assets, ...registry.asset_profile_revisions].find(profile => profile.id === item.target_id && profile.revision_id === item.profile_revision_id) : [...registry.entities, ...registry.profile_revisions].find(profile => profile.id === item.target_id && profile.revision_id === item.profile_revision_id);
       return <tr key={item.id}><td>{item.target_kind === 'asset' ? assetName(item.target_id) : entityName(item.target_id)}</td><td>{profile && ('name' in profile ? `${profile.name} · ${profile.country}` : `${profile.display_name} · ${profile.residence_country || 'Pays non renseigné'}`)}<small className="hash">{item.profile_revision_id}</small></td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('profile_period', item)}</td></tr>;
     }), 'Définir une période de profil', 'profile_period')}
+    </details>
   </div>;
 
   function valuationTable(kind: 'asset' | 'company') {
-    const relevant = (id: string) => kind === 'asset' ? assetRelevant(id) : relevantEntity(id);
-    return table(kind === 'asset' ? 'Estimations des actifs' : 'Valeurs globales des capitaux propres', ['Objet', 'Estimation d’origine', 'Date', 'Source', 'Actions'], registry.valuations.filter(item => item.target_kind === kind && relevant(item.target_id) && (allPeriods || item.effective_on <= context.date)).map(item => <tr key={item.id}><td>{kind === 'asset' ? assetName(item.target_id) : entityName(item.target_id)}</td><td>{item.amount} {item.currency}</td><td>{item.effective_on}</td><td>{item.source || 'Non renseignée'}</td><td>{actions(kind === 'asset' ? 'asset_valuation' : 'company_valuation', item)}</td></tr>), kind === 'asset' ? 'Ajouter une estimation' : 'Ajouter une valeur globale', kind === 'asset' ? 'asset_valuation' : 'company_valuation');
+    const relevant = kind === 'asset' ? assetRelevant : relevantCompany;
+    return table(kind === 'asset' ? 'Estimations des biens' : 'Valeurs globales des capitaux propres', ['Bien ou société', 'Estimation d’origine', 'Date', 'Source', 'Actions'], registry.valuations.filter(item => item.target_kind === kind && relevant(item.target_id) && (allPeriods || item.effective_on <= context.date)).map(item => <tr key={item.id}><td>{kind === 'asset' ? assetName(item.target_id) : entityName(item.target_id)}</td><td>{item.amount} {item.currency}</td><td>{item.effective_on}</td><td>{item.source || 'Non renseignée'}</td><td>{actions(kind === 'asset' ? 'asset_valuation' : 'company_valuation', item)}</td></tr>), kind === 'asset' ? 'Ajouter une estimation' : 'Ajouter une valeur globale', kind === 'asset' ? 'asset_valuation' : 'company_valuation', 'Aucune estimation pour cette sélection. Renseignez le montant dans sa devise d’origine et indiquez d’où il vient.');
   }
 }
 
@@ -208,29 +260,34 @@ function RegistryForm({ editor, setEditor, registry, pending, onSubmit }: {
   const country = (key: string, label: string, required = false) => select(key, label, countries.map(([id, name]) => ({ id, label: `${name} (${id})` })), required);
   const checkbox = (key: string, label: string) => <label className="checkbox-label" key={key}><input type="checkbox" checked={v[key] === 'yes'} onChange={event => change(key, event.target.checked ? 'yes' : 'no')} /><span>{label}</span></label>;
   const ratio = (key: string, label: string) => <div className="ratio-field" key={key}>{checkbox(`${key}_known`, `${label} connu`)}{v[`${key}_known`] === 'yes' ? <div className="ratio-inputs"><Field id={`registry-${key}-num`} label={`${label} · numérateur`}><input id={`registry-${key}-num`} required inputMode="numeric" pattern="[0-9]+" value={v[`${key}_num`]} onChange={event => change(`${key}_num`, event.target.value)} /></Field><span aria-hidden="true">/</span><Field id={`registry-${key}-den`} label={`${label} · dénominateur`}><input id={`registry-${key}-den`} required inputMode="numeric" pattern="[0-9]+" value={v[`${key}_den`]} onChange={event => change(`${key}_den`, event.target.value)} /></Field></div> : <p className="field-hint">Inconnu : aucune valeur n’est déduite. Zéro, 100 % et inconnu sont distincts.</p>}</div>;
-  const notes = <Field id="registry-notes" label="Notes"><textarea id="registry-notes" maxLength={10000} value={v.notes} onChange={event => change('notes', event.target.value)} /></Field>;
+  const notes = <Field id="registry-notes" label="Notes" hint="Facultatif. Par exemple un contact ou la référence d’un dossier."><textarea id="registry-notes" aria-describedby="registry-notes-help" maxLength={10000} value={v.notes} onChange={event => change('notes', event.target.value)} /></Field>;
   const profileCandidates = v.target_kind === 'asset' ? [...registry.assets, ...registry.asset_profile_revisions].filter(item => item.id === v.target_id) : [...registry.entities, ...registry.profile_revisions].filter(item => item.id === v.target_id);
   const profileOptions = [...new Map(profileCandidates.map(item => [item.revision_id, item])).values()].map(item => ({ id: item.revision_id, label: `${'name' in item ? `${item.name} · ${item.country}` : `${item.display_name} · ${item.residence_country || 'Pays non renseigné'}`} · révision ${item.revision_id}` }));
   return <form onSubmit={event => { void onSubmit(event); }}><fieldset disabled={pending}>
-    {editor.record && (kind === 'person' || kind === 'company' || kind === 'asset') && <RegistryNotice><strong>Modifier le profil de base des connaissances actuelles.</strong> Le formulaire affiche la révision courante {editor.record.revision_id}, même si un ancien profil est présenté à la date de consultation. Une correction crée une nouvelle révision ; les périodes restent liées à la révision exacte choisie.</RegistryNotice>}
     {(kind === 'person' || kind === 'company') && <>
       {input('display_name', kind === 'person' ? 'Nom affiché de la personne' : 'Nom de la société', true)}
-      {kind === 'person' && <div className="form-grid">{input('first_name', 'Prénom')}{input('last_name', 'Nom de famille')}{input('birth_date', 'Date de naissance', false, 'date')}</div>}
-      <div className="form-grid">{country('residence_country', kind === 'person' ? 'Pays de résidence' : 'Pays d’immatriculation')}{select('preferred_currency', 'Devise préférée', displayCurrencies.map(id => ({ id, label: id })))}</div>
-      {kind === 'company' && input('activity', 'Activité')}{notes}
-      {kind === 'person' && <p className="field-hint">La fiche peut représenter un tiers. Ajoutez ensuite une période familiale pour inclure cette personne dans la consolidation.</p>}
+      {kind === 'person' && <div className="form-grid">{input('first_name', 'Prénom')}{input('last_name', 'Nom de famille')}</div>}
+      {country('residence_country', kind === 'person' ? 'Pays de résidence' : 'Pays d’immatriculation')}
+      {kind === 'company' && input('activity', 'Activité', false, 'text', 'Facultatif. Par exemple gestion locative ou commerce.')}
+      {kind === 'person' && !editor.record && <p className="field-hint">Cette fiche convient à un contact, par exemple un locataire. Pour une personne de la famille, vous pouvez aussi ajouter sa période d’appartenance après la création de sa fiche.</p>}
+      <details className="advanced-disclosure" onInvalid={event => { event.currentTarget.open = true; }}>
+        <summary>Options avancées</summary>
+        {kind === 'person' && input('birth_date', 'Date de naissance', false, 'date', 'Facultatif.')}
+        {select('preferred_currency', 'Devise préférée', displayCurrencies.map(id => ({ id, label: id })))}
+        {notes}
+      </details>
     </>}
     {kind === 'membership' && <>{select('person_id', 'Personne à inclure dans la famille', entityOptions('person'))}{input('relationship', 'Lien familial (facultatif)')}{dates}</>}
-    {kind === 'asset' && <>{input('name', 'Nom de l’actif', true)}<div className="form-grid">{country('country', 'Pays de l’actif', true)}{input('category', 'Classe d’actif', true, 'text', 'Exemples : immobilier, liquidités, métaux, autre.')}</div>{notes}<p className="field-hint">La fiche générique ne crée pas de bien locatif, de compte bancaire ni de lot de métal. Complétez cette fiche dans Immobilier et loyers, Comptes bancaires ou Or et argent selon sa nature.</p></>}
+    {kind === 'asset' && <>{input('name', 'Nom de l’actif', true)}<div className="form-grid">{country('country', 'Pays de l’actif', true)}{input('category', 'Catégorie du bien', true, 'text', 'Par exemple véhicule, mobilier ou collection.')}</div><p className="field-hint">Utilisez les rubriques Immobilier, Comptes bancaires ou Or et argent pour les biens qui nécessitent un suivi dédié.</p><details className="advanced-disclosure"><summary>Options avancées</summary>{notes}</details></>}
     {(kind === 'participation' || kind === 'ownership') && <>
       {kind === 'participation' ? select('company_id', 'Société détenue', entityOptions('company')) : select('asset_id', 'Actif concerné', registry.assets.map(item => ({ id: item.id, label: item.name })))}
       {select('owner_entity_id', kind === 'participation' ? 'Associé ou société propriétaire' : 'Propriétaire identifié', entityOptions())}
-      <p className="field-hint">Saisissez une fraction exacte : 50 % = 1/2 ; 30 % = 3/10 ; un tiers = 1/3. Les calculs sont effectués en Rust, sans conversion numérique dans l’interface.</p>
+      <p className="field-hint">La part juridique est celle indiquée dans les actes. La part économique correspond à la part de la valeur qui revient à cette personne ou société. Pour 50 %, saisissez 1 et 2. Pour 30 %, saisissez 3 et 10.</p>
       {ratio('legal_share', 'Droit juridique')}{ratio('economic_share', 'Droit économique')}{kind === 'participation' && ratio('voting_share', 'Droit de vote')}{dates}
     </>}
     {(kind === 'asset_valuation' || kind === 'company_valuation') && <>
       {select('target_id', kind === 'asset_valuation' ? 'Actif à valoriser' : 'Société à valoriser', kind === 'asset_valuation' ? registry.assets.map(item => ({ id: item.id, label: item.name })) : entityOptions('company'))}
-      <div className="form-grid">{input('amount', kind === 'company_valuation' ? `Valeur nette des capitaux propres (${v.currency})` : `Montant de l’estimation (${v.currency})`, true, 'text', 'Montant décimal exact ; le point ou la virgule est validé côté Rust.')}{select('currency', 'Devise de l’estimation', displayCurrencies.map(id => ({ id, label: id })))}{input('effective_on', 'Date de valorisation', true, 'date')}</div>{input('source', 'Source ou méthode de l’estimation', true)}
+      <div className="form-grid">{input('amount', kind === 'company_valuation' ? `Valeur nette des capitaux propres (${v.currency})` : `Montant de l’estimation (${v.currency})`, true, 'text', 'Saisissez le montant dans sa devise. Exemple pour 1 250,50 € : 1250,50.')}{select('currency', 'Devise de l’estimation', displayCurrencies.map(id => ({ id, label: id })))}{input('effective_on', 'Date de valorisation', true, 'date')}</div>{input('source', 'Source ou méthode de l’estimation', true, 'text', 'Par exemple une expertise immobilière ou le prix moyen d’annonces comparables.')}
       <p className="field-hint">Le montant d’origine est conservé dans sa devise. La consolidation en EUR utilise les taux historiques applicables et leurs sources. Une nouvelle estimation datée s’ajoute à l’historique ; « Modifier » corrige une estimation existante.</p>
     </>}
     {kind === 'company_policy' && <>
@@ -245,8 +302,8 @@ function RegistryForm({ editor, setEditor, registry, pending, onSubmit }: {
       {select('profile_revision_id', 'Révision exacte du profil', profileOptions)}{dates}
       <p className="field-hint">Les périodes d’un même objet ne doivent pas se chevaucher. La fin est exclue. Les révisions anciennes restent proposées avec leur identifiant complet.</p>
     </>}
-    <Field id="registry-reason" label={editor.record ? 'Motif de la correction' : 'Motif de l’enregistrement'}><textarea id="registry-reason" required maxLength={1000} value={editor.reason} onChange={event => { const reason = event.currentTarget.value; setEditor(current => current && ({ ...current, reason })); }} /></Field>
-    <p className="field-hint">Les corrections conservent les versions précédentes. Les dates d’effet déterminent le périmètre économique.</p>
+    {editor.record && (kind === 'person' || kind === 'company' || kind === 'asset') && <p className="field-hint"><strong>Modifier le profil de base des connaissances actuelles.</strong> Les profils déjà rattachés à une période gardent leur version d’origine.</p>}
+    <Field id="registry-reason" label={editor.record ? 'Motif de la correction' : 'Motif de l’enregistrement'} hint="Indiquez brièvement la raison pour pouvoir la retrouver dans l’historique."><textarea id="registry-reason" aria-describedby="registry-reason-help" required maxLength={1000} value={editor.reason} onChange={event => { const reason = event.currentTarget.value; setEditor(current => current && ({ ...current, reason })); }} /></Field>
     <button type="submit" className="button" disabled={pending || !editor.reason.trim()}>{pending ? 'Enregistrement…' : editor.record ? 'Enregistrer la correction' : 'Créer l’enregistrement'}</button>
   </fieldset></form>;
 }

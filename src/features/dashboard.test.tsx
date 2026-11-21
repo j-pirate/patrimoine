@@ -60,8 +60,13 @@ describe('Tableau de bord sourcé', () => {
     expect(within(net).getByText('Non calculable')).toBeVisible();
     expect(within(net).getByText(/1\s000,00 EUR/)).toBeVisible();
     expect(net.querySelector('strong')).toHaveAttribute('data-value', 'unknown');
+    expect(screen.getByRole('article', { name: 'Patrimoine brut' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Dettes et obligations' })).toBeVisible();
+    expect(screen.getByText('Banque réelle')).not.toBeVisible();
+    await user.click(screen.getByText('Détail des biens, dettes et calculs'));
     expect(screen.getByText('Banque réelle')).toBeVisible();
     expect(screen.getByText(/Ce sous-total n’est pas un net complet/)).toBeVisible();
+    await user.click(screen.getByText('Évolution et autres répartitions'));
     expect(screen.getByText(/Cet écart ne mesure pas une performance/)).toBeVisible();
     await user.click(screen.getByText('Voir les références'));
     expect(screen.getByText(/Avant élimination : 1\s200,00 EUR/)).toBeVisible();
@@ -76,10 +81,11 @@ describe('Tableau de bord sourcé', () => {
       totals: { ...totals, assets_eur: '0.00', liabilities_eur: '0.00', net_eur: '0.00', known_assets_eur: '0.00', known_net_eur: '0.00' },
       positions: [{ ...position, side: 'contingent', amount_eur: '999999.00', position: { ...position.position, label: 'Garantie éventuelle', kind: 'guarantee' } }], warnings: [],
     }));
-    await open();
+    const { user } = await open();
     const net = screen.getByRole('article', { name: 'Patrimoine net' });
     expect(within(net).getByText('0,00 EUR')).toBeVisible();
     expect(within(net).queryByText('Non calculable')).not.toBeInTheDocument();
+    await user.click(screen.getByText('Détail des biens, dettes et calculs'));
     expect(screen.getByText('Garantie éventuelle')).toBeVisible();
     expect(screen.getByText('Non ajouté aux totaux')).toBeVisible();
     expect(net).not.toHaveTextContent('999');
@@ -96,28 +102,32 @@ describe('Tableau de bord sourcé', () => {
     expect(api.getDashboard).toHaveBeenLastCalledWith({ ...request, context: 'person', entity_id: 'alice', knowledge_sequence: 0 });
     await act(async () => old.resolve({ ...base, positions: [{ ...position, position: { ...position.position, label: 'Ancienne source interdite' } }] }));
     expect(screen.queryByText('Ancienne source interdite')).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText('Détail des biens, dettes et calculs'));
     expect(screen.getByText('Source du nouveau contexte')).toBeVisible();
   });
 
   it('masque les résultats dès modification des filtres et transmet pays, propriétaire et recherche', async () => {
     const { user } = await open();
+    expect(screen.getByLabelText('Pays')).not.toBeVisible();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     await user.selectOptions(screen.getByLabelText('Pays'), 'CH');
     expect(screen.queryByText('Banque réelle')).not.toBeInTheDocument();
     expect(api.getDashboard).toHaveBeenCalledOnce();
-    await user.selectOptions(screen.getByLabelText('Propriétaire associé (positions entières)'), 'alice');
-    await user.type(screen.getByLabelText('Rechercher une position'), 'référence exacte');
-    await user.selectOptions(screen.getByLabelText('Type de position'), 'banque');
+    await user.selectOptions(screen.getByLabelText('Propriétaire associé'), 'alice');
+    await user.type(screen.getByLabelText('Rechercher dans le rapport'), 'référence exacte');
+    await user.selectOptions(screen.getByLabelText('Catégorie'), 'banque');
     await user.click(screen.getByRole('button', { name: 'Actualiser le tableau de bord' }));
     await screen.findByText('Banque réelle');
     expect(api.getDashboard).toHaveBeenLastCalledWith({ ...request, filters: { country: 'CH', currency: null, category: 'banque', owner_entity_id: 'alice', query: 'référence exacte' } });
-    expect(screen.getByText(/Le propriétaire associé sélectionne des positions entières/)).toBeVisible();
+    expect(screen.getByText(/Le filtre par propriétaire conserve le montant entier/)).toBeVisible();
   });
 
   it('recalcule la période et le pas avec la date économique courante sans courbe fictive', async () => {
-    await open();
+    const { user } = await open();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     fireEvent.change(screen.getByLabelText('Début de la période'), { target: { value: '2024-02-29' } });
     await waitFor(() => expect(api.getDashboard).toHaveBeenLastCalledWith({ ...request, from_date: '2024-02-29' }));
-    fireEvent.change(screen.getByLabelText('Pas de l’historique'), { target: { value: 'annual' } });
+    fireEvent.change(screen.getByLabelText('Fréquence de l’historique'), { target: { value: 'annual' } });
     await waitFor(() => expect(api.getDashboard).toHaveBeenLastCalledWith({ ...request, from_date: '2024-02-29', interval: 'annual' }));
     expect(screen.getByText(/Du 2024-02-29 au 2026-03-31/)).toBeVisible();
   });
@@ -126,6 +136,7 @@ describe('Tableau de bord sourcé', () => {
     const companyReport: CompanyReport = { company_id: 'company', date: request.date, knowledge_sequence: 42, status: 'partial', company, policy: null, owners: [], subsidiaries: [], assets: [], accounts: [], debt_positions: [], financial_periods: [], distributions: [], source_ids: ['company-r1'], warnings: [] };
     vi.mocked(api.getDashboard).mockImplementation(async input => input.context === 'company' ? answer(input, { financial: null, totals: null, company: companyReport, positions: [], warnings: [] }) : answer(input));
     const { user, p, rerender } = await open();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     await user.selectOptions(screen.getByLabelText('Pays'), 'CH');
     await user.selectOptions(screen.getByLabelText('Vue de société'), 'company');
     await screen.findByRole('heading', { name: 'Pilotage de la société' });
@@ -143,6 +154,7 @@ describe('Tableau de bord sourcé', () => {
 
   it('annule le dialogue sans exporter puis exporte le contexte exact connu du rapport', async () => {
     const { user } = await open();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     await user.click(screen.getByRole('button', { name: 'Exporter le rapport filtré' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Exporter le rapport filtré' })).toBeEnabled());
     expect(api.exportDashboardReport).not.toHaveBeenCalled();
@@ -151,6 +163,7 @@ describe('Tableau de bord sourcé', () => {
     await user.click(screen.getByRole('button', { name: 'Exporter le rapport filtré' }));
     await screen.findByText(/Le rapport filtré a été exporté en JSON/);
     expect(api.exportDashboardReport).toHaveBeenCalledExactlyOnceWith(request, '/test/rapport.json');
+    await user.click(screen.getByText('Contexte et sources du rapport'));
     expect(screen.getByText(/Pour récupérer l’intégralité du coffre et ses originaux/)).toBeVisible();
   });
 
@@ -158,6 +171,7 @@ describe('Tableau de bord sourcé', () => {
     const destination = deferred<string | null>();
     vi.mocked(api.chooseDashboardReportDestination).mockReturnValue(destination.promise);
     const { user, p, rerender } = await open();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     await user.click(screen.getByRole('button', { name: 'Exporter le rapport filtré' }));
     rerender(<DashboardPage {...p} context={{ ...p.context, personId: 'alice' }} />);
     await screen.findByRole('heading', { name: 'Votre situation patrimoniale' });
@@ -168,6 +182,7 @@ describe('Tableau de bord sourcé', () => {
 
   it('affiche les erreurs de calcul et d’export sans conserver une ancienne réussite', async () => {
     const { user } = await open();
+    await user.click(screen.getByText('Filtres, période et export du rapport'));
     vi.mocked(api.chooseDashboardReportDestination).mockResolvedValue('/test/rapport.json');
     vi.mocked(api.exportDashboardReport).mockRejectedValue({ code: 'exists', message: 'Le fichier existe déjà.' });
     await user.click(screen.getByRole('button', { name: 'Exporter le rapport filtré' }));
@@ -186,7 +201,7 @@ describe('Tableau de bord sourcé', () => {
     const p = props();
     render(<DashboardPage {...p} registry={emptyRegistry} />);
     await screen.findByRole('heading', { name: 'Construire une vue à partir de vos données' });
-    expect(screen.getByText(/aucun montant de démonstration/)).toBeVisible();
+    expect(screen.getByText(/Le tableau de bord se remplit à mesure de vos saisies/)).toBeVisible();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Renseigner la famille' }));
     expect(p.onNavigate).toHaveBeenCalledExactlyOnceWith('family');

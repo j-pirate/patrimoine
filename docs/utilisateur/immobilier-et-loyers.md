@@ -1,12 +1,12 @@
 # Immobilier et loyers — utilisation de la phase 5
 
-Ce guide décrit le périmètre livré en phase 5. La phase 6 ajoute le [rapprochement bancaire, les financements, dépôts et créanciers explicites](comptes-et-financements.md), ainsi que leur bilan financier. Les limites indiquées ci-dessous comme « phase 6 » correspondent à cet état antérieur.
+Les [premiers pas](premiers-pas.md) présentent la saisie guidée. Ce guide détaille aussi le [rapprochement bancaire, les financements, dépôts et créanciers explicites](comptes-et-financements.md).
 
-Ce module complète le registre commun. La valeur du bien reste celle de l’actif déjà créé dans **Patrimoine**. Les unités locatives, contrats et échéances ne créent pas de deuxième valeur immobilière. Les droits, estimations et taux continuent à utiliser la date économique D et les connaissances K décrites dans [le guide historique](devises-et-historique.md).
+La fiche d’Immobilier et l’élément de **Patrimoine** décrivent le même bien. Les unités locatives, contrats et échéances ne créent pas de deuxième valeur immobilière. Les droits, estimations et taux utilisent la date économique D et les connaissances K décrites dans [le guide historique](devises-et-historique.md).
 
 ## Décrire le bien et ses unités
 
-Dans **Immobilier et loyers → Biens et unités**, choisir **Ajouter une fiche immobilière** et rattacher la fiche à un actif physique existant. Si nécessaire, créer d’abord cet actif, ses propriétaires et ses estimations dans **Patrimoine**. Renseigner type, ville, adresse, surface, situation et période descriptive. La fin d’une période est exclue. Une surface inconnue reste vide ; elle ne devient pas nulle.
+Dans **Immobilier et loyers**, choisissez **Ajouter un bien immobilier**. Le nom, le type, le pays et la situation suffisent pour commencer. Vous pouvez ajouter la ville, une estimation et un propriétaire unique. Pour compléter l’adresse, la surface et les périodes, retrouvez la fiche dans **Biens et unités**. Une surface inconnue reste vide. Si le bien a déjà une fiche générique dans **Patrimoine**, utilisez le rattachement proposé dans **Options avancées** pour conserver cette fiche.
 
 **Ajouter une unité** décrit un logement, local ou lot technique dans le bien : référence unique dans ce bien, nom, surface éventuelle, période de suivi et disponibilité déclarée. Un bien simple peut avoir une unité couvrant l’ensemble du bien. Pour des lots juridiquement valorisés et cessibles séparément, créer des actifs immobiliers distincts ; ne pas valoriser simultanément un immeuble entier et ses lots pour les mêmes surfaces.
 

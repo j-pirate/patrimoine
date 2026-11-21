@@ -31,7 +31,7 @@ pub(crate) fn snapshot(c: &Connection, cutoff: Option<u64>) -> Result<MetalSnaps
     })
 }
 
-fn normalize_movement(input: &mut SaveMetalMovementInput) -> Result<()> {
+pub(crate) fn normalize_movement(input: &mut SaveMetalMovementInput) -> Result<()> {
     input.quantity_change = exact::normalize_decimal_input(&input.quantity_change)?;
     input.trade_fees = exact::normalize_decimal_input(&input.trade_fees)?;
     for amount in [&mut input.cost_amount, &mut input.trade_amount]
@@ -42,7 +42,43 @@ fn normalize_movement(input: &mut SaveMetalMovementInput) -> Result<()> {
     }
     Ok(())
 }
-fn insert_movement(c: &Connection, revision: &str, input: &SaveMetalMovementInput) -> Result<()> {
+pub(crate) fn normalize_lot(input: &mut SaveMetalLotInput) -> Result<()> {
+    input.unit_weight = exact::normalize_decimal_input(&input.unit_weight)?;
+    input.purity = exact::normalize_decimal_input(&input.purity)?;
+    Ok(())
+}
+
+pub(crate) fn insert_lot(c: &Connection, revision: &str, input: &SaveMetalLotInput) -> Result<()> {
+    c.execute(
+        "INSERT INTO metal_lots VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+        params![
+            revision,
+            input.asset_id,
+            input.metal,
+            input.form,
+            input.designation,
+            input.unit_weight,
+            input.weight_unit,
+            input.purity,
+            input.tracking_start,
+            input.cost_currency,
+            input.legal_owner_entity_id,
+            input.country,
+            input.storage_location,
+            input.valuation_basis,
+            input.notes,
+            input.archived
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
+pub(crate) fn insert_movement(
+    c: &Connection,
+    revision: &str,
+    input: &SaveMetalMovementInput,
+) -> Result<()> {
     c.execute(
         "INSERT INTO metal_movements VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
         params![
@@ -129,18 +165,33 @@ impl MetalService for Vault {
         snapshot(&tx, knowledge_sequence)
     }
     fn save_metal_lot(&mut self, mut input: SaveMetalLotInput) -> Result<MetalLot> {
-        input.unit_weight = exact::normalize_decimal_input(&input.unit_weight)?;
-        input.purity = exact::normalize_decimal_input(&input.purity)?;
-        self.write_phase7("metal_lot",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
-            for (column,value) in [("asset_id",input.asset_id.as_str()),("metal",input.metal.as_str()),("unit_weight",input.unit_weight.as_str()),("weight_unit",input.weight_unit.as_str()),("purity",input.purity.as_str()),("tracking_start",input.tracking_start.as_str()),("cost_currency",input.cost_currency.as_str())] { phase7::unchanged(tx,"metal_lots",column,input.id.as_deref(),value)?; }
-            tx.execute("INSERT INTO metal_lots VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",params![revision,input.asset_id,input.metal,input.form,input.designation,input.unit_weight,input.weight_unit,input.purity,input.tracking_start,input.cost_currency,input.legal_owner_entity_id,input.country,input.storage_location,input.valuation_basis,input.notes,input.archived]).map_err(db::error)?;
-            Ok(())
-        },
-            |tx, key| snapshot(tx, None)?
-            .lots
-            .into_iter()
-            .find(|m| m.id == key)
-            .ok_or_else(|| invalid("Le lot enregistré est introuvable.")),
+        normalize_lot(&mut input)?;
+        self.write_phase7(
+            "metal_lot",
+            input.id.as_deref(),
+            input.expected_revision_id.as_deref(),
+            &input.reason,
+            |tx, _, revision| {
+                for (column, value) in [
+                    ("asset_id", input.asset_id.as_str()),
+                    ("metal", input.metal.as_str()),
+                    ("unit_weight", input.unit_weight.as_str()),
+                    ("weight_unit", input.weight_unit.as_str()),
+                    ("purity", input.purity.as_str()),
+                    ("tracking_start", input.tracking_start.as_str()),
+                    ("cost_currency", input.cost_currency.as_str()),
+                ] {
+                    phase7::unchanged(tx, "metal_lots", column, input.id.as_deref(), value)?;
+                }
+                insert_lot(tx, revision, &input)
+            },
+            |tx, key| {
+                snapshot(tx, None)?
+                    .lots
+                    .into_iter()
+                    .find(|m| m.id == key)
+                    .ok_or_else(|| invalid("Le lot enregistré est introuvable."))
+            },
         )
     }
     fn save_metal_movement(&mut self, mut input: SaveMetalMovementInput) -> Result<MetalMovement> {

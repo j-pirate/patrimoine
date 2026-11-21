@@ -4,14 +4,14 @@ Ce guide décrit le registre initial. Les taux, estimations multidevises, profil
 
 L’application travaille sur une base commune. Une vue individuelle est une sélection patrimoniale ; elle ne limite pas les accès de l’administrateur local. Les nouveaux coffres sont vides : les exemples des tests ne sont jamais chargés dans vos données.
 
-## Premier enregistrement
+## Membres, contacts et droits
 
-1. Dans **Famille**, créer une personne. Le nom affiché identifie sa fiche ; prénom, nom, naissance, résidence, devise préférée et notes peuvent être renseignés séparément. Une personne créée n’est pas automatiquement membre du périmètre familial : elle peut représenter un copropriétaire extérieur.
-2. Ajouter une **période familiale** pour chaque membre inclus, avec début, fin éventuelle et lien familial. La date de fin est exclue : une fin au 1er juillet signifie que la personne est encore incluse le 30 juin, puis exclue le 1er juillet. Plusieurs périodes non chevauchantes sont possibles.
+1. Dans **Famille**, choisissez **Ajouter un membre de la famille** pour créer sa fiche et commencer à suivre ses biens. Le formulaire **Créer une personne** sert aussi aux contacts extérieurs à la famille, par exemple un copropriétaire ou un locataire.
+2. Dans **Périodes d’appartenance à la famille**, modifiez les dates d’inclusion lorsque nécessaire. La date de fin est exclue. Une fin au 1er juillet signifie que la personne est encore incluse le 30 juin, puis exclue le 1er juillet. Plusieurs périodes non chevauchantes sont possibles.
 3. Dans **Sociétés**, créer les sociétés concernées, puis leurs participations datées. Le propriétaire d’une société peut être une personne ou une autre société. Préciser séparément droits juridiques, économiques et droits de vote.
 4. Définir pour chaque société sa **méthode datée**. Le mode détaillé retient ses sous-jacents ; le mode global retient une estimation nette des capitaux propres et s’arrête sur ce chemin. La couverture et la responsabilité des associés sont des déclarations explicites, jamais déduites d’une table vide.
-5. Dans **Patrimoine**, créer l’actif générique, ses relations de propriété et une estimation datée en EUR. Indiquer sa source ou sa méthode, par exemple « estimation personnelle ». Une fiche générique ne remplace pas encore les modules immobilier/loyers, banque ou métaux.
-6. Choisir le périmètre familial ou individuel et la date en haut de l’écran, puis **Contrôler les attributions**. Les sources des droits et estimations de chaque contribution sont consultables.
+5. Dans **Autres biens et dettes → Patrimoine**, ajouter les droits des copropriétaires ou créer un bien sans rubrique dédiée. Pour un bien immobilier, un compte ou un lot de métal, commencez dans la rubrique correspondante.
+6. Choisir le périmètre familial ou individuel, puis **Contrôler les attributions**. **Date et historique** permet de changer la date de référence. Les sources des droits et estimations sont consultables pour chaque contribution.
 
 Les filtres de gestion permettent d’afficher l’ensemble du registre, toutes les périodes ou les fiches archivées. Ils facilitent la saisie d’un futur droit ou d’un actif pas encore attribué. Le calcul reste effectué côté Rust avec le contexte sélectionné, indépendamment du filtre visuel de gestion.
 

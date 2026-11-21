@@ -146,11 +146,19 @@ pub(crate) fn sequence(c: &Connection) -> Result<u64> {
     .map_err(error)
 }
 pub(crate) fn mutation(c: &Connection, reason: &str) -> Result<(String, String)> {
+    mutation_with_command(c, reason, &id())
+}
+
+pub(crate) fn mutation_with_command(
+    c: &Connection,
+    reason: &str,
+    command_id: &str,
+) -> Result<(String, String)> {
     let cs = id();
     let stamp = now();
     c.execute(
         "INSERT INTO change_sets VALUES(?1,?2,?3,?4,?5)",
-        params![cs, sequence(c)? + 1, stamp, reason, id()],
+        params![cs, sequence(c)? + 1, stamp, reason, command_id],
     )
     .map_err(error)?;
     Ok((cs, stamp))

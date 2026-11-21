@@ -214,7 +214,8 @@ describe('Journal et explication des variations', () => {
     expect(screen.getByText('Résidu non expliqué : Non calculable')).toBeVisible();
     const row = screen.getByText('Effet des estimations').closest('tr')!;
     expect(within(row).queryByText('0.00 EUR')).not.toBeInTheDocument();
-    expect(screen.getByText(/Ce contrôle n’est ni un rendement d’investissement/)).toBeVisible();
+    await user.click(screen.getByText('Ce que la comparaison couvre'));
+    expect(screen.getByText(/Une variation d’estimation ne mesure pas un rendement/)).toBeVisible();
     expect(screen.getByText('La valeur de référence est inconnue.')).toBeVisible();
     expect(screen.getByText(/calculée avec les connaissances de la séquence 8/)).toBeVisible();
     expect(screen.getByText(/Actualiser le journal ne recalcule pas cette comparaison/)).toBeVisible();

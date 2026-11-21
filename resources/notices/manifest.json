@@ -10,8 +10,8 @@
     "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
     "size_bytes": 35149
   },
-  "cargo_lock_sha256": "9aedaf97094bff060e15be1827a93c74a1ad4e0481de0c90a5580f5fe0877f2a",
-  "package_lock_sha256": "9d202fe3950d38209f6bd1d37cff235c8cdfb0d82246a773f6a9f8aa79bb71fe",
+  "cargo_lock_sha256": "9485c6b9c68daf00b9832a8e06422c949d8670ccd30e74ee48c8d76751924617",
+  "package_lock_sha256": "4b7b762bfe53411e6d55b4d694206b5636a6ad4c723eff560bc72325f6addc8a",
   "appdir_scanned": true,
   "appdir_bundled_libraries": [
     {

@@ -27,7 +27,7 @@ const emptyDebts = { contracts: [], terms: [], movements: [], receivable_adjustm
 async function open(k: number | null = null) {
   const props = { mode: 'bank' as const, registry, context: { personId: null, date: '2026-03-31', knowledgeSequence: k }, onChanged: vi.fn().mockResolvedValue(undefined), onBusyChange: vi.fn(), onNavigateRegistry: vi.fn() };
   const view = render(<TreasuryPage {...props} />);
-  await screen.findByRole('button', { name: 'Ajouter un compte bancaire' });
+  await screen.findByRole('heading', { name: 'Comptes suivis' });
   return { user: userEvent.setup(), props, ...view };
 }
 beforeEach(() => {
@@ -47,7 +47,8 @@ beforeEach(() => {
 describe('Trésorerie locale', () => {
   it('rattache un compte à son actif et son titulaire, sans inventer d’ouverture', async () => {
     const { user } = await open();
-    await user.click(screen.getByRole('button', { name: 'Ajouter un compte bancaire' }));
+    await user.click(screen.getByText('Options avancées'));
+    await user.click(screen.getByRole('button', { name: 'Rattacher un compte à un bien existant' }));
     await user.selectOptions(screen.getByLabelText('Actif du compte'), 'bank-asset');
     await user.selectOptions(screen.getByLabelText('Titulaire juridique'), 'owner');
     await user.type(screen.getByLabelText('Banque'), 'Banque déclarée');
@@ -96,8 +97,7 @@ describe('Trésorerie locale', () => {
 
   it('présente un écart de relevé retourné par Rust sans créer d’ajustement', async () => {
     const { user } = await open();
-    await user.selectOptions(screen.getByLabelText('Compte du contrôle'), 'bank');
-    await user.click(screen.getByRole('button', { name: 'Calculer le solde' }));
+    await user.click(screen.getByRole('button', { name: 'Voir le solde' }));
     await screen.findByText('-10.00');
     expect(api.getTreasuryReport).toHaveBeenCalledExactlyOnceWith({ account_id: 'bank', date: '2026-03-31', knowledge_sequence: null });
     expect(screen.getByText('110.00 EUR', { selector: 'strong' })).toBeVisible();
@@ -131,7 +131,8 @@ describe('Trésorerie locale', () => {
 
   it('bloque les écritures à K=0 mais permet de consulter un solde historique', async () => {
     const { user } = await open(0);
-    expect(screen.getByRole('button', { name: 'Ajouter un compte bancaire' })).toBeDisabled();
+    await user.click(screen.getByText('Options avancées'));
+    expect(screen.getByRole('button', { name: 'Rattacher un compte à un bien existant' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Enregistrer l’ouverture' })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText('Compte du contrôle'), 'bank');
     await user.click(screen.getByRole('button', { name: 'Calculer le solde' }));

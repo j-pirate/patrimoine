@@ -46,7 +46,7 @@ async function open(knowledgeSequence: number | null = null, registrySnapshot = 
   const onChanged = vi.fn().mockResolvedValue(undefined);
   const props = { registry: registrySnapshot, context: { personId: null as string | null, date: '2026-03-31', knowledgeSequence }, onChanged, onBusyChange: vi.fn(), onNavigateRegistry: vi.fn() };
   const view = render(<RealEstatePage {...props} />);
-  await screen.findByRole('button', { name: 'Ajouter une fiche immobilière' });
+  await screen.findByRole('heading', { name: 'Vos biens immobiliers' });
   return { user: userEvent.setup(), onChanged, props, ...view };
 }
 
@@ -80,7 +80,7 @@ describe('Locations, encaissements et indicateurs', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer la correction immobilière' }));
     expect(await screen.findByText('L’enregistrement immobilier a été conservé avec son historique.')).toBeVisible();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Baux et échéances' })).toBeEnabled());
-    expect(screen.getByText('Lyon · Adresse non renseignée')).toBeVisible();
+    expect(screen.getByText('Lyon · France')).toBeVisible();
     expect(api.listPropertiesAt).toHaveBeenCalledTimes(3);
     expect(api.listRentalsAt).toHaveBeenCalledTimes(3);
     expect(onChanged).toHaveBeenCalledOnce();
@@ -259,8 +259,10 @@ describe('Locations, encaissements et indicateurs', () => {
 
   it('verrouille chaque écran de saisie à K=0 mais autorise une consultation calculée à K=0', async () => {
     const { user } = await open(0);
+    await user.click(screen.getByText('Gérer les fiches et les droits d’un bien déjà enregistré'));
     expect(screen.getByRole('button', { name: 'Ajouter une fiche immobilière' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Baux et échéances' }));
+    await user.click(screen.getByText('Correction manuelle des échéances'));
     for (const name of ['Ajouter un bail', 'Ajouter des conditions de bail', 'Générer les échéances', 'Ajouter une échéance rectificative']) expect(screen.getByRole('button', { name })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Paiements et dépenses' }));
     for (const name of ['Enregistrer un paiement', 'Affecter un paiement', 'Ajouter une dépense']) expect(screen.getByRole('button', { name })).toBeDisabled();
@@ -320,12 +322,12 @@ describe('Locations, encaissements et indicateurs', () => {
 
   it('ne conserve pas les anciennes fiches lorsque le chargement d’une autre connaissance échoue', async () => {
     const { props, rerender } = await open();
-    expect(screen.getByRole('button', { name: 'Ajouter une fiche immobilière' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Vos biens immobiliers' })).toBeVisible();
     vi.mocked(api.listPropertiesAt).mockRejectedValue({ message: 'La borne historique est indisponible.' });
     vi.mocked(api.listRentalsAt).mockRejectedValue({ message: 'La borne historique est indisponible.' });
     rerender(<RealEstatePage {...props} context={{ ...props.context, knowledgeSequence: 0 }} />);
     expect(await screen.findByText('La borne historique est indisponible.')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Ajouter une fiche immobilière' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Vos biens immobiliers' })).not.toBeInTheDocument();
     expect(screen.queryByText('A · Logement A')).not.toBeInTheDocument();
     expect(api.listPropertiesAt).toHaveBeenLastCalledWith(0);
   });
@@ -334,6 +336,7 @@ describe('Locations, encaissements et indicateurs', () => {
     const { user } = await open();
     await user.click(screen.getByRole('button', { name: 'Indicateurs locatifs' }));
     await user.selectOptions(screen.getByLabelText('Bien à consulter'), 'house');
+    await user.click(screen.getByText('Options avancées du calcul'));
     expect(screen.getByLabelText('Analyser le bien entier')).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Calculer les indicateurs locatifs' }));
     await waitFor(() => expect(api.getRentalReport).toHaveBeenCalledTimes(1));
@@ -347,6 +350,7 @@ describe('Locations, encaissements et indicateurs', () => {
   it('demande une attribution société et un pays daté au moteur sans réaffectation locale', async () => {
     const { user } = await open();
     await user.click(screen.getByRole('button', { name: 'Indicateurs locatifs' }));
+    await user.click(screen.getByText('Options avancées du calcul'));
     await user.selectOptions(screen.getByLabelText('Attribution des indicateurs'), 'company');
     await user.selectOptions(screen.getByLabelText('Pays des biens à la date de référence'), 'TN');
     await user.click(screen.getByRole('button', { name: 'Calculer les indicateurs locatifs' }));

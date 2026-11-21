@@ -8,15 +8,15 @@ La date économique **D**, les connaissances **K** et le contexte familial ou in
 
 ## Créer un compte ou une caisse et confirmer son ouverture
 
-Dans **Comptes bancaires → Comptes**, choisir **Ajouter un compte bancaire**. Dans **Espèces et devises**, choisir **Caisses physiques**, puis **Ajouter une caisse**. L’onglet **Taux et conversions** reste consacré aux cours de valorisation.
+Dans **Comptes bancaires**, choisissez **Ajouter un compte bancaire**. Pour des espèces, ouvrez **Autres biens et dettes → Espèces et devises → Caisses physiques**, puis **Ajouter une réserve d’espèces**. La saisie guidée enregistre en même temps le solde de départ et le propriétaire unique que vous avez choisi. Le solde peut être nul si vous saisissez `0`. L’onglet **Taux et conversions** sert à enregistrer les cours.
 
-Rattacher la fiche à un actif existant dans **Patrimoine**. Au besoin, utiliser **Gérer les actifs et leurs propriétaires** pour créer cet actif et renseigner ses droits. La fiche de trésorerie décrit notamment la devise, la date de début du suivi, le titulaire juridique, le pays et les références bancaires ou le lieu de conservation des espèces.
+Pour rattacher un compte à un bien existant ou renseigner une propriété partagée, ouvrez **Options avancées** dans la liste des comptes ou des caisses. Les droits se renseignent dans **Patrimoine**. La fiche de trésorerie décrit aussi la devise, le début du suivi, le titulaire juridique, le pays et les références bancaires ou le lieu de conservation des espèces.
 
 Après création, l’actif rattaché, la devise et le début du suivi sont fixes. Leur changement dans le formulaire de correction est refusé ; une correction descriptive ne réinterprète pas les anciennes lignes dans une autre devise ou un autre actif.
 
 Le titulaire juridique du compte est distinct des droits économiques de l’actif. Nommer une personne titulaire ne lui attribue pas implicitement `100 %` des fonds. Les droits économiques, directs ou au travers d’une société, se définissent dans le registre commun. Le bilan utilise le solde du journal pour cet actif ; une estimation générique ne constitue pas une deuxième valeur à additionner au même compte.
 
-Créer la fiche ne crée aucun solde. Choisir ensuite **Enregistrer l’ouverture**, saisir le stock confirmé à la date de début du suivi et son motif, puis enregistrer. Une ouverture explicitement nulle se saisit `0`. Une case vide signifie absence de confirmation. L’ouverture est unique pour le compte et se corrige par une nouvelle révision si nécessaire.
+Pour une fiche rattachée depuis les options avancées, choisissez ensuite **Enregistrer l’ouverture** et saisissez le solde confirmé à la date de début du suivi. L’ouverture est unique pour le compte et se corrige par une nouvelle révision si nécessaire.
 
 Sans ouverture, même un journal contenant des mouvements ne donne pas un solde complet. Par exemple, connaître un crédit de `500 EUR` ne prouve pas que le compte contient `500 EUR` : le stock antérieur manque. Avant la date de début du suivi, le solde reste également inconnu. Une ouverture est un stock ; elle ne peut pas être rapprochée comme encaissement d’un loyer, d’un dépôt ou d’un prêt.
 

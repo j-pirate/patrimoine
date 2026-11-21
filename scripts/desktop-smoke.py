@@ -200,7 +200,25 @@ def button(label):
 
 
 def navigate(driver, label):
-    driver.click(f"//nav//button[contains(., {json.dumps(label, ensure_ascii=False)})]")
+    target = f"//nav[@aria-label='Navigation principale']//button[contains(., {json.dumps(label, ensure_ascii=False)})]"
+    group = driver.execute("""
+        const target = document.evaluate(arguments[0], document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+        return target?.closest('.nav-children[hidden]')?.id ?? null;
+    """, target)
+    if group:
+        driver.click(f"//button[@aria-controls='{group}']")
+    driver.click(target)
+
+
+def choose_knowledge(driver, sequence):
+    if driver.execute("return document.querySelector('.view-history')?.open === false;"):
+        driver.click("//details[contains(@class, 'view-history')]/summary")
+    driver.click(f"//select[@id='global-knowledge']/option[@value='{sequence}']")
+
+
+def navigate_exchange(driver):
+    navigate(driver, "Espèces et devises")
+    driver.click(button("Taux et conversions"))
 
 
 def wait_text(driver, text, timeout=15):
@@ -406,11 +424,12 @@ def fx_scenarios(driver, artifacts, steps):
     snapshot = driver.invoke("list_registry")
     alice = next(entity for entity in snapshot["entities"]
                  if entity["display_name"] == "Alice du test desktop")
-    navigate(driver, "Espèces et devises")
+    navigate_exchange(driver)
     driver.click(button("Ajouter un taux"))
     driver.click("//select[@id='rate-base']/option[@value='TND']")
     driver.click("//select[@id='rate-quote']/option[@value='EUR']")
     driver.fill("#rate-value", "0,3")
+    driver.execute("document.querySelector('#rate-source').closest('details').open = true;")
     driver.fill("#rate-source", "Cours manuel synthétique")
     driver.fill("#rate-reason", "Cours de validation desktop sans fournisseur externe")
     driver.click(button("Enregistrer le taux"))
@@ -500,10 +519,10 @@ def fx_scenarios(driver, artifacts, steps):
     driver.command("POST", "/refresh", {})
     wait_until(lambda: driver.execute("return !!document.querySelector('#global-knowledge') && !document.querySelector('#global-knowledge').disabled;"),
                "sélecteur de connaissance disponible")
-    navigate(driver, "Espèces et devises")
+    navigate_exchange(driver)
     require(driver.command("GET", f"/element/{driver.find(button('Ajouter un taux'))}/enabled"),
             "Le registre actuel ne propose pas l'ajout de cours")
-    driver.click(f"//select[@id='global-knowledge']/option[@value='{old_sequence}']")
+    choose_knowledge(driver, old_sequence)
     wait_until(lambda: "lecture seule" in driver.text().lower(), "mode de connaissance historique en lecture seule")
     require(driver.execute("return Array.from(document.querySelectorAll('button')).filter(b => b.textContent.trim() === 'Ajouter un taux').every(b => b.disabled);"),
             "Un cours historique pourrait être modifié depuis une vue figée")
@@ -515,10 +534,10 @@ def fx_scenarios(driver, artifacts, steps):
     navigate(driver, "Historique")
     wait_until(lambda: str(old_sequence) in driver.text(), "journal de connaissance visible")
     steps.append({"name": "historical_ui_is_read_only_and_reconstructs_prior_exchange_rate", "status": "passed"})
-    driver.click("//select[@id='global-knowledge']/option[@value='current']")
+    choose_knowledge(driver, "current")
     wait_until(lambda: driver.execute("return document.querySelector('#global-knowledge').value;") == "current",
                "retour aux connaissances actuelles")
-    navigate(driver, "Espèces et devises")
+    navigate_exchange(driver)
     wait_until(lambda: driver.command("GET", f"/element/{driver.find(button('Ajouter un taux'))}/enabled"),
                "réactivation de la saisie des cours actuels")
     wait_text(driver, "0.31 EUR")
@@ -635,6 +654,7 @@ def property_rental_scenarios(driver, artifacts, steps):
         }})
 
     navigate(driver, "Immobilier et loyers")
+    driver.click("//summary[normalize-space(.)='Gérer les fiches et les droits d’un bien déjà enregistré']")
     driver.click(button("Ajouter une fiche immobilière"))
     driver.click(f"//select[@id='property-asset_id']/option[@value='{asset['id']}']")
     driver.click("//select[@id='property-property_type']/option[@value='building']")
@@ -750,6 +770,7 @@ def property_rental_scenarios(driver, artifacts, steps):
     driver.command("POST", "/refresh", {})
     wait_until(lambda: driver.execute("return !!document.querySelector('#global-knowledge') && !document.querySelector('#global-knowledge').disabled;"), "relecture après fixtures immobilières")
     navigate(driver, "Immobilier et loyers")
+    driver.click("//summary[normalize-space(.)='Acquisitions et cessions']")
     driver.click(button("Corriger la cession"))
     before_correction = driver.invoke("list_properties_at")["knowledge_sequence"]
     driver.fill_date("#lifecycle-effective_on", "2024-08-01")
@@ -768,6 +789,7 @@ def property_rental_scenarios(driver, artifacts, steps):
     driver.click(button("Indicateurs locatifs"))
     wait_text(driver, "Calculer les indicateurs locatifs")
     driver.click(f"//select[@id='rental-property-filter']/option[@value='{asset['id']}']")
+    driver.click("//summary[normalize-space(.)='Options avancées du calcul']")
     driver.click("//input[@id='rental-report-whole-property']")
     driver.fill_date("#rental-report-from", "2023-01-01")
     driver.fill_date("#rental-report-to", "2024-01-01")
@@ -811,11 +833,13 @@ def financial_scenarios(driver, artifacts, steps, phase5):
         assets.append(asset)
     refresh()
     navigate(driver, "Comptes bancaires")
-    driver.click(button("Ajouter un compte bancaire"))
+    driver.click("//details[@id='treasury-account-options']/summary")
+    driver.click(button("Rattacher un compte à un bien existant"))
     choose("treasury-asset_id", assets[0]["id"])
     choose("treasury-legal_owner_entity_id", alice["id"])
     driver.fill_date("#treasury-tracking_start", "2020-01-01")
     driver.fill("#treasury-bank_name", "Banque synthétique")
+    driver.click("//details[@id='treasury-account-fields']/summary")
     driver.fill("#treasury-reference", "TEST-A")
     driver.fill("#treasury-reason", "Ouverture du suivi bancaire du test")
     driver.click(button("Enregistrer la trésorerie"))
@@ -1025,7 +1049,8 @@ def metals_company_scenarios(driver, artifacts, steps, phase5, phase6, fx_state)
     save("valuation", target_kind="asset", target_id=asset["id"], amount="999999", currency="EUR", effective_on="2020-01-01", source="Estimation générique à remplacer par le lot")
     refresh()
     navigate(driver, "Or et argent")
-    driver.click(button("Créer un lot de métal"))
+    driver.click("//details[@id='metal-lot-options']/summary")
+    driver.click(button("Rattacher un lot à un bien existant"))
     choose("metal-asset_id", asset["id"])
     driver.fill("#metal-designation", "Deux pièces du test")
     driver.fill("#metal-unit_weight", "1")
@@ -1142,14 +1167,14 @@ def metals_company_scenarios(driver, artifacts, steps, phase5, phase6, fx_state)
     driver.execute("document.documentElement.style.scrollBehavior='auto'; document.querySelector('.company-result').scrollIntoView({block:'start'});")
     driver.screenshot(artifacts / "company-report.png")
     navigate(driver, "Or et argent")
-    choose("global-knowledge", str(old_k))
+    choose_knowledge(driver, old_k)
     wait_operation_complete(driver)
     choose("metal-filter", lot["id"])
     driver.click(button("Contrôler un lot"))
     driver.click(button("Calculer le lot de métal"))
     wait_text(driver, "3359.18 EUR")
     require("Lecture seule historique" in driver.text(), "La consultation métal à K n'est pas en lecture seule")
-    choose("global-knowledge", "current")
+    choose_knowledge(driver, "current")
     wait_operation_complete(driver)
     choose("metal-filter", lot["id"])
     driver.click(button("Contrôler un lot"))
@@ -1243,7 +1268,7 @@ def document_library_scenarios(driver, temporary, artifacts, steps, source, cont
     driver.command("POST", "/refresh", {})
     wait_until(lambda: driver.execute("return !!document.querySelector('#global-knowledge') && !document.querySelector('#global-knowledge').disabled;"), "historique documentaire rechargé")
     navigate(driver, "Documents")
-    driver.click(f"//select[@id='global-knowledge']/option[@value='{old_k}']")
+    choose_knowledge(driver, old_k)
     wait_operation_complete(driver)
     wait_text(driver, "Lecture seule historique")
     import_button = wait_until(lambda: driver.find(button("Importer un document")),
@@ -1251,7 +1276,7 @@ def document_library_scenarios(driver, temporary, artifacts, steps, source, cont
     require(not driver.command("GET", f"/element/{import_button}/enabled"), "La bibliothèque historique permettrait un nouvel import")
     require(canonical_registry(driver.invoke("list_document_library_at", {"knowledgeSequence": old_k})) == canonical_registry(old_library), "L'ancienne bibliothèque a changé")
     driver.capture_section(".registry-workspace", artifacts / "documents-historical.png")
-    driver.click("//select[@id='global-knowledge']/option[@value='current']")
+    choose_knowledge(driver, "current")
     wait_operation_complete(driver)
     wait_until(lambda: driver.command("GET", f"/element/{driver.find(button('Importer un document'))}/enabled"), "retour au classement documentaire actuel")
     driver.capture_section(".registry-workspace", artifacts / "documents-current.png")
@@ -1513,14 +1538,14 @@ def dashboard_scenarios(driver, artifacts, steps, phase6, phase7):
     require(any(p["side"] == "contingent" for p in family["positions"]), "La garantie hors bilan a disparu")
     navigate(driver, "Tableau de bord")
     driver.click("//select[@id='global-context']/option[@value='family']")
-    driver.click(f"//select[@id='global-knowledge']/option[@value='{source_k}']")
+    choose_knowledge(driver, source_k)
     wait_until(lambda: driver.execute("return document.querySelector('.dashboard-results')?.dataset.knowledgeSequence;") == str(source_k), "tableau de bord historique chargé", timeout=60)
     require(driver.execute("return document.querySelector('[aria-label=\"Patrimoine net\"] strong').dataset.value;") == "unknown", "L'interface présente un patrimoine net complet fictif")
     wait_text(driver, "355\u202f949,88 EUR")
     driver.capture_section(".dashboard-total-grid", artifacts / "dashboard-family.png")
-    driver.execute("document.querySelector('.dashboard-chart-table summary').click();")
+    driver.execute("document.querySelector('.dashboard-advanced').open = true; document.querySelector('.dashboard-advanced .dashboard-chart-table summary').click();")
     wait_text(driver, "Historique des positions calculées en EUR")
-    require(driver.execute("return document.querySelector('.dashboard-chart-table').querySelectorAll('tbody tr').length;") == len(family["history"]), "Le tableau accessible n'expose pas tous les points réels")
+    require(driver.execute("return document.querySelector('.dashboard-advanced .dashboard-chart-table').querySelectorAll('tbody tr').length;") == len(family["history"]), "Le tableau accessible n'expose pas tous les points réels")
     steps.append({"name": "dashboard_family_exact_residual_allocations_partial_net_and_historical_chart", "status": "passed", "source_sequence": source_k, "points": len(family["history"])})
 
     filtered_request = {**request, "filters": {**request["filters"], "category": "or"}}
@@ -1529,6 +1554,7 @@ def dashboard_scenarios(driver, artifacts, steps, phase6, phase7):
     require(filtered["positions"] and all(p["category"] == "or" for p in filtered["positions"])
             and filtered["totals"]["known_assets_eur"] == "1707.58" and filtered["totals"]["net_eur"] is None,
             "Le filtre métal a doublé une estimation générique ou masqué l'incomplétude")
+    driver.click("//details[contains(@class, 'dashboard-filters')]/summary")
     driver.click("//select[@id='dashboard-category']/option[@value='or']")
     driver.click(button("Actualiser le tableau de bord"))
     wait_until(lambda: driver.execute("return !!document.querySelector('.dashboard-results') && !document.querySelector('.dashboard-loading');"), "filtre or calculé", timeout=60)
@@ -1625,6 +1651,10 @@ def main():
                         f"Référentiels initiaux inattendus : {status}")
                 require(status["document_count"] == 0, "Le coffre neuf contient déjà des documents")
                 wait_text(driver, "Accessible")
+                if driver.execute("return !!document.querySelector('.onboarding-dialog[open]');"):
+                    driver.click(button("Passer et accéder à l’application"))
+                    wait_until(lambda: not driver.execute("return !!document.querySelector('.onboarding-dialog[open]');"),
+                               "assistant passé avant les vérifications métier")
                 steps.append({"name": "real_desktop_render_and_ipc", "status": "passed",
                               "schema_version": status["schema_version"], "countries": status["country_count"],
                               "currencies": status["currency_count"]})

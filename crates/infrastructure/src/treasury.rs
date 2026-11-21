@@ -59,6 +59,32 @@ pub(crate) fn normalize_transaction(input: &mut SaveTreasuryTransactionInput) ->
     Ok(())
 }
 
+pub(crate) fn insert_account(
+    c: &Connection,
+    revision: &str,
+    input: &SaveTreasuryAccountInput,
+) -> Result<()> {
+    c.execute(
+        "INSERT INTO treasury_accounts VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+        params![
+            revision,
+            input.asset_id,
+            input.kind,
+            input.currency,
+            input.tracking_start,
+            input.legal_owner_entity_id,
+            input.bank_name,
+            input.reference,
+            input.country,
+            input.storage_location,
+            input.notes,
+            input.archived
+        ],
+    )
+    .map_err(db::error)?;
+    Ok(())
+}
+
 pub(crate) fn insert_transaction(
     c: &Connection,
     revision: &str,
@@ -199,25 +225,7 @@ impl TreasuryService for Vault {
                 ] {
                     unchanged(tx, "treasury_accounts", column, input.id.as_deref(), value)?;
                 }
-                tx.execute(
-                    "INSERT INTO treasury_accounts VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
-                    params![
-                        rev,
-                        input.asset_id,
-                        input.kind,
-                        input.currency,
-                        input.tracking_start,
-                        input.legal_owner_entity_id,
-                        input.bank_name,
-                        input.reference,
-                        input.country,
-                        input.storage_location,
-                        input.notes,
-                        input.archived
-                    ],
-                )
-                .map_err(db::error)?;
-                Ok(())
+                insert_account(tx, rev, &input)
             },
             |tx, key| {
                 snapshot(tx, None)?

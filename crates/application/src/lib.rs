@@ -29,6 +29,16 @@ pub trait PropertyService {
     fn get_property_report(&self, request: PropertyReportRequest) -> Result<PropertyReport>;
 }
 
+pub trait GuidedCreationService {
+    fn read_onboarding_state(&self, generation_id: &str) -> Result<Option<String>>;
+    fn write_onboarding_state(&self, generation_id: &str, data: &str) -> Result<()>;
+    fn create_guided_family(&mut self, input: GuidedFamilyInput) -> Result<GuidedRecord>;
+    fn create_guided_property(&mut self, input: GuidedPropertyInput) -> Result<GuidedRecord>;
+    fn create_guided_account(&mut self, input: GuidedAccountInput) -> Result<GuidedRecord>;
+    fn create_guided_metal(&mut self, input: GuidedMetalInput) -> Result<GuidedRecord>;
+    fn create_guided_company(&mut self, input: GuidedCompanyInput) -> Result<GuidedRecord>;
+}
+
 pub trait VaultService {
     fn status(&self) -> Result<VaultStatus>;
     fn save_settings(&mut self, settings: Settings) -> Result<Settings>;

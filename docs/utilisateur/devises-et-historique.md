@@ -4,7 +4,7 @@ Le registre utilise désormais des taux manuels en EUR, TND, CHF, USD et AED. To
 
 ## Enregistrer et vérifier un cours
 
-Dans **Espèces et devises**, choisir **Ajouter un taux**, les deux devises, le taux et sa date d’application. La convention est toujours **1 unité de départ = taux unités d’arrivée** : `1 TND = 0,30 EUR` convertit `1 000 TND` en `300,00 EUR`. Préciser la source lorsqu’elle est disponible et le motif de l’enregistrement. Les saisies décimales acceptent la virgule ou le point et suppriment les zéros finaux inutiles ; les séparateurs de milliers et la notation scientifique ne sont pas acceptés.
+Dans **Espèces et devises → Taux et conversions**, choisissez **Ajouter un taux**. Indiquez les deux devises, le taux et sa date d’application. La conversion est exprimée pour une unité de la devise de départ. Par exemple, `1 TND = 0,30 EUR` convertit `1 000 TND` en `300,00 EUR`. Dans **Options avancées**, précisez la source lorsqu’elle est connue. Les saisies décimales acceptent la virgule ou le point. Les séparateurs de milliers et la notation scientifique sont refusés.
 
 Une nouvelle date correspond à une nouvelle observation. Une erreur dans une observation existante se corrige avec **Modifier**, en donnant un motif. Le registre conserve la même identité et une nouvelle révision ; la version précédente reste dans l’historique. Annuler un taux l’écarte des connaissances actuelles en conservant ses anciennes révisions. Deux observations concurrentes de la même paire à la même date sont refusées.
 

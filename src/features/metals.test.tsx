@@ -27,7 +27,7 @@ const report: MetalReport = { lot_id: 'lot', asset_id: 'metal-asset', date: '202
 async function open(k: number | null = null) {
   const props = { registry, context: { personId: null, date: '2026-03-31', knowledgeSequence: k }, onChanged: vi.fn().mockResolvedValue(undefined), onBusyChange: vi.fn(), onNavigateRegistry: vi.fn() };
   const view = render(<MetalsPage {...props} />);
-  await screen.findByRole('button', { name: 'Créer un lot de métal' });
+  await screen.findByRole('heading', { name: 'Lots enregistrés' });
   return { ...view, props, user: userEvent.setup() };
 }
 async function saleForm(user: ReturnType<typeof userEvent.setup>) {
@@ -57,7 +57,8 @@ beforeEach(() => {
 describe('Métaux physiques et leurs sources', () => {
   it('rattache le lot à son actif sans convertir les entrées exactes en nombres JS', async () => {
     const { user } = await open();
-    await user.click(screen.getByRole('button', { name: 'Créer un lot de métal' }));
+    await user.click(screen.getByText('Options avancées'));
+    await user.click(screen.getByRole('button', { name: 'Rattacher un lot à un bien existant' }));
     await user.selectOptions(screen.getByLabelText('Actif du lot'), 'metal-asset');
     await user.type(screen.getByLabelText('Désignation du lot'), 'Pièces neuves');
     await user.type(screen.getByLabelText('Poids brut unitaire'), '31,1034768');
@@ -72,6 +73,7 @@ describe('Métaux physiques et leurs sources', () => {
   });
 
   it('conserve une ouverture explicitement nulle au début du suivi sans nouveau cash', async () => {
+    vi.mocked(api.listMetalsAt).mockResolvedValue({ ...snapshot, movements: [] });
     const { user } = await open();
     await user.click(screen.getByRole('button', { name: 'Confirmer le stock d’ouverture' }));
     expect(screen.getByLabelText('Date du mouvement de métal')).toHaveValue('2026-01-01');
@@ -99,9 +101,9 @@ describe('Métaux physiques et leurs sources', () => {
 
   it('présente le poids et l’intrinsèque de Rust sans présumer une prime ou une revente nulle', async () => {
     const { user } = await open();
-    await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
-    await user.click(screen.getByRole('button', { name: 'Contrôler un lot' }));
-    await user.click(screen.getByRole('button', { name: 'Calculer le lot de métal' }));
+    expect(screen.getByText('Stock de départ renseigné')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Confirmer le stock d’ouverture' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Voir la valeur' }));
     await screen.findByText('55.98625824 g');
     expect(screen.getAllByText('3359.18 EUR')).toHaveLength(2);
     expect(screen.getByText('La prime de revente n’est pas renseignée.')).toBeVisible();
@@ -162,6 +164,7 @@ describe('Métaux physiques et leurs sources', () => {
   it('transfère les droits en fermant les anciens et ouvrant les nouveaux sans toucher au stock', async () => {
     const { user } = await open();
     await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
+    await user.click(screen.getByText('Options avancées'));
     await user.click(screen.getByRole('button', { name: 'Transférer les droits du lot' }));
     await user.selectOptions(screen.getByLabelText('Nouveau propriétaire 1'), 'recipient');
     await user.type(screen.getByLabelText('Motif du transfert des droits'), 'Don interne documenté');
@@ -177,8 +180,10 @@ describe('Métaux physiques et leurs sources', () => {
   });
 
   it('interdit les mutations à K=0 mais permet le contrôle du stock ancien', async () => {
+    vi.mocked(api.listMetalsAt).mockResolvedValue({ ...snapshot, movements: [] });
     const { user } = await open(0);
-    expect(screen.getByRole('button', { name: 'Créer un lot de métal' })).toBeDisabled();
+    await user.click(screen.getByText('Options avancées'));
+    expect(screen.getByRole('button', { name: 'Rattacher un lot à un bien existant' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Confirmer le stock d’ouverture' })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
     await user.click(screen.getByRole('button', { name: 'Contrôler un lot' }));
@@ -194,7 +199,7 @@ describe('Métaux physiques et leurs sources', () => {
     rerender(<MetalsPage {...props} context={{ ...props.context, knowledgeSequence: 3 }} />);
     await screen.findByText('État historique inaccessible.');
     expect(screen.queryByText('Pièces identifiées')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Créer un lot de métal' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Lots enregistrés' })).not.toBeInTheDocument();
   });
 
   it('préserve les saisies quand une vente est refusée sans confirmer une réussite', async () => {
@@ -230,6 +235,7 @@ describe('Métaux physiques et leurs sources', () => {
     vi.mocked(api.listMetalsAt).mockResolvedValue({ ...snapshot, lots: [lot, secondLot] });
     const { user } = await open();
     await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
+    await user.click(screen.getByText('Options avancées'));
     await user.click(screen.getByRole('button', { name: 'Transférer les droits du lot' }));
     expect(screen.getByText('Lot concerné : Pièces identifiées')).toBeVisible();
     await user.selectOptions(screen.getByLabelText('Nouveau propriétaire 1'), 'recipient');

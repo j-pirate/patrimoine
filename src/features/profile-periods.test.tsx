@@ -88,6 +88,7 @@ describe('Périodes et révisions exactes des profils descriptifs', () => {
     { targetKind: 'asset', targetId: asset.id, revisionId: oldAsset.revision_id, versions: ['home-r1', 'home-r2', 'home-r3'] },
   ] as const)('crée une période $targetKind liée à la révision exacte choisie sans perdre les anciennes versions', async ({ targetKind, targetId, revisionId, versions }) => {
     const { user, onChanged } = openRegistry();
+    await user.click(screen.getByText('Profils datés et historique des fiches', { selector: 'summary' }));
     await user.click(screen.getByRole('button', { name: 'Définir une période de profil' }));
     await user.selectOptions(screen.getByLabelText('Type d’objet du profil'), targetKind);
     await user.selectOptions(screen.getByLabelText('Objet du profil'), targetId);
@@ -109,6 +110,7 @@ describe('Périodes et révisions exactes des profils descriptifs', () => {
 
   it('corrige une période avec la révision attendue de la période et la révision exacte du profil', async () => {
     const { user } = openRegistry();
+    await user.click(screen.getByText('Profils datés et historique des fiches', { selector: 'summary' }));
     const table = screen.getByRole('table', { name: 'Périodes des profils descriptifs' });
     await user.click(within(table).getByRole('button', { name: 'Modifier' }));
     expect(screen.getByLabelText('Révision exacte du profil')).toHaveValue(oldPerson.revision_id);
@@ -131,6 +133,8 @@ describe('Périodes et révisions exactes des profils descriptifs', () => {
     };
     vi.mocked(api.getConsolidation).mockResolvedValue(report);
     const { user, view, props } = openRegistry('family', 0);
+    await user.click(screen.getByText('Périodes d’appartenance à la famille', { selector: 'summary' }));
+    await user.click(screen.getByText('Profils datés et historique des fiches', { selector: 'summary' }));
     expect(screen.getByRole('button', { name: 'Créer une personne' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Ajouter une période familiale' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Archiver' })).toBeDisabled();

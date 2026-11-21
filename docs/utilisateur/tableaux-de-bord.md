@@ -4,9 +4,9 @@ Guide du **12 novembre 2026, Europe/Paris**. Les [preuves de validation](../hist
 
 ## Choisir le contexte et calculer
 
-Ouvrir **Tableau de bord**. Le **Périmètre de consultation** global sélectionne la famille ou un membre. La **Date de référence** est la date économique D ; les **Connaissances disponibles** déterminent les corrections connues K. Un ancien K peut donc présenter la situation à D telle qu’elle était connue avant une correction ultérieure.
+Ouvrez **Tableau de bord** et choisissez la famille ou un membre dans **Périmètre de consultation**. Pour remonter dans le temps, ouvrez **Date et historique**. La **Date de référence** détermine le jour de consultation. Les **Connaissances disponibles** déterminent les modifications que le rapport peut utiliser. Vous pouvez ainsi revoir une situation telle qu’elle était connue avant une correction.
 
-Choisir **Début de la période** et **Pas de l’historique**, puis **Actualiser le tableau de bord**. Le dernier point correspond à D. Les lectures d’un même rapport partagent une unique borne K, y compris lorsqu’on consulte les connaissances actuelles : les membres et les dates de la courbe ne proviennent pas de mises à jour différentes du coffre.
+Choisissez **Actualiser le tableau de bord** pour voir le brut, les dettes, le net et les catégories. Les options du tableau de bord permettent de préciser le début et le pas de l’historique. Le dernier point correspond à la date de référence. Tous les chiffres du rapport sont calculés à partir du même état du coffre.
 
 Le changement de contexte ou de filtre rend le résultat précédent indisponible jusqu’à un nouveau calcul. Si une requête plus ancienne se termine après la nouvelle, elle ne remplace pas le résultat du nouveau contexte. En cas d’erreur, vérifier le message puis relancer ; un échec ne certifie aucun montant.
 

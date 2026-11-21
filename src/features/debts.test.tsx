@@ -54,10 +54,11 @@ describe('Contrats, remboursements et engagements', () => {
 
   it('garde les droits économiques inconnus distincts des droits juridiques et du bien financé', async () => {
     const { user } = await open();
+    await user.click(screen.getByText('Participants et conditions du contrat', { selector: 'summary' }));
     await user.click(screen.getByRole('button', { name: 'Définir les parties du financement' }));
     await user.selectOptions(screen.getByLabelText('Contrat du financement'), 'loan');
-    await user.selectOptions(screen.getByLabelText('Entité de la partie 1'), 'bank');
-    await user.selectOptions(screen.getByLabelText('Entité de la partie 2'), 'alice');
+    await user.selectOptions(screen.getByLabelText('Personne ou société 1'), 'bank');
+    await user.selectOptions(screen.getByLabelText('Personne ou société 2'), 'alice');
     await user.type(screen.getByLabelText('Droit économique 1 — numérateur'), '1');
     await user.type(screen.getByLabelText('Droit économique 1 — dénominateur'), '1');
     await user.type(screen.getByLabelText('Droit juridique 2 — numérateur'), '1');
@@ -116,10 +117,24 @@ describe('Contrats, remboursements et engagements', () => {
     expect(api.getDebtReport).toHaveBeenCalledExactlyOnceWith({ debt_id: 'loan', date: '2026-03-31', knowledge_sequence: null });
   });
 
+  it('ouvre la situation du contrat depuis la liste et revient sans modifier le contrat', async () => {
+    const { user } = await open();
+    await user.click(screen.getByRole('button', { name: 'Voir le contrat Emprunt du bien' }));
+    const details = screen.getByRole('region', { name: 'Situation du contrat' });
+    expect(details).toHaveFocus();
+    expect(await within(details).findByText('Principal restant contractuel')).toBeVisible();
+    await user.click(within(details).getByRole('button', { name: 'Retour aux contrats' }));
+    expect(screen.getByRole('button', { name: 'Voir le contrat Emprunt du bien' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Contrats et parties' })).toHaveFocus();
+    expect(api.getDebtReport).toHaveBeenCalledExactlyOnceWith({ debt_id: 'loan', date: '2026-03-31', knowledge_sequence: null });
+    expect(api.saveDebtContract).not.toHaveBeenCalled();
+  });
+
   it('transmet K=0 et désactive toutes les commandes de mutation historiques', async () => {
     const { user } = await open(0);
     expect(api.listDebtsAt).toHaveBeenCalledWith(0);
     expect(screen.getByRole('button', { name: 'Créer un contrat de financement' })).toBeDisabled();
+    await user.click(screen.getByText('Participants et conditions du contrat', { selector: 'summary' }));
     expect(screen.getByRole('button', { name: 'Définir les parties du financement' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Biens et garanties' }));
     expect(screen.getByRole('button', { name: 'Enregistrer une garantie conditionnelle' })).toBeDisabled();
@@ -184,6 +199,7 @@ describe('Contrats, remboursements et engagements', () => {
     vi.mocked(api.listDebtsAt).mockResolvedValue({ ...snapshot, contracts: [{ ...contract, archived: true }] });
     const { user } = await open();
     await user.selectOptions(screen.getByLabelText('Contrat à consulter'), 'loan');
+    await user.click(screen.getByText('Participants et conditions du contrat', { selector: 'summary' }));
     await user.click(screen.getByRole('button', { name: 'Définir les parties du financement' }));
     const newContract = screen.getByLabelText('Contrat du financement');
     expect(newContract).toHaveValue('');

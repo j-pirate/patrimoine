@@ -1,0 +1,62 @@
+.guided-form {
+  max-width: 54rem;
+}
+
+.guided-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1.25rem;
+}
+
+.guided-fields label:not(.checkbox-label) {
+  margin-top: 1rem;
+}
+
+.guided-fields .field-hint {
+  margin: .45rem 0 0;
+}
+
+.guided-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-top: 1.25rem;
+}
+
+.guided-options {
+  margin-top: 1.1rem;
+  padding: .65rem 0;
+  border-top: 1px solid #dbe4d3;
+}
+
+.guided-options summary {
+  width: fit-content;
+  color: #315940;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guided-owner {
+  min-width: 0;
+  margin: 1rem 0;
+  padding: .55rem 1rem;
+  border: 1px solid #dbe4d3;
+  border-radius: .5rem;
+}
+
+.guided-owner legend {
+  padding: 0 .35rem;
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.guided-owner > .registry-field label:not(.checkbox-label) {
+  margin-top: .4rem;
+}
+
+@media (max-width: 600px) {
+  .guided-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
