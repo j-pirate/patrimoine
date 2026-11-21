@@ -11,13 +11,13 @@ Voir le fichier LICENSE pour les conditions complètes.
 
 Application **Linux locale de gestion patrimoniale familiale**, en français. Elle permet de suivre plusieurs membres d'une famille, leurs actifs, leurs biens immobiliers, leurs comptes et leurs participations dans des sociétés.
 
-**Version proposée pour Pop!_OS 22.04 et Ubuntu 22.04 : 0.1.2.** Le dépôt contient le code source, les guides et les AppImages Linux.
+**Patrimoine 0.2.0 pour Pop!_OS 22.04 et Ubuntu 22.04.** La navigation donne accès directement aux premières saisies, notamment l’ajout d’un membre ou d’un bien immobilier. Un assistant facultatif et huit tutoriels illustrés sont disponibles hors ligne.
 
 ## Télécharger et installer
 
 | Système | Paquet et instructions |
 | --- | --- |
-| **Pop!_OS 22.04 / Ubuntu 22.04 (x86_64)** | [AppImage 0.1.2 complète](distribution/0.1.2-popos22.04/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04 (x86_64)** | [AppImage 0.2.0 complète et kit de récupération](distribution/0.2.0-popos22.04/README.md) |
 | **Debian 13 (x86_64)** | [Archive 0.1.1 pour Debian 13](distribution/0.1.1/README.md) |
 
 [Voir tous les téléchargements](distribution/README.md). Les deux constructions ont des exigences de bibliothèques différentes ; leur compatibilité n'est pas universelle sur Linux.
@@ -38,6 +38,7 @@ Patrimoine fonctionne localement sans compte externe et sans mise à jour automa
 ## Documentation
 
 - [Installation et guides d'utilisation](docs/utilisateur/README.md)
+- [Premiers pas et aide illustrée](docs/utilisateur/premiers-pas.md)
 - [Architecture, développement et sécurité](docs/technique/README.md)
 - [Cahier des charges et suivi du projet](docs/projet/README.md)
 - [Archives des validations](docs/historique/README.md)
@@ -46,6 +47,6 @@ Patrimoine fonctionne localement sans compte externe et sans mise à jour automa
 
 ## État de la version
 
-La validation de la version 0.1.2 utilise des coffres synthétiques. Les essais graphiques de la version Pop!_OS s’exécutent sur Ubuntu 22.04 avec Xvfb. Le rapport donne la portée des contrôles et les avertissements de dépendances suivis.
+La qualification utilise des coffres fictifs. Les essais graphiques de l’AppImage s’exécutent sous Ubuntu 22.04 avec Xvfb. Le rapport décrit les contrôles, le périmètre et les limites de la qualification.
 
-[Validation 0.1.2](docs/projet/validation-corrections-0.1.2.md) · [Suivi des corrections](docs/projet/suivi-corrections.md) · [Revue de sécurité](docs/technique/revue-securite.md)
+[Refonte et validation 0.2.0](docs/projet/ergonomie-0.2.0.md) · [Revue de sécurité](docs/technique/revue-securite.md)

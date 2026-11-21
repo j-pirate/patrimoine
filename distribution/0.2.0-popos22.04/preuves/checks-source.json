@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "source_commit": "3900bd0b0bafecdd23ec9b2e34704d1bbfb3f83a",
+  "command": "CARGO_NET_OFFLINE=true bash scripts/check.sh",
+  "frontend_tests": 271,
+  "rust_tests": 470,
+  "python_tests": 61,
+  "javascript_advisory_range_self_tests": 7,
+  "contracts": {
+    "aliased_dtos": 2,
+    "error_codes": 25,
+    "invoke_wrappers": 101,
+    "registered_commands": 101,
+    "rust_handlers": 101,
+    "shared_dtos": 150,
+    "shared_fields": 1206
+  }
+}

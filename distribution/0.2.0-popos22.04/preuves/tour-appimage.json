@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "application": "/application/Patrimoine_0.2.0_amd64.AppImage",
+  "steps": [
+    {
+      "name": "help_launch_keyboard_next_previous_escape_and_focus",
+      "status": "passed"
+    },
+    {
+      "name": "all_tutorial_images_decode_from_local_package_and_demo_has_no_writes",
+      "status": "passed",
+      "tutorials": 8,
+      "distinct_packaged_illustrations": 8
+    },
+    {
+      "name": "contextual_family_and_rentals_help_reaches_the_actual_leases_tab",
+      "status": "passed"
+    },
+    {
+      "name": "tour_is_optional_after_onboarding_and_preserves_empty_vault",
+      "status": "passed"
+    }
+  ],
+  "started_at": "2026-11-21T17:35:23.768701+00:00",
+  "completed_at": "2026-11-21T17:35:39.404162+00:00",
+  "appimage_sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf"
+}

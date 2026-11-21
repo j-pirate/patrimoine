@@ -1,24 +1,24 @@
 # Installation, mise à jour et récupération Linux
 
-**Pop!_OS 22.04 / Ubuntu 22.04 :** les paquets compatibles sont disponibles sur la [page dédiée](../../distribution/0.1.2-popos22.04/README.md). Les instructions Debian 13 ci-dessous ne s'appliquent pas à ces systèmes sans adaptation.
+La version **0.2.0** pour **Pop!_OS 22.04 et Ubuntu 22.04, x86_64** est construite sur Ubuntu 22.04. Sa page réunit l’AppImage, les empreintes et le kit de récupération. [Téléchargements 0.2.0](../../distribution/0.2.0-popos22.04/README.md)
 
-Guide du **13 novembre 2026, Europe/Paris**. Le [rapport de qualification](../historique/validation-phase-10.md) donne les paquets, versions, systèmes et volumes effectivement testés. Les [résultats de sécurité](../technique/revue-securite.md) distinguent les contrôles réalisés de leurs limites. Les données des essais sont synthétiques.
+Les versions précédentes restent disponibles. Vérifiez la distribution avant de choisir un paquet. [Archive 0.1.2 pour Pop!_OS et Ubuntu 22.04](../../distribution/0.1.2-popos22.04/README.md) · [Toutes les versions](../../distribution/README.md)
 
 ## Choisir le paquet
 
-La cible de la procédure historique ci-dessous est **Debian 13, x86_64**, avec session graphique Linux et bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La qualification de cette cible ne vaut pas compatibilité avec toutes les distributions, les anciennes versions de glibc, les machines ARM ou toutes les configurations graphiques.
+Les commandes ci-dessous utilisent `Patrimoine_0.2.0_amd64.AppImage`, qui cible une session graphique Linux sur processeur x86_64. Pour Debian 13, la page des versions indique le paquet disponible et son mode de téléchargement. [Paquets Linux par distribution](../../distribution/README.md)
 
 L’AppImage contient le programme et son interface. Node, npm, Rust, un serveur et un compte externe ne sont pas nécessaires pour l’utiliser. Les outils de développement du [guide technique](../technique/developpement-linux.md) servent uniquement à construire ou vérifier les sources. Les lecteurs de documents et outils bureautiques sont séparés : l’export d’un original ne dépend pas de la présence d’un lecteur associé.
 
-Les commandes de ce guide utilisent le candidat `Patrimoine_0.1.1_amd64.AppImage`, accompagné de `SHA256SUMS` et de `build-manifest.json`. Le rapport de qualification identifie les artefacts effectivement construits et testés. Conserver ces trois fichiers ensemble. Le fichier d’empreintes détecte une différence avec les octets annoncés ; il ne constitue pas une signature de l’auteur. Vérifier aussi la provenance du paquet avant de l’exécuter.
+Téléchargez le fichier `SHA256SUMS` avec l’AppImage. L’empreinte SHA‑256 permet de vérifier que le contenu téléchargé correspond au contenu annoncé sur la page de la version.
 
 Dans le dossier contenant les fichiers livrés :
 
 ```bash
-sha256sum --check SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
 ```
 
-Ne pas utiliser un paquet dont la vérification échoue. Les notices des composants tiers accompagnent le paquet ; leur [inventaire](../technique/licences-tierces.md) précise les licences et la méthode de collecte. La licence du code propre à ce dépôt n’est pas modifiée par ces notices.
+Vérifiez que `Patrimoine_0.2.0_amd64.AppImage` figure parmi les fichiers marqués `OK`. En cas d’échec, téléchargez de nouveau l’AppImage depuis la page de la version. Les notices des composants tiers accompagnent le paquet. [Inventaire des licences](../technique/licences-tierces.md)
 
 ## Installer pour son compte Linux
 
@@ -26,8 +26,8 @@ Un fichier AppImage peut être conservé dans un dossier personnel. Par exemple,
 
 ```bash
 mkdir -p "$HOME/.local/opt/patrimoine"
-install -m 755 Patrimoine_0.1.1_amd64.AppImage "$HOME/.local/opt/patrimoine/Patrimoine_0.1.1_amd64.AppImage"
-"$HOME/.local/opt/patrimoine/Patrimoine_0.1.1_amd64.AppImage"
+install -m 755 Patrimoine_0.2.0_amd64.AppImage "$HOME/.local/opt/patrimoine/Patrimoine_0.2.0_amd64.AppImage"
+"$HOME/.local/opt/patrimoine/Patrimoine_0.2.0_amd64.AppImage"
 ```
 
 Cette copie du programme ne demande pas de privilèges administrateur. L’installation des bibliothèques système éventuellement manquantes dépend de l’administration du poste ; elle n’est pas effectuée automatiquement par Patrimoine.
@@ -35,12 +35,12 @@ Cette copie du programme ne demande pas de privilèges administrateur. L’insta
 Si le système ne permet pas le montage FUSE utilisé par le format AppImage, le mode d’extraction du paquet permet un lancement sans ce montage :
 
 ```bash
-"$HOME/.local/opt/patrimoine/Patrimoine_0.1.1_amd64.AppImage" --appimage-extract-and-run
+APPIMAGE_EXTRACT_AND_RUN=1 "$HOME/.local/opt/patrimoine/Patrimoine_0.2.0_amd64.AppImage"
 ```
 
-Ce mode extrait le programme pour son exécution ; il ne restaure pas un coffre. Il demande de l’espace temporaire disponible. Les conditions effectivement exercées figurent dans le rapport de qualification, y compris la distinction entre lancement monté et lancement par extraction.
+Ce mode décompresse le programme dans un espace temporaire pour l’exécuter. Il utilise le même emplacement de données que le lancement ordinaire.
 
-Au premier lancement, le coffre est vide. Les données de démonstration des campagnes de test ne sont pas ajoutées au coffre de l’utilisateur. Renseigner la famille, les actifs et leurs droits, puis les sources financières et couvertures avant d’attendre un patrimoine net complet. Le [guide des tableaux de bord](tableaux-de-bord.md) explique les montants connus, les valeurs inconnues et les filtres.
+Dans un coffre neuf, choisissez **Commencer la configuration** ou **Passer et accéder à l’application**. Chaque étape de saisie peut être ignorée. Vous pouvez la reprendre depuis **Aide → Reprendre la configuration**. **Aide → Découvrir Patrimoine** ouvre les tutoriels avec des illustrations intégrées à l’application. [Premiers pas](premiers-pas.md) · [Lecture du tableau de bord](tableaux-de-bord.md)
 
 ## Où résident les données
 
@@ -65,7 +65,7 @@ Avant de changer de paquet :
 
 Le paquet ne se met pas à jour automatiquement. Garder des noms versionnés permet de choisir explicitement le programme à lancer ; un raccourci éventuel doit viser le paquet choisi.
 
-La campagne de cette livraison a exercé deux **candidats locaux**, `0.1.0` puis `0.1.1`, pour vérifier le remplacement du programme et le retour au précédent. Elle ne prétend pas que `0.1.0` était une ancienne distribution publique. Ces deux candidats utilisent le schéma SQLite 6 ; les résultats des essais exécutés et la conservation observée figurent dans le rapport.
+Les versions 0.1.2 et 0.2.0 utilisent le schéma SQLite 6. Lors d’une mise à jour sur un coffre déjà renseigné, vos données s’ouvrent directement. La configuration guidée reste disponible depuis **Aide**.
 
 ## Revenir à la version précédente
 
@@ -76,7 +76,7 @@ Une future migration peut rendre le retour direct incompatible. Dans ce cas, gar
 Pour ouvrir explicitement un coffre séparé, le programme accepte `PATRIMOINE_DATA_DIR` avec un chemin absolu. Exemple à adapter à un dossier personnel durable et neuf :
 
 ```bash
-PATRIMOINE_DATA_DIR=/chemin/absolu/coffre-recuperation ./Patrimoine_0.1.1_amd64.AppImage
+PATRIMOINE_DATA_DIR=/chemin/absolu/coffre-recuperation ./Patrimoine_0.2.0_amd64.AppImage
 ```
 
 Cette option permet un essai de récupération sans sélectionner le coffre habituel. Ne pas utiliser un dossier temporaire pour y conserver les seules données réelles.
@@ -125,11 +125,13 @@ Pour retrouver un original, joindre `document_versions.blob_sha256` à `document
 
 ## Reconstruire le CSV sans binaire applicatif
 
-Le [kit autonome](../../distribution/0.1.1/Patrimoine_0.1.1_recuperation.zip) contient le lecteur et ses six migrations, sans nécessiter le binaire ou un accès réseau. Le dépôt fournit également [recover-csv.py](../../scripts/recover-csv.py), utilisable avec Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. Aucun paquet Python externe n’est nécessaire. Depuis une copie du dépôt correspondant au format de l’archive :
+Le kit de récupération 0.2.0 contient le lecteur et ses six migrations. Il utilise Python 3.10 ou plus récent et SQLite 3.37 ou plus récent. [Kit autonome 0.2.0](../../distribution/0.2.0-popos22.04/Patrimoine_0.2.0_recuperation.zip) · [Source de recover-csv.py](../../scripts/recover-csv.py)
+
+Décompressez le kit, ouvrez son dossier et lancez les commandes suivantes en adaptant le chemin de l’archive CSV.
 
 ```bash
 mkdir recuperation
-python3 scripts/recover-csv.py patrimoine-csv.zip \
+python3 scripts/recover-csv.py /chemin/vers/patrimoine-csv.zip \
   --output recuperation/patrimoine.sqlite3 \
   --documents-dir recuperation/documents
 ```
@@ -142,7 +144,7 @@ Le [guide des documents et formats](documents-et-portabilite.md) détaille CSV, 
 
 ## Volumes, accessibilité et diagnostic
 
-Le [rapport de qualification](../historique/validation-phase-10.md) donne les temps et mémoires observés, les caractéristiques de la machine, les tailles de fixtures et les cas interrompus ou non exécutés. La cible de consultation inférieure à deux secondes du plan était provisoire ; elle ne constitue pas une garantie universelle de temps de réponse. Les limites de formats ou de budget sont refusées explicitement, sans supprimer une partie du coffre pour accélérer un calcul.
+Le rapport de qualification historique indique les temps et mémoires observés, la machine, les volumes d’essai et les cas interrompus. La cible de consultation inférieure à deux secondes du plan était provisoire. Les dépassements des limites de format ou de budget produisent un refus explicite. [Qualification historique des volumes](../historique/validation-phase-10.md)
 
 Sur le grand profil testé, cette cible de deux secondes n’est atteinte par aucune des dix consultations mesurées. Le tableau de bord dépasse son budget de 120 secondes : 14 opérations sur 15 ont abouti. Les deux récupérations complètes réussissent, mais ces résultats ne qualifient pas une utilisation fluide de l’interface à ce volume.
 

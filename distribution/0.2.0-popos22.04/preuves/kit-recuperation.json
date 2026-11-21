@@ -1,0 +1,24 @@
+{
+  "status": "recovered",
+  "schema_version": 6,
+  "knowledge_sequence": 120,
+  "table_count": 62,
+  "row_count": 758,
+  "document_count": 2,
+  "blob_count": 2,
+  "archive_sha256": "87237552764838c49060c68e921c107464b27fab4362819b8fc56df1e6e27333",
+  "database": "patrimoine.sqlite3",
+  "documents_directory": "documents",
+  "application_business_validation": false,
+  "checks": [
+    "approved local SQL",
+    "manifest hashes",
+    "CSV types and nulls",
+    "SQLite integrity",
+    "foreign keys",
+    "original document hashes"
+  ],
+  "source_version": "0.1.2",
+  "source_fixture": "synthetic",
+  "kit_sha256": "8d81501fcd1f23c7ae8d91fddf2e3a30d1fb708a859cd38cf2c2f9d29e794260"
+}

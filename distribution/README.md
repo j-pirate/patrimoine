@@ -4,7 +4,8 @@ Choisir l’AppImage selon sa distribution Linux et la version indiquée.
 
 | Système | Formats disponibles | Instructions |
 | --- | --- | --- |
-| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.1.2 complète | [Télécharger et installer](0.1.2-popos22.04/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.2.0 complète | [Télécharger et installer](0.2.0-popos22.04/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.1.2 archivée | [Ancienne version](0.1.2-popos22.04/README.md) |
 | **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.1.1 archivée | [Ancienne version](0.1.1-popos22.04/README.md) |
 | **Debian 13, x86_64** | AppImage 0.1.1 répartie en six ZIP | [Télécharger et reconstituer](0.1.1/README.md) |
 

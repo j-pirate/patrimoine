@@ -38,3 +38,19 @@ La progression et les brouillons sont conservés dans un fichier local propre à
 **Découvrir Patrimoine** est accessible depuis Aide, la fin de l’assistant et les boutons d’aide des rubriques. Les huit étapes couvrent le tableau de bord, la famille, les biens immobiliers, les loyers, les comptes, les métaux, les sociétés et les sauvegardes. Les images sont des recadrages de la fenêtre de Patrimoine, réalisées sur un coffre fictif. Elles sont intégrées au paquet pour un usage hors ligne.
 
 **Vérifications de la phase.** Le test graphique a vérifié le décodage des huit illustrations locales, le clavier et le retour du focus, l’ouverture du bon onglet des baux et l’accès depuis l’assistant. Le coffre, les écritures du registre et le compteur des sauvegardes sont restés identiques après la démonstration.
+
+## Phase E — Qualification de l’AppImage 0.2.0
+
+L’AppImage x86_64 a été construite sur Ubuntu 22.04 depuis le commit `3900bd0`. La qualification graphique du fichier final a été réalisée sous Ubuntu 22.04.5 LTS avec Xvfb, hors ligne et en mode extraction. Les preuves contiennent l’empreinte de l’AppImage utilisée. [Téléchargement et installation](../../distribution/0.2.0-popos22.04/README.md)
+
+| Contrôle | Résultat | Preuve |
+| --- | --- | --- |
+| Vérifications des sources | 271 tests d’interface, 470 tests Rust, 61 tests Python et 7 contrôles JavaScript des plages de version. Clippy, format Rust, compilation et 101 contrats Tauri vérifiés. | [Vérifications des sources](../../distribution/0.2.0-popos22.04/preuves/checks-source.json) |
+| Compatibilité du paquet | 175 fichiers ELF contrôlés. Exigences maximales GLIBC 2.35, GLIBCXX 3.4.30 et CXXABI 1.3.9. Aucun symbole requis manquant sur le système testé. | [Contrôle ABI](../../distribution/0.2.0-popos22.04/preuves/ubuntu22-abi.json) |
+| Assistant | 6 scénarios passés, avec une saisie de chaque type, un refus sans perte des premières fiches, la reprise sans doublon après fermeture et l’ouverture d’un coffre écrit par 0.1.2. | [Assistant dans l’AppImage](../../distribution/0.2.0-popos22.04/preuves/assistant-appimage.json) |
+| Tour d’horizon | 4 scénarios passés. Les 8 illustrations se chargent hors ligne. Le clavier, les accès contextuels et l’absence d’écriture lors du tour sont vérifiés. | [Tour dans l’AppImage](../../distribution/0.2.0-popos22.04/preuves/tour-appimage.json) |
+| Régression métier et dialogues GTK | Les 50 vérifications de référence passent sur l’AppImage, dont les calculs consolidés, les révisions historiques, les paiements et mouvements, les originaux, la sauvegarde, la restauration et les exports CSV et XLSX. | [Régression native](../../distribution/0.2.0-popos22.04/preuves/native-appimage.json) |
+| Mise à jour et retour | 6 scénarios passés, dont l’ouverture en 0.2.0 du coffre 0.1.2, le redémarrage et le retour en 0.1.2. Les 62 tables, 758 lignes et 2 originaux sont conservés. Les rapports métier à la connaissance source sont identiques. | [Mise à jour des AppImages](../../distribution/0.2.0-popos22.04/preuves/mise-a-jour-appimage.json) |
+| Récupération indépendante | Le kit a reconstruit les 62 tables et les 2 originaux d’un export CSV intégral de test de 0.1.2. L’intégrité SQLite et les clés étrangères ont été vérifiées. | [Essai du kit](../../distribution/0.2.0-popos22.04/preuves/kit-recuperation.json) |
+
+Les 262 fichiers pris en compte par l’empreinte de construction correspondent au commit source. L’arbre Git a été résolu sur l’hôte et comparé à cette empreinte. Les 734 fichiers de notices du paquet extrait correspondent à l’inventaire construit. [Correspondance des sources](../../distribution/0.2.0-popos22.04/preuves/source-correspondance.json) · [Vérification des notices](../../distribution/0.2.0-popos22.04/preuves/extraction-check.json)

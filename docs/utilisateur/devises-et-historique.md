@@ -1,10 +1,10 @@
-# Devises, dates et historique — phase 4
+# Devises, dates et historique
 
 Le registre utilise désormais des taux manuels en EUR, TND, CHF, USD et AED. Tout reste dans le coffre local. Aucune cotation n’est téléchargée et aucune parité n’est supposée, y compris pour AED/USD. Le contrôle du registre reste un sous-total des actifs enregistrés ; le bilan intermodules avec comptes, créances et dettes est livré dans **Comptes et financements**.
 
 ## Enregistrer et vérifier un cours
 
-Dans **Espèces et devises → Taux et conversions**, choisissez **Ajouter un taux**. Indiquez les deux devises, le taux et sa date d’application. La conversion est exprimée pour une unité de la devise de départ. Par exemple, `1 TND = 0,30 EUR` convertit `1 000 TND` en `300,00 EUR`. Dans **Options avancées**, précisez la source lorsqu’elle est connue. Les saisies décimales acceptent la virgule ou le point. Les séparateurs de milliers et la notation scientifique sont refusés.
+Dans **Autres biens et dettes → Espèces et devises → Taux et conversions**, choisissez **Ajouter un taux**. Indiquez les deux devises, le taux et sa date d’application. La conversion est exprimée pour une unité de la devise de départ. Par exemple, `1 TND = 0,30 EUR` convertit `1 000 TND` en `300,00 EUR`. Dans **Options avancées**, précisez la source lorsqu’elle est connue. Les saisies décimales acceptent la virgule ou le point. Les séparateurs de milliers et la notation scientifique sont refusés.
 
 Une nouvelle date correspond à une nouvelle observation. Une erreur dans une observation existante se corrige avec **Modifier**, en donnant un motif. Le registre conserve la même identité et une nouvelle révision ; la version précédente reste dans l’historique. Annuler un taux l’écarte des connaissances actuelles en conservant ses anciennes révisions. Deux observations concurrentes de la même paire à la même date sont refusées.
 
@@ -22,20 +22,20 @@ Les taux sources sont strictement positifs, limités à 36 chiffres significatif
 
 ## Distinguer date économique et connaissances
 
-La barre globale comporte deux références indépendantes :
+Dans la barre globale, ouvrez **Date et historique**. Les deux champs sont indépendants.
 
 - **Date de référence D** : date du patrimoine observé. Elle sélectionne appartenances, droits et méthodes actifs, profils datés, dernière estimation et derniers cours applicables.
 - **Connaissances K** : état enregistré au plus tard à une séquence du journal. **Connaissances actuelles** utilise toutes les corrections disponibles. Une séquence ancienne reproduit les versions connues à ce moment, sans reprendre les corrections saisies ensuite.
 
 Exemple : un cours du 1er janvier est enregistré à `0,30`, puis corrigé en mars à `0,31`. À D = 31 janvier, les connaissances actuelles donnent `310,00 EUR` pour `1 000 TND`. En choisissant la séquence précédant la correction, la même date donne `300,00 EUR`. La date de saisie dans le journal n’est pas une nouvelle date économique du cours.
 
-Dans **Historique**, chaque ligne présente la séquence, la date de saisie, l’objet et le motif. **Consulter la séquence** ouvre cet état en lecture seule ; **Revenir aux connaissances actuelles** rétablit la saisie. La bibliothèque **Documents** suit les connaissances K ; les associations sont également filtrées par la date D. À K fixe, les écritures documentaires sont bloquées. Les paramètres et les sauvegardes/exports intégraux concernent le coffre actuel et toute son histoire. Voir [Documents et portabilité](documents-et-portabilite.md). Choisir une séquence ne restaure pas le coffre. Les séquences comprennent aussi les changements documentaires et de paramètres ; elles ne sont pas des numéros de cours.
+Dans **Outils et réglages → Historique**, chaque ligne présente la séquence, la date de saisie, l’objet et le motif. **Consulter la séquence** ouvre cet état en lecture seule. **Revenir aux connaissances actuelles** rétablit la saisie. Cette consultation inclut aussi les changements documentaires et de paramètres. La bibliothèque **Documents** suit les connaissances K et les associations sont filtrées selon la date D. Les paramètres, sauvegardes et exports intégraux concernent le coffre actuel. [Documents et portabilité](documents-et-portabilite.md)
 
 Une estimation de stock en devise est convertie au cours de **D**, même si son estimation est plus ancienne. La date de cette estimation et les dates des cotations restent distinctes dans le détail de contribution. Les modules locatifs, de trésorerie et de financement conservent la conversion de leurs flux à leur date de paiement ; voir [Comptes et financements](comptes-et-financements.md).
 
 ## Dater les profils descriptifs
 
-Les pages **Famille**, **Sociétés** et **Patrimoine** proposent **Définir une période de profil**. Choisir l’objet, la révision exacte du profil à appliquer et son intervalle `[début, fin)`. Une fin au 1er juillet exclut cette version dès le 1er juillet. Les périodes d’un même objet ne peuvent pas se chevaucher. Une révision d’une autre identité ou d’un autre type d’objet est refusée.
+Dans **Famille**, **Sociétés** ou **Patrimoine**, ouvrez **Profils datés et historique des fiches**, puis choisissez **Définir une période de profil**. Sélectionnez l’objet, la révision exacte du profil et son intervalle `[début, fin)`. Une fin au 1er juillet exclut cette version dès le 1er juillet. Les périodes d’un même objet doivent être distinctes et la révision doit appartenir à cet objet.
 
 Pour dater un déménagement ou un changement de nom, créer/corriger d’abord le profil descriptif, puis associer les révisions souhaitées à leurs périodes. Modifier un profil de base ne modifie pas implicitement les périodes déjà enregistrées : celles-ci continuent à référencer leur version exacte. Le formulaire de modification présente le profil de base des connaissances actuelles, même si la consultation à D affiche une ancienne version datée. Les droits et appartenances conservent leurs propres dates.
 

@@ -1,0 +1,1671 @@
+{
+  "product": "Patrimoine",
+  "version": "0.2.0",
+  "architecture": "x86_64",
+  "target_distribution": "Pop!_OS 22.04 / Ubuntu 22.04 x86_64 (glibc 2.35)",
+  "build_distribution": "Ubuntu 22.04.5 LTS",
+  "build_os": {
+    "ID": "ubuntu",
+    "VERSION_ID": "22.04",
+    "PRETTY_NAME": "Ubuntu 22.04.5 LTS"
+  },
+  "build_kernel": "6.18.57",
+  "build_glibc": {
+    "implementation": "glibc",
+    "version": "2.35"
+  },
+  "schema_version": 6,
+  "rust": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "node": "v24.22.1",
+  "cargo_lock_sha256": "9485c6b9c68daf00b9832a8e06422c949d8670ccd30e74ee48c8d76751924617",
+  "npm_lock_sha256": "4b7b762bfe53411e6d55b4d694206b5636a6ad4c723eff560bc72325f6addc8a",
+  "source_identity": {
+    "source_commit": "3900bd0b0bafecdd23ec9b2e34704d1bbfb3f83a",
+    "source_git_tree": null,
+    "git_worktree_dirty": null,
+    "git_status": [],
+    "source_sha256": "ab9cd0e1614474439e19259948ce05ced81b4738ae050c35dd01f529a9d999f3",
+    "source_file_count": 262,
+    "source_files": [
+      {
+        "path": ".github/advisory-review.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "31ad3487073c9dab4582eeeb65cbc24cba6bc108e14677df7efedce47b86824e"
+      },
+      {
+        "path": ".github/workflows/advisories.yml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8eac98ee29051f5d71f63969cdd067a992092d8c5117d6b15e1fd7cff19cb5f0"
+      },
+      {
+        "path": ".github/workflows/check.yml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7b3f045aeccd086e96cdef187140cad51375cae13e25ff322b69635bf561ecf6"
+      },
+      {
+        "path": ".node-version",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d9f318747a126ce2247661af67852b185def7789492eabfad7bba322be087c33"
+      },
+      {
+        "path": "Cargo.lock",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9485c6b9c68daf00b9832a8e06422c949d8670ccd30e74ee48c8d76751924617"
+      },
+      {
+        "path": "Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9f21ec50b503385bba4fb009b84e920824bacd2991a409c1c66b905c1067135b"
+      },
+      {
+        "path": "LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      },
+      {
+        "path": "crates/application/Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4fb02126e37ee07698643e43155a210e6a178e0a9dc62058141385927dc6fd89"
+      },
+      {
+        "path": "crates/application/src/companies.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0638536494b1e9129cdc9fab068ef0a6a375372abae49e28232bcf6a830f0a8b"
+      },
+      {
+        "path": "crates/application/src/dashboard.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "56d58e3026ecb48a4e6c9ca98b4e3917ac44103e1fd1f1dae27190f3d65619a7"
+      },
+      {
+        "path": "crates/application/src/debts.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d5859ea8e3f007e023a663118ac259847384463547c4db15d387a2e7566a3cc9"
+      },
+      {
+        "path": "crates/application/src/documents.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "68ddf46cf1ef1e994b969068f4f8121e74bfa86d5465804e6d19276fd2f65f3c"
+      },
+      {
+        "path": "crates/application/src/finance.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "06f4f42d2b0d0e43c549af269783d65771d2d7332174c7b5319d5c45b656909f"
+      },
+      {
+        "path": "crates/application/src/lib.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b4e3e1f3d3759d0c0c94ba613718249cada3dbace0fb99a92943030ac1527616"
+      },
+      {
+        "path": "crates/application/src/metals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "68e008b473e0e280407eadbc3c05d96fc84348fe46c94796d296c802a925f0d0"
+      },
+      {
+        "path": "crates/application/src/portability.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a3a0dc11b6874eb4373cd411fb42e04adfc61704fc72f9316c481d09d1e92395"
+      },
+      {
+        "path": "crates/application/src/rentals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7ec053928fe21784185ffbfca959e28db10f2fa786e9554f6f4532a16745d0bf"
+      },
+      {
+        "path": "crates/application/src/treasury.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9257ae114868eacdf268c89a6b7203c613a1544f4cefb057d6e99d2a80d0b5ed"
+      },
+      {
+        "path": "crates/domain/Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a1db5eed04d973768cd61450fa8e8e539cab853db71cd7ad1e0801b7b777b335"
+      },
+      {
+        "path": "crates/domain/src/companies.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5353ac10f4692002bfb16e8a221a9d5a770fd5691729302faa5c4ef207e7425c"
+      },
+      {
+        "path": "crates/domain/src/consolidation.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "611a406fd0ae974e71439bb037b40ef5031a914ede00e210aa3df85d02645c7a"
+      },
+      {
+        "path": "crates/domain/src/dashboard.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "63733b4fbb626ec7f1b51fe9cec90faa18e72cea0fab2c3ec9a6a906aeb0fa59"
+      },
+      {
+        "path": "crates/domain/src/debts.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0d43e651031437eb7ff451ec092b9389eddbe54c2841ebe364992205bce75e6b"
+      },
+      {
+        "path": "crates/domain/src/documents.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "75c5fdb78e67653409e1943583c345b2a3b82c700a02d69721376b4f0ae771e7"
+      },
+      {
+        "path": "crates/domain/src/exact.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2812424fefdd29061b98cdd2e64bea33afcb6fe578b1e9bf7bc227a97644a630"
+      },
+      {
+        "path": "crates/domain/src/finance.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1d759fc50f19636a5384df7b9c7d4ec61d7e6086c6b7cf4b49e992fecbe26262"
+      },
+      {
+        "path": "crates/domain/src/financial_adapters.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e8c278b6742b29b83609ca3ffea8a6f5b4e2a07c65d3c4ea3f176f8ae2d732ee"
+      },
+      {
+        "path": "crates/domain/src/fx.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e6460dc16dc69ccd1aa0a9184a41946bd338e44fc674a2eab73ab088cc444aaa"
+      },
+      {
+        "path": "crates/domain/src/guided.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e2c94874ba5d6dff38d8f5c21521e6f9ed134fe61ecfafc0b5ee72c45d11aacd"
+      },
+      {
+        "path": "crates/domain/src/lib.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "cff3b7cd64a0689edf50ac8d2d8a8e25091badc0d94011bece8462936f5dc236"
+      },
+      {
+        "path": "crates/domain/src/metals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2eac4f1520fbfcef5517033a859e27d7ce1100e88d53ba89bf8e8a106c46eb1d"
+      },
+      {
+        "path": "crates/domain/src/operations.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "58338ba72325a68aecbeb1c8b452bfc83e3e3e6fa044022da2aa261cdc3eb0c5"
+      },
+      {
+        "path": "crates/domain/src/portability.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6fcfb4f0df4468727d0ecae98c285654e7e97855daf023947cd283800a2343b9"
+      },
+      {
+        "path": "crates/domain/src/profiles.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "76b52e38a52aff5ff7de9411be5701d790ebaf2dc2ffb28040c1e1cdc35efbca"
+      },
+      {
+        "path": "crates/domain/src/property.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "981aa78f8f32feef790f349ec7b15a0af256f344de7823a2f3ab1dca65692c56"
+      },
+      {
+        "path": "crates/domain/src/registry.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "02cbfd656ff33fa64f2597789a846b874fb2fb0b673599ecb7a825b9a62b8d34"
+      },
+      {
+        "path": "crates/domain/src/rentals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a0f97ff4bc7104c5a1272acc7ca1ceaa05ad0d884a924321464a3281fa55df23"
+      },
+      {
+        "path": "crates/domain/src/treasury.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5e2ba88441c61f42e8d3dcb51b68abd088b27485b3389dbb747d521bd2cd5120"
+      },
+      {
+        "path": "crates/domain/src/validation.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8b2acef0dd79e4754196429a804463532197334281a37a0f2fc6873db72c60de"
+      },
+      {
+        "path": "crates/domain/src/variation.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c293b4797de453cc7197e81718be0172dc53402f0a555ef72069d0515cad7e60"
+      },
+      {
+        "path": "crates/domain/tests/attribution.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1982858b9ded81f085223de422c8a867b4ddb332b51a318e89ce0cdef1de46c5"
+      },
+      {
+        "path": "crates/domain/tests/companies_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a333594eae25c988f53b1fb65d4870fba9fc8755b055c8a062a9e3f56e2b8e37"
+      },
+      {
+        "path": "crates/domain/tests/debt_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6053ca47528ff93281989ada1a30d865978b25c2be0236d8d6283e28a1752b76"
+      },
+      {
+        "path": "crates/domain/tests/financial_adapter_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c02c10a9e9b22a2c3a45d6f252e644d6fe2aadc7c2b0fcbfa6e5769863fafd04"
+      },
+      {
+        "path": "crates/domain/tests/financial_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7ddb48425def7745d36f8688b52a77203af81d51b766587543df0ab0428cc581"
+      },
+      {
+        "path": "crates/domain/tests/fx_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "eb097af7fff83ef004f7ce2ef6c86b1c4d76c1071297f323036d1e6abfb689d3"
+      },
+      {
+        "path": "crates/domain/tests/income_attribution_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9a42c12ba2657e59b5784ee4376c3841c35de93a585f841bfc6ae45b75419bf0"
+      },
+      {
+        "path": "crates/domain/tests/metals_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "be2e618fe598d800e70c59e9e8b6637c9ad233b52c5b2d7cf8420942f5363bee"
+      },
+      {
+        "path": "crates/domain/tests/operations_integration.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b5e9a0363303c36736da1907d27cf0adc94de7b8cbd1f3da1692a60e225c1e14"
+      },
+      {
+        "path": "crates/domain/tests/profile_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1cc05f1478ed453d8ce911f7e17d511b7f7963fb7ebbf2c1d4bf7ebb39613eb0"
+      },
+      {
+        "path": "crates/domain/tests/property_domain_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7c6721b728bc11c060d8f6f41d125b296cc5dd8493e7633c82f7557bcd274568"
+      },
+      {
+        "path": "crates/domain/tests/rental_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2a1511f2b457a6c9d95d88a8bafb6d460682c507bf71ac84c7221efc50098062"
+      },
+      {
+        "path": "crates/domain/tests/treasury_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0be85b339afddd4bc4c3aa0847128a8176d0f26134a5e7c54a95d6fb2714459b"
+      },
+      {
+        "path": "crates/domain/tests/variation_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "293d45d733762ebc66175e1d98306833e691d9857e6d39941383c6ed3fd472a4"
+      },
+      {
+        "path": "crates/infrastructure/Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "dd15ffd45202b36060184ee0926927bedaa6e997b480f1faf7b50713f76953ee"
+      },
+      {
+        "path": "crates/infrastructure/examples/measure-cash-capacity.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d7b37de720eba1fbd90274c3c9a61e40f5da8777199a31597258b73df46ff18c"
+      },
+      {
+        "path": "crates/infrastructure/examples/measure-history.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "45c029fca32ab4b61ac60324f4c301b156031ba2fcf553a375b8568ad568de2f"
+      },
+      {
+        "path": "crates/infrastructure/examples/measure-registry.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "70439614cd17097b7936d2f59187ed2885e693c11e71bfab090a8ef6ec91a55b"
+      },
+      {
+        "path": "crates/infrastructure/examples/qualify_performance.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7618eefcd69abcfcb545765b2ad8e9f8cbfc1ec11156971e40fc7d36b62c8aba"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0001_foundation.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "10ffbddba9437cc39dedf8619f71a5afc4dd25a261696d72e47500ce500bc806"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0002_registry.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1ad7c465039c94f421915252be5d57e58fb09825ea0c27e7edf61267df601d79"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0003_fx_history.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "385e47917de4bfe93a94507fd4f8a4eb97395ae0d881c7ca9e5a5e559657e2d4"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0004_property_rentals.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "dcfa5edb016ced531035d556df736bbb276ebbd95371b132fb7e79a1e9c8f701"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0005_finance.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0db08b8d6b4f493f7689e3a9400b90ee6581687b0b9bdeb624898c9d5a891acd"
+      },
+      {
+        "path": "crates/infrastructure/migrations/0006_metals_companies.sql",
+        "kind": "file",
+        "executable": false,
+        "sha256": "64eaa09f5d58d1ac50b2ee730a4bc5f72d808348c838b9632e032372bcf1ffe2"
+      },
+      {
+        "path": "crates/infrastructure/src/activation_recovery_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "53928de5275a8631743bc46fed760cc9cd58f7038890570679b8c9a2b971c240"
+      },
+      {
+        "path": "crates/infrastructure/src/archives.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "986176fd64b4ffb6975fc86bcd65a6c8da64a07b841d7f7980da1ac176c1227a"
+      },
+      {
+        "path": "crates/infrastructure/src/archives_capacity_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e930d0604bf6f3b53f828499cecddc8e7743ca8df7d812c98bbc9fece1a24be8"
+      },
+      {
+        "path": "crates/infrastructure/src/companies.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "61337f5a3c855c00344ba7ea9c83618e7e58ffefe72be8641484dcac66c477ba"
+      },
+      {
+        "path": "crates/infrastructure/src/csv.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "944dca53df590e14969fbf66c89695ca546e19a8ecab243bb69611a2578bc053"
+      },
+      {
+        "path": "crates/infrastructure/src/dashboard.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "bb919d5c5b9b99952306a8bb4c72cbae86fb424e46313be26992743f2abfb60a"
+      },
+      {
+        "path": "crates/infrastructure/src/db.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e8fd0aecce9450464d0ca57c4b54f836ff35ccd1d8079cd71f6510a248da510e"
+      },
+      {
+        "path": "crates/infrastructure/src/db_integrity_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "27551d13c6efb2df2b19c51182ed9e2ceccd4bc22138c24a5b31ee4555d5177b"
+      },
+      {
+        "path": "crates/infrastructure/src/debts.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "3387791cfb7f37fdec89f66fb545a9d9a3af8d4a768c4654dbd63f1e969bef7c"
+      },
+      {
+        "path": "crates/infrastructure/src/documents.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5ac8772bff047e96cbcc1241f367d1bf8b3b4e16bcf6e37444e113bd0fb04bcb"
+      },
+      {
+        "path": "crates/infrastructure/src/files.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d2098f8ef5d31f61ccfe8dc6012e8a06ba738c40d550e20c6c9d6dbb4620c10c"
+      },
+      {
+        "path": "crates/infrastructure/src/files_durability_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7f21b56c1b1bdf11093af6b5621ff5e3882f476859a26508c51e4520cc2d437b"
+      },
+      {
+        "path": "crates/infrastructure/src/finance.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f549b3bed947edf6843bb9bd2e421d3bddd366c6f58aaa5c718a8b2681cabab6"
+      },
+      {
+        "path": "crates/infrastructure/src/finance_history_root_tests.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2ed43be2037ae4ff2d4f2d746019d2983535fc08248e009f6778efaacd74a000"
+      },
+      {
+        "path": "crates/infrastructure/src/guided.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ee74f8b68a02227318e772c9e0a6df19e8534fe1b8414b458e58a0356b215040"
+      },
+      {
+        "path": "crates/infrastructure/src/lib.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0dd4b8c4270b1913f7c4a6eb832e8ff857e90c690b5b74640ea2059d2e8cc249"
+      },
+      {
+        "path": "crates/infrastructure/src/metals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c6d3040111e8d6bd72a460a4a80388adc084c62e5c111de21e276808293507c8"
+      },
+      {
+        "path": "crates/infrastructure/src/phase7.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8b08eeaeaecce10e089e31e15621394e9a600b78f51e09bed2c82dcce6448984"
+      },
+      {
+        "path": "crates/infrastructure/src/portability.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b1d7c68a7cda3597240e3f07a136759d5e16d0b9b7b76e7726f91ccf5a3d0038"
+      },
+      {
+        "path": "crates/infrastructure/src/properties.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "104500a2d2f2eee81c119f65805c1754dd74c0e936a1ae6f2baeaf391cd80fe2"
+      },
+      {
+        "path": "crates/infrastructure/src/registry.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e8dbb14129b5b824bee39d3647f131b053d3738901cc269a7ba86cc77b6d4024"
+      },
+      {
+        "path": "crates/infrastructure/src/rentals.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "388cf6dcf3d61e33933af2e8ce165338ea2b5fef02247da21596bb4360bc7083"
+      },
+      {
+        "path": "crates/infrastructure/src/treasury.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "841cc6979c4e1812e5054b31214cfdd3f74414725fec89d96f097bd8274a3626"
+      },
+      {
+        "path": "crates/infrastructure/src/xlsx.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4e06514b9c3813805e6cd5b7a93ac62b8ffe5385fc44d4cd634400b2baeaf6d1"
+      },
+      {
+        "path": "crates/infrastructure/tests/companies_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7932282facce0a452419414f933eb08f259ad7abb44f9e443d74edb8c8504e37"
+      },
+      {
+        "path": "crates/infrastructure/tests/csv_portability.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d9195998bcaefdc961f747a3545e2edc8942bd85ea032d87063dffbbcea5d364"
+      },
+      {
+        "path": "crates/infrastructure/tests/dashboard_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1e82b7c5a42042515fa01c920d059fd0facba75aa9ccfb36c382cb53edfe74a4"
+      },
+      {
+        "path": "crates/infrastructure/tests/debts_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "be88c0d17e3f90c6fe0ad81196eb38729948b5f43bb684836479db8cc65116f0"
+      },
+      {
+        "path": "crates/infrastructure/tests/documents_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "94ffeaa144bdd1118cc7de33962925f77658835acad78b23e56f3391f005af91"
+      },
+      {
+        "path": "crates/infrastructure/tests/fx_history.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "bf4d9eb9ab537ba14b39f9c2a1746cea209284c3fea7d033b9e42d926a59eb32"
+      },
+      {
+        "path": "crates/infrastructure/tests/guided_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "344f60a555c1c6d54eefce5c7f2c653f1269bfc4ebdd7b7ecdba5a7e3162754f"
+      },
+      {
+        "path": "crates/infrastructure/tests/metals_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "96cb7c8745f6c5d1b62cb5b560eb4c482cca508930018dafecdf6f9d569dfdc4"
+      },
+      {
+        "path": "crates/infrastructure/tests/properties_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "62aa13b6b7664d11afa11be2905dcfe02425f4a66cf2d9f34b1629a368f1d46a"
+      },
+      {
+        "path": "crates/infrastructure/tests/recovery_adversarial.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b5811180c53a6e9b5e6dca9e702b733bb64984a5738783155f03f74a1bcb5d08"
+      },
+      {
+        "path": "crates/infrastructure/tests/registry_adversarial.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "322d986e1e33c0f27a26d03855a08f45764c82afd124ada5a1b842d05557c72d"
+      },
+      {
+        "path": "crates/infrastructure/tests/registry_migrations.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6d4c0db6b368896f11046f548e630e1ce4ba71a3f265763883d981f28cd68091"
+      },
+      {
+        "path": "crates/infrastructure/tests/rentals_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f32f909d767960db217b4dbda2014a80445ea8298cf32812e01474435e9b6cff"
+      },
+      {
+        "path": "crates/infrastructure/tests/treasury_store.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2d03834a27d86f13a2d78fa0ccce8676df99e4ae96d20b0f35e801c0e07766fd"
+      },
+      {
+        "path": "crates/infrastructure/tests/vault.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "21d7dae51012c3781246d5cb380642d57b3327a74591b5cf3c8e7fe3175df43b"
+      },
+      {
+        "path": "crates/infrastructure/tests/xlsx_export.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "3896e36f41da87ae7ed8d0d7052ec70dbed25c3d295ae7360af579fa51cb9065"
+      },
+      {
+        "path": "index.html",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c8476df63c431c80970528d6318c73ad8fb4abccffb98dd5869637b40819e924"
+      },
+      {
+        "path": "package-lock.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4b7b762bfe53411e6d55b4d694206b5636a6ad4c723eff560bc72325f6addc8a"
+      },
+      {
+        "path": "package.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b55017e4cae27aabb41acbf0403a633d797d070ff424f620ea8231afbcf287c9"
+      },
+      {
+        "path": "resources/licence-sources/alloc-stdlib-0.3.0/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+      },
+      {
+        "path": "resources/licence-sources/appimage/AppRun/AppRun-MIT-NOTICE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4c5740ea095142855619edcb5db9647ee0caf48c16cc67397972952e098fac89"
+      },
+      {
+        "path": "resources/licence-sources/appimage/AppRun/provenance.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "86c242fb2198377d24dee8de69df127b5c706a08bcdc3dbfdb8825ddde31b641"
+      },
+      {
+        "path": "resources/licence-sources/appimage/libfuse/AUTHORS",
+        "kind": "file",
+        "executable": false,
+        "sha256": "fafe891ac0d23452355fe41d5e5538904fe5324b44cc03f519063e83deb9b0f8"
+      },
+      {
+        "path": "resources/licence-sources/appimage/libfuse/LGPL2.txt",
+        "kind": "file",
+        "executable": false,
+        "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+      },
+      {
+        "path": "resources/licence-sources/appimage/libfuse/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b8832d9caaa075bbbd2aef24efa09f8b7ab66a832812d88c602da0c7b4397fad"
+      },
+      {
+        "path": "resources/licence-sources/appimage/libfuse/upstream-runtime-mount.c.diff",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1c7fd9e26717545a476b226b083a9f9d05676c180edbd71a04bbd8a73599dc44"
+      },
+      {
+        "path": "resources/licence-sources/appimage/manifest.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b22013e5b4833ab7b997703086165324d771c9fb2f57f89c0de1516b34a3f401"
+      },
+      {
+        "path": "resources/licence-sources/appimage/mimalloc/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "19c99805e7a44a34b297a75d1edea9985e300066dfc024d5c99d4236d4573b5d"
+      },
+      {
+        "path": "resources/licence-sources/appimage/musl/COPYRIGHT",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+      },
+      {
+        "path": "resources/licence-sources/appimage/squashfuse/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9e909cc8a8ba27b1a649c964cf9eda37de911f3138c2b64e6d2f01703904ac13"
+      },
+      {
+        "path": "resources/licence-sources/appimage/type2-runtime/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1"
+      },
+      {
+        "path": "resources/licence-sources/appimage/type2-runtime/build-Dockerfile",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e0a4abe81c1918516f7b6b9cdb9fdbb768f57c6fc392767537b45142aba45f74"
+      },
+      {
+        "path": "resources/licence-sources/appimage/type2-runtime/install-dependencies.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e666c28019cb64a2c6c69d6e2a56db7fba024a2c92eb9489bfe4a3ea20a985a5"
+      },
+      {
+        "path": "resources/licence-sources/appimage/type2-runtime/runtime-Makefile",
+        "kind": "file",
+        "executable": false,
+        "sha256": "71fd92c0e6c7c10ef5a932f5007e4dc61403ed471330e5841782b4233131b053"
+      },
+      {
+        "path": "resources/licence-sources/appimage/zlib/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+      },
+      {
+        "path": "resources/licence-sources/appimage/zstd/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+      },
+      {
+        "path": "resources/licence-sources/dlopen2-0.8.2/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+      },
+      {
+        "path": "resources/licence-sources/dlopen2_derive-0.4.3/LICENSE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+      },
+      {
+        "path": "resources/licence-sources/libappindicator-sys-0.9.0/LICENSE-APACHE",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      },
+      {
+        "path": "resources/licence-sources/libappindicator-sys-0.9.0/LICENSE-MIT",
+        "kind": "file",
+        "executable": false,
+        "sha256": "eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b"
+      },
+      {
+        "path": "resources/licence-sources/manifest.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a369ce862702312144a57be31110e889c3b400376ed3d9962589dc89555a9631"
+      },
+      {
+        "path": "resources/licence-sources/tauri-plugin-2.7.2/LICENSE-MIT",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d"
+      },
+      {
+        "path": "rust-toolchain.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
+      },
+      {
+        "path": "scripts/accessibility-audit.js",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5d5277a33378e6a44fe613e5124c58bd498a9ce2874f4fb36d8ed27c79655812"
+      },
+      {
+        "path": "scripts/audit-desktop-accessibility.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6f1e39289a763f8ffe9753f54b2cb4225fde16fba1febfe083c49536623b10d2"
+      },
+      {
+        "path": "scripts/audit-desktop-cloud.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ba558a6e783f2359624eea407e7c4e4005a23d1d994c0180c3eefade9a5dbf24"
+      },
+      {
+        "path": "scripts/audit-js-offline.mjs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "647934cab9952ca0220ca3b3b675608e7262a052b6d61cf847239c110470dbdd"
+      },
+      {
+        "path": "scripts/build-linux.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a8a8a878cac08d296b8de0f0d0042d1ac0f4e41e3b2f53e693119c5df811352e"
+      },
+      {
+        "path": "scripts/build-recovery-kit.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b1e7ee6cff756def0fa73ccf70556523f008ab068eff6292e2a5933255e939ee"
+      },
+      {
+        "path": "scripts/build-ubuntu.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5f27a20769558409f241fb645ed2a40dc957da3a216f18c61863e90a894f83cf"
+      },
+      {
+        "path": "scripts/check-advisory-report.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6e111568446faaa68899eb6f7e24c6f0c7e8229cec5d9f770376dece01132772"
+      },
+      {
+        "path": "scripts/check-contracts.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9e50a52f66bac3a50cdcd0d54304ac93997e7e82a41bfead866777387e24aad3"
+      },
+      {
+        "path": "scripts/check-notices.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a8c438074cdbea0d70e79588213f6e3616c7b81b063509f60b77c25a55f84a77"
+      },
+      {
+        "path": "scripts/check.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7cc16801bdce806b05b31b04d919d3d540fbc3df479bf0eab18ef3606a622645"
+      },
+      {
+        "path": "scripts/cloud-env.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "cf3fd5910f9ba3e461f53b6229212004290e043501e29b7068147c0ca5c2fd99"
+      },
+      {
+        "path": "scripts/collect-third-party-licences.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6538a0463bf822e3bca021e39244b444f931d5641fdd006b74790df328a2ac33"
+      },
+      {
+        "path": "scripts/contract-check/.gitignore",
+        "kind": "file",
+        "executable": false,
+        "sha256": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368"
+      },
+      {
+        "path": "scripts/contract-check/Cargo.lock",
+        "kind": "file",
+        "executable": false,
+        "sha256": "acc03a57e9f65baf6040bda3756791d44f7a9f884db7a40c5f4be2ad9dbc235a"
+      },
+      {
+        "path": "scripts/contract-check/Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b99d42c3cc84787c1228031b97decb2ca19a02b5291151ff0cd13ca88c260018"
+      },
+      {
+        "path": "scripts/contract-check/README.md",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6a4e1c67ac2188769f8021e865ae6fd215226450f8533e75a3b742587bdb0e34"
+      },
+      {
+        "path": "scripts/contract-check/src/main.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "bf81012005051d0844d44ee47e53373edecc5580211f896b1a33ad749fda1674"
+      },
+      {
+        "path": "scripts/contract-check/typescript.mjs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ba29b1e2290ea9c22079edd88918ace59ae629487592e8beef9099682e142219"
+      },
+      {
+        "path": "scripts/desktop-discovery.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8d6c2837289f45bb572169cd14aad3187ccd3ec072fc688c6729afa55ccc073f"
+      },
+      {
+        "path": "scripts/desktop-onboarding.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7f57e5e7de1e9945fbed9c5a66c2443c09e58e9401b74ec4dc065f83cace6b20"
+      },
+      {
+        "path": "scripts/desktop-smoke.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "054b8fd479317140af17c548c312ef1b6a440969f15c8fc681c735779702ff9e"
+      },
+      {
+        "path": "scripts/desktop-test.Dockerfile",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6c6aef42abcedeace9e11471a8e22575e6837057d30fca04152084e84edcd4a2"
+      },
+      {
+        "path": "scripts/fetch-appimage-runtime.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8e72447766b2a3b04988a6e04ff7f06d36f249412c464078dd287a8d66e170fd"
+      },
+      {
+        "path": "scripts/prepare-appimage-runtime.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "07d20d8a136bf7b8f562b57f08ba3af2b4802210e9d9fb54e45fdb58a0c77f17"
+      },
+      {
+        "path": "scripts/qualify-performance.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "0d10801fe3de3d02803582525779d97867d59d8f07147374430b125b0f1de175"
+      },
+      {
+        "path": "scripts/recover-csv.py",
+        "kind": "file",
+        "executable": true,
+        "sha256": "9d9cecf5d4d783b2c54bf4d9e58b23cd26d6853dfa8bc35d9772b86f0c63f16c"
+      },
+      {
+        "path": "scripts/setup-cloud.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "59b3d65adc07c55ddb4808b9e4fa632e35072ed4a22b994f3b110a00fdc0a929"
+      },
+      {
+        "path": "scripts/source-identity.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "da43c68dca284d1ba695a1369cc350a6fbe7dbd7c194b8ee9347f857be996fa9"
+      },
+      {
+        "path": "scripts/test-advisory-report.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "642ed6d1e7402ddaf2b3f59a2b50dfaf13b1bc5c32f57406cbfbd633370d585c"
+      },
+      {
+        "path": "scripts/test-appimage-cloud.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "3d5fcf359364a4df9e9ce85ffe8394a6d1328e39f66ec98364f610e952d2d839"
+      },
+      {
+        "path": "scripts/test-appimage-upgrade.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7a4c1f69b8e1a95a00c230d5fcc381e4d7fc7466cc84644abdf97e9a6f24404b"
+      },
+      {
+        "path": "scripts/test-build-linux.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5abba8bec694ee837cd95b9e6756e061c45be30a035a1fa84e0aaa923795478c"
+      },
+      {
+        "path": "scripts/test-check-contracts.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a7621baeb53db507669397a4e1787db6827c2fd57cbd6c45cda396dae5ec8545"
+      },
+      {
+        "path": "scripts/test-desktop-cloud.sh",
+        "kind": "file",
+        "executable": false,
+        "sha256": "bc6bc11d2b0a2c4097052e92e19c35be60159e97c369bcb9314cd92473cd5757"
+      },
+      {
+        "path": "scripts/test-notices.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "15c962181eee35edc4e2f1aa0e8d412a22e252c75e8413c67a58740220cae833"
+      },
+      {
+        "path": "scripts/test-qualify-performance.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "995e207fc1c1412ddb52eef86b3865ee067da3017a0eea7289b22e5f3c2a9a67"
+      },
+      {
+        "path": "scripts/test-recover-csv.py",
+        "kind": "file",
+        "executable": true,
+        "sha256": "e7ac45721588cba3fb025a91b8b1646a88616eace63a57790d5abfe7cfedde67"
+      },
+      {
+        "path": "scripts/test-source-identity.py",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8b95d34202e45ee639f060fc6a5c25285efa7b17582e0d532df6bc24f3edc93d"
+      },
+      {
+        "path": "src/App.phase4.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b0a60f7410ff633fe10447e33ea582d9cc3a38f393a46458d8d161672829bbcc"
+      },
+      {
+        "path": "src/App.shell.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a430c929f5a68d7244addb3374128c83f016ae20e6662857ac886ec9e610bc29"
+      },
+      {
+        "path": "src/App.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "b02aa9f8e4f7a7e2afcd81d85663ae7266ff412a9ca24e3c6ea60281b506023f"
+      },
+      {
+        "path": "src/App.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2b2788082a27e4168034b592e0d01993961cb804cd19b0a2bdcebbefbe8ba3f4"
+      },
+      {
+        "path": "src/features/companies.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ba2fcc93bf0d4696f71ede21fdf6f1c1dfdd6f806122c7789cf5b7a2a813291f"
+      },
+      {
+        "path": "src/features/companies.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c4f20085c6adf837442e71de511464494ebe23eadaed48b89999765bc80459b2"
+      },
+      {
+        "path": "src/features/dashboard-charts.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c8c4f8a8a46334577e4e735322fd2ebae06612633646bb981f84319acafa13c9"
+      },
+      {
+        "path": "src/features/dashboard-charts.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a6c8cd6b7e5f1eb4e9712b40a2a6cb744312ff624b1ee953c936b4f77cd94247"
+      },
+      {
+        "path": "src/features/dashboard.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5dd2e42a13c8f920e2810d53c6312fb9ca76aec841a30b1bf73c4b0ddbaedee4"
+      },
+      {
+        "path": "src/features/dashboard.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1ccc6e1a0e461d2759288ca253519e5829422980538bf123ca09473b1356ea68"
+      },
+      {
+        "path": "src/features/dashboard.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c8f4d51dea904e778974d6c7743113a6f8850f7ac3284be453ae55ed6f41877f"
+      },
+      {
+        "path": "src/features/debts.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "485f4bb0ce6f787800d4e1f34ffe702b2d3dea9771f5d893114b3ef67ef10af0"
+      },
+      {
+        "path": "src/features/debts.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d23a7bf02d13d410ac629ede9b49b826a417b9453faf53192e22ad8e46d36c23"
+      },
+      {
+        "path": "src/features/discovery-screens/backup.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "c7195970e668c62af6e06f65a45fa177dae60d9ed0ae4410070d9a24ad4b5323"
+      },
+      {
+        "path": "src/features/discovery-screens/bank.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4128a4cd2f2048f98dc40864989e26bda8942e49e644fb4be009b9336fae25d0"
+      },
+      {
+        "path": "src/features/discovery-screens/company.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5980ffc72e6b88d330977086e1d9286d4478591c5875f0f3546f9cbbd13f4f2c"
+      },
+      {
+        "path": "src/features/discovery-screens/family.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2b6d94011d69ca39751c2363425f80c6baf02d9ac372938d99f305e0bf2638a0"
+      },
+      {
+        "path": "src/features/discovery-screens/metals.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d562ef3e95dae7f3072c004b32ac8686fac006a80b09499fac97ae1c45393300"
+      },
+      {
+        "path": "src/features/discovery-screens/overview.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6e1e2e6c1039726d03347d0f93f85af4d384aeb18f94f93c5dfe22ebb52cfc58"
+      },
+      {
+        "path": "src/features/discovery-screens/property.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ab2ad6f8b18e14ed288f3ad079edda021485d8ea304d0609361656c719ca8c63"
+      },
+      {
+        "path": "src/features/discovery-screens/rentals.webp",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e495aee850db5fc0633706f8ac6a0c2dd147270438b1a4cbbeef0e32cd02f7b0"
+      },
+      {
+        "path": "src/features/discovery-tour.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f2dbc54058f3b31ee94781ef71380c5654e9d0d879e29243d7526ef552ebf184"
+      },
+      {
+        "path": "src/features/discovery-tour.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "9c286701736a5e69e37f9a888ccd587ba827709f6193910bd56b22c1155e46df"
+      },
+      {
+        "path": "src/features/discovery-tour.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "253d4c096d0d5ed0b3a657dc68ee3a72eaf80631f79d9c14f1a35664f259f8f1"
+      },
+      {
+        "path": "src/features/documents.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6f1eb2be02f5ac1add8af9445fe39d78cf07f7f3a80ccaf76d48a30bcb773af0"
+      },
+      {
+        "path": "src/features/documents.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a03ee06224f713d32432d503cf1fac0e8ba45a711b9ab2b0b01ab3a5cb3cb4cc"
+      },
+      {
+        "path": "src/features/exchange-rates.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "fe8b235b5f7da21c81e39033598e52118f6bf69e30a03cc751bd137d329f26f5"
+      },
+      {
+        "path": "src/features/financial-report.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "afaeaded9077f0d0125f931e950689602126355935041c42562d2a49d216c56f"
+      },
+      {
+        "path": "src/features/financial-report.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2b04f04f83d04809f36cd0c4ac6e4b95ad92093391f9cc7de0a349214cb18e49"
+      },
+      {
+        "path": "src/features/global-search.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1f6a00e296607d0c16e50c07e7d3247004a683b952f3bdc38901dca67b78f68e"
+      },
+      {
+        "path": "src/features/global-search.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "222d2ed3dd6022e5e3aadc47cc00dab12edd254e47261124f4dbdc244e32371e"
+      },
+      {
+        "path": "src/features/global-search.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "591d284f7c726b192b318f8c56c18f4cb5cd59e4082c8d226fda4f43ac9002d5"
+      },
+      {
+        "path": "src/features/guided-entry.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "032ef577c9d2af89b042b8bb1f1ccabd0759c4d4435c61cc8cbb2ec46731bcd9"
+      },
+      {
+        "path": "src/features/guided-entry.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e4259bc069d1262e77cff1a49ecb695febb1958b7b70a459051bb463f2681f35"
+      },
+      {
+        "path": "src/features/guided-entry.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "604c14dbede0a47a935f092d8504a64ae38808696b74751936059595f2571965"
+      },
+      {
+        "path": "src/features/history.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "17c71e10009704209cfbd3e5c7572c8313c7f6e1de9ecd3a6f547e4d60a5f6d1"
+      },
+      {
+        "path": "src/features/metals.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "000b7b2e9e86afc47b94bdf5ee0c6ac078e4270a093d34a9f803360294d641ea"
+      },
+      {
+        "path": "src/features/metals.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "8d7c726ed038bb6e23a2c44d995b6e89555bf45a321fe617833778c8814cb751"
+      },
+      {
+        "path": "src/features/onboarding.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "76e0041980bc6166fafa637758f5f3335ca8df01c560baa4bb5cb5233373fdf7"
+      },
+      {
+        "path": "src/features/onboarding.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "969a4769f076bbe90554ea918baf944de7c09d23d6df42bb4535a3282c9be644"
+      },
+      {
+        "path": "src/features/onboarding.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a5e15c6bc74810c38baf2218811eef034211ab10c9147b51c0188607f9041373"
+      },
+      {
+        "path": "src/features/phase4.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2540234310155859ce8e8b325e3e1f4ca42a68e98948494ecd91cb3c323b88d2"
+      },
+      {
+        "path": "src/features/portability.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4eb073fad8d42c901c086963417020caa5008632233bc26623068f98528f9dc5"
+      },
+      {
+        "path": "src/features/portability.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a83e23b0adeecf3303d6f19e6fb11cb47f4d7af975e578fde885887e1ce2eef9"
+      },
+      {
+        "path": "src/features/profile-periods.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1d064beacb1f97b1c9233f7f1b3211d945cd98f310c987ced553717fd571b48c"
+      },
+      {
+        "path": "src/features/properties.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "2236b8a6337bb923f3efcda58252c1703d005c0027605d5e6bb0b495f4b5d181"
+      },
+      {
+        "path": "src/features/properties.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "4676525dc10e2366c13ec7161eb5aaf8de9c9bca63cf3f1d86c823ec04e65f85"
+      },
+      {
+        "path": "src/features/real-estate.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "353e5f5abe55ec0785a81f63f7e7636d24c16a08dce42432e79cbeb91df123a9"
+      },
+      {
+        "path": "src/features/real-estate.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "02c6543495a96e0147aa8ce4e767fe4e22d3f4c39c2bc23adab027551cd14055"
+      },
+      {
+        "path": "src/features/registry-ui.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "48afd5d409605599d808ed4472c61a5184fa3e08a5a894aeed19a96d871fea62"
+      },
+      {
+        "path": "src/features/registry-ui.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "46165c161a89cf122ca892a8b9240a3dbb087eae8f70ed20d9d782fb11aa8278"
+      },
+      {
+        "path": "src/features/registry.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "baeae1e38449acfbf5f3b5c9932f4c2733008fa8980117b738d99989286a3d75"
+      },
+      {
+        "path": "src/features/registry.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "df17bc97e9e46dfd7c5f4803dc7e3a95b390748832e26a75ee437420b3c96402"
+      },
+      {
+        "path": "src/features/treasury-postings.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "98eb217a432fc93bcb757cf298e0ec0daed1677d9a5207002559c5a49b235b59"
+      },
+      {
+        "path": "src/features/treasury-postings.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "3402bf52ebd2a0a7b985529c0f6f0b1733ae9fcddeddc220c7a6736285acb1f2"
+      },
+      {
+        "path": "src/features/treasury.test.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a041b07690ae324a6b4afa3d89a8a0e6e59bfe2f9384ba3b723abe05d934defa"
+      },
+      {
+        "path": "src/features/treasury.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "d0fc134c8e651527d8fdf6d29e6685586afc30d6deda1b7318dc341a9cbb8740"
+      },
+      {
+        "path": "src/main.tsx",
+        "kind": "file",
+        "executable": false,
+        "sha256": "240903a71d5933c9b6910e054295ec4551c18803cd024ad6ef6d52134d96202a"
+      },
+      {
+        "path": "src/services/api.test.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "630650757664410c6b4ecbbc650eedc35e89b019ab68244df801b60c3e1aef7c"
+      },
+      {
+        "path": "src/services/api.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e55ec110b78272aab949290f44254bb1f3b5f468097b6b620ab2a0240b258ac4"
+      },
+      {
+        "path": "src/services/companies-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f8e54cfbc3c2e2f5b99340de0bd3727270399be5eb50a5ef26b229a0a761a57c"
+      },
+      {
+        "path": "src/services/dashboard-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5356ed00dfe650f3e420788f8a8945577a640eeba34329f5e426eb2e5011d375"
+      },
+      {
+        "path": "src/services/debt-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "baf87e43d811a4a8741b4fdf51e7466f3d9cbec3108eda20fb7c1f7dca82507c"
+      },
+      {
+        "path": "src/services/documents-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ab4d3bd0ea1f315c63afd38e4bd94f58c311303f7ed66fd2285b147519bc95c8"
+      },
+      {
+        "path": "src/services/finance-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "a9e4b36732adf49d73220d77c5a3311360838fbbca090d87aa811cbf0eccafd3"
+      },
+      {
+        "path": "src/services/guided-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6aeaaa8d5687dc6132f9ea82d6416f6b4bc076648f52f24fc0717a8f2328c2e3"
+      },
+      {
+        "path": "src/services/metals-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7da61219fafb201bdf090fb27b6d8870e146acfdbcc7971119f687553e95768c"
+      },
+      {
+        "path": "src/services/mutations.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "89e4bdc59784e114ecb327e13e21ee2c091e564d6f09f4e41b726af8dfcfbe29"
+      },
+      {
+        "path": "src/services/phase4-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "804af876477e79637db228db72b3ae7109055402d0fc9a249dfffdc866242794"
+      },
+      {
+        "path": "src/services/portability-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "06e1029ebfaf933b4b24cfb72a3d968f6982addae6ac0fca3c90cf32f707f9ef"
+      },
+      {
+        "path": "src/services/property-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "673f780fdd0d91960293068778832d35ba694d9014155ea1e98b7e20b3ecdc68"
+      },
+      {
+        "path": "src/services/registry-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ee2357dc9e2e42f0f2fb4d270e709b25a3d10d53dda7d8f10662a228e9ff38bd"
+      },
+      {
+        "path": "src/services/rental-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1ed12ffd16a36f722ea5993a30b4fac58963f6f6c6a9d8a802bdec6c07dd174c"
+      },
+      {
+        "path": "src/services/treasury-types.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f9a9618727f34b2da9ca93994da079b97802416adfbd527d95c74e74ab2978fb"
+      },
+      {
+        "path": "src/styles.css",
+        "kind": "file",
+        "executable": false,
+        "sha256": "58a19a4fa3e8bdf27740607e9518567871c10dc287148ed610fd2ab247311fa4"
+      },
+      {
+        "path": "src/test/navigation.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "09979c7e960907f0e186c52d53056771cf3a7bc517e6fbef7491b82135be2244"
+      },
+      {
+        "path": "src/test/setup.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "1eae20c7b956de6bb833a991fe31762a97c74ece3a50b7063d416a997e33f0f0"
+      },
+      {
+        "path": "src-tauri/Cargo.toml",
+        "kind": "file",
+        "executable": false,
+        "sha256": "92fb520ed64baea27f1bee8dee4f060209509955e241bd0af886435a2c265ecc"
+      },
+      {
+        "path": "src-tauri/build.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "6aeeab41bc35efde4e3c2b644a6248f7fc06d24ae30b75c0d33491cbb0c1fa31"
+      },
+      {
+        "path": "src-tauri/capabilities/main.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e2d6f05bd35b5e03232bceffa2435c6f9a31133514830d92eef223ba92bd100b"
+      },
+      {
+        "path": "src-tauri/icons/128x128.png",
+        "kind": "file",
+        "executable": false,
+        "sha256": "fb19231812b578a76a552e231c36c4f7cdbe25c6ddf875d6458b158e3b73adc8"
+      },
+      {
+        "path": "src-tauri/icons/128x128@2x.png",
+        "kind": "file",
+        "executable": false,
+        "sha256": "5130cd2928bdcd60a39197792a5273d6fd5df7dd0ca3e3a8a9b2842626b5ed3b"
+      },
+      {
+        "path": "src-tauri/icons/32x32.png",
+        "kind": "file",
+        "executable": false,
+        "sha256": "25f7774a758b55e5f83ef5a24f0edbb0a20c1e06137ef4fd738c8126419cc84b"
+      },
+      {
+        "path": "src-tauri/icons/icon.png",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ea9526a9d9cfd9cc06da40a066c12d87e246f2089d0d5c8f66f901f57a34c3ff"
+      },
+      {
+        "path": "src-tauri/icons/icon.svg",
+        "kind": "file",
+        "executable": false,
+        "sha256": "795599ae93f33336c91933c4985381bb3af33759c95af07b1474b96ac094ca2d"
+      },
+      {
+        "path": "src-tauri/src/main.rs",
+        "kind": "file",
+        "executable": false,
+        "sha256": "7543111cd41ff2424b5f84635961b65a26d79b6efb2e9fa383bbec1b1efcc842"
+      },
+      {
+        "path": "src-tauri/tauri.conf.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "f206e954faaf70d3a0cc4c9d58fb718fd6999f611b40b7662fb882bb9b2b51b1"
+      },
+      {
+        "path": "tsconfig.app.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "798d7c49fc8123843de07760fd26f0a219baf01883f448a993584c8bfa936f7d"
+      },
+      {
+        "path": "tsconfig.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "e8d6f7b50828db3953e21c7e92584f9206b3cd2551b4012507372afbb7fe9ce3"
+      },
+      {
+        "path": "tsconfig.node.json",
+        "kind": "file",
+        "executable": false,
+        "sha256": "ba20827dd36261041f20882f3270bb9d4f4a6df82afed6179fdc2acab07ee61c"
+      },
+      {
+        "path": "vite.config.ts",
+        "kind": "file",
+        "executable": false,
+        "sha256": "cf460b2776bca3bf60206647aec233ac1266794f8f3894c3da8882291b51eb6e"
+      }
+    ],
+    "scope": {
+      "directories": [
+        "src",
+        "crates",
+        "src-tauri",
+        "scripts",
+        "resources/licence-sources",
+        ".github"
+      ],
+      "root_files": [
+        "Cargo.toml",
+        "Cargo.lock",
+        "package.json",
+        "package-lock.json",
+        "rust-toolchain.toml",
+        ".node-version",
+        "index.html",
+        "vite.config.ts",
+        "tsconfig.json",
+        "tsconfig.app.json",
+        "tsconfig.node.json",
+        "LICENSE"
+      ],
+      "excludes": [
+        "__pycache__",
+        "gen",
+        "node_modules",
+        "target"
+      ],
+      "generated_notices_excluded": true
+    }
+  },
+  "application_sources_unchanged": true,
+  "notices_manifest_sha256": "9afa8642856e0492b75aa5b1b71e5fc00ff3c286a60e685d721d0e275bb3f4df",
+  "webkit_helpers": [
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess",
+      "sha256": "5375925828be8acc2c0e905cae0d4654da0519ce1b83f2f724a43eae346bd78e",
+      "origin": "system"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess",
+      "sha256": "5f9bf5136fbb4615df1ccd7ef37a4944bb1820870e9c101e3cf891c886a57e49",
+      "origin": "system"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess",
+      "sha256": "d64d1649da700f591da7c2f8015c97b549a4c1e470ca3f8f6b8df13065c78339",
+      "origin": "system"
+    },
+    {
+      "destination": "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so",
+      "sha256": "5612d9a4ccf2ec87d4e9c7934fdd7769f4d7e8e8af396fb0bb24923b839f3a23",
+      "origin": "system"
+    }
+  ],
+  "appimage_runtime": {
+    "source": "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64",
+    "sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46"
+  },
+  "reproducibility": "Dépendances verrouillées et composants WebKit empreintés ; identité binaire entre deux constructions non revendiquée.",
+  "artifacts": [
+    {
+      "file": "Patrimoine_0.2.0_amd64.AppImage",
+      "size_bytes": 85293560,
+      "sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf"
+    }
+  ]
+}

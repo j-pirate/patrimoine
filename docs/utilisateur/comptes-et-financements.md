@@ -1,8 +1,8 @@
-# Comptes, financements et bilan — utilisation de la phase 6
+# Comptes, financements et bilan
 
-La phase 7 complète ce guide avec les [métaux, observations des sociétés et dividendes](metaux-et-societes.md). Les limites signalées ici comme futures pour ces modules décrivent l’état de la phase 6.
+Ce guide couvre les comptes et caisses, les rapprochements, les financements et le bilan financier du périmètre. Les étapes de saisie guidée sont présentées séparément. [Premiers pas](premiers-pas.md) · [Métaux et sociétés](metaux-et-societes.md)
 
-Guide du **11 novembre 2026, Europe/Paris**. Cette phase ajoute les comptes et caisses, les mouvements réellement rapprochés, les financements et le bilan financier du périmètre. Les exemples ci-dessous illustrent des saisies ; ils ne constituent pas des données ajoutées au coffre.
+Les exemples de montants et de saisies sont fictifs.
 
 La date économique **D**, les connaissances **K** et le contexte familial ou individuel restent communs à l’application. Un mouvement postérieur à D n’affecte pas le solde observé. Une correction connue après K n’est pas utilisée dans cette ancienne vue. Toute sélection d’une séquence K fixe, y compris `0`, rend les formulaires historiques non modifiables. Les conventions de dates et de change sont décrites dans [Devises et historique](devises-et-historique.md).
 
@@ -10,7 +10,7 @@ La date économique **D**, les connaissances **K** et le contexte familial ou in
 
 Dans **Comptes bancaires**, choisissez **Ajouter un compte bancaire**. Pour des espèces, ouvrez **Autres biens et dettes → Espèces et devises → Caisses physiques**, puis **Ajouter une réserve d’espèces**. La saisie guidée enregistre en même temps le solde de départ et le propriétaire unique que vous avez choisi. Le solde peut être nul si vous saisissez `0`. L’onglet **Taux et conversions** sert à enregistrer les cours.
 
-Pour rattacher un compte à un bien existant ou renseigner une propriété partagée, ouvrez **Options avancées** dans la liste des comptes ou des caisses. Les droits se renseignent dans **Patrimoine**. La fiche de trésorerie décrit aussi la devise, le début du suivi, le titulaire juridique, le pays et les références bancaires ou le lieu de conservation des espèces.
+Pour rattacher un compte à un bien existant, ouvrez **Options avancées** dans la liste des comptes ou des caisses et choisissez la commande de rattachement. Renseignez la propriété partagée dans **Autres biens et dettes → Patrimoine**. La fiche de trésorerie décrit aussi la devise, le début du suivi, le titulaire juridique, le pays et les références bancaires ou le lieu de conservation des espèces.
 
 Après création, l’actif rattaché, la devise et le début du suivi sont fixes. Leur changement dans le formulaire de correction est refusé ; une correction descriptive ne réinterprète pas les anciennes lignes dans une autre devise ou un autre actif.
 
@@ -60,7 +60,7 @@ Le moteur vérifie notamment date, devise, signe, bénéficiaire et capacités e
 
 Les ouvertures, dépréciations et autres ajustements sans trésorerie ne servent pas de flux à rapprocher. Une source déjà liée ne doit pas être enregistrée une deuxième fois. En cas de refus pour conflit ou dépendance, recharger les sources et vérifier leurs références avant de reprendre la correction.
 
-Les paiements et dépenses saisis avant cette phase conservent leurs identités et leur histoire. La migration ne leur invente ni compte, ni ouverture, ni ligne bancaire. Les rapprocher explicitement avec une ligne existante ou documenter leur absence de rapprochement ; une ancienne liste de paiements ne constitue pas à elle seule un solde bancaire complet.
+Les paiements et dépenses saisis dans les anciennes versions conservent leurs identités et leur histoire. Les rapprochements s’effectuent en sélectionnant une ligne bancaire existante ou en indiquant le motif d’absence de rapprochement.
 
 ## Enregistrer ensemble la source et sa trésorerie
 
@@ -107,11 +107,11 @@ Pour l’application, choisir **Appliquer le dépôt sans mouvement bancaire**. 
 
 ## Décrire un financement et ses deux faces
 
-Dans **Dettes et financements → Contrats et parties**, choisir **Créer un contrat de financement**. Indiquer son nom, sa devise et le début du suivi. Un seul contrat représente la créance du prêteur et la dette de l’emprunteur. Éviter deux contrats indépendants pour ces deux faces.
+Dans **Autres biens et dettes → Dettes et financements**, choisissez **Créer un contrat de financement**. Si des contrats existent déjà, cette commande se trouve dans **Contrats et parties**. Indiquez le nom, la devise et le début du suivi. Un seul contrat représente la créance du prêteur et la dette de l’emprunteur.
 
 La devise et le début du suivi du contrat sont fixes après création. Une correction de nom ou de notes ne permet pas de les modifier ni de réinterpréter les mouvements existants.
 
-Choisir **Définir les parties du financement** pour renseigner les conditions datées et, de chaque côté, les entités, droits juridiques, droits économiques et portée juridique de l’obligation. Les fractions sont explicites : `1/1`, `1/2`, etc. Laisser les deux cases d’une fraction vides conserve un droit inconnu. La solidarité juridique ne signifie pas que chaque débiteur supporte économiquement `100 %` du prêt.
+Ouvrez **Participants et conditions du contrat**, puis **Définir les parties du financement**. Renseignez les conditions datées et, de chaque côté, les entités, les droits juridiques et économiques et la portée juridique de l’obligation. Saisissez une fraction comme `1/1` ou `1/2`, ou laissez les deux cases vides si le droit est inconnu. Renseignez la solidarité juridique et la répartition économique selon les dispositions du contrat.
 
 La répartition du prêt est indépendante de celle du bien financé. Pour un bien de `400 000 EUR` détenu à parts égales par A et B et une dette de `100 000 EUR` économiquement supportée par A seul, les positions nettes sont `100 000 EUR` pour A et `200 000 EUR` pour B, soit `300 000 EUR` ensemble, si les autres sources et couvertures nécessaires sont établies. La dette de A n’est pas divisée entre A et B parce que le bien est indivis.
 
@@ -151,7 +151,7 @@ Ouvrir **Déclarations de couverture et droits sur les loyers → Définir les c
 
 Ces droits décrivent la créance à sa naissance ou après une cession explicite. Vendre le bien ne transfère pas automatiquement ses anciens impayés au nouvel acquéreur. Les anciennes échéances sans créanciers suffisamment définis peuvent donc rendre le bilan incomplet même si le rapport locatif affiche un impayé analytique.
 
-Le champ **Même créance déjà représentée par un contrat (facultatif)** sert uniquement lorsque le contrat de financement désigné représente réellement cette même créance. Le lien écarte la deuxième représentation locative dans le bilan. Patrimoine 0.1.2 vérifie la devise, le locataire débiteur, les créanciers, leurs fractions et le principal correspondant au reliquat total des échéances liées. Après l’association, enregistrer les règlements et dépréciations sur le financement. Si un ancien lien est incohérent, le bilan reste consultable avec une alerte et un total incomplet. Rectifier l’association dans la créance locative.
+Le champ **Même créance déjà représentée par un contrat (facultatif)** s’utilise lorsque le contrat de financement désigné représente cette même créance. Le lien évite de compter deux fois la créance dans le bilan. Patrimoine vérifie la devise, le locataire débiteur, les créanciers, leurs fractions et le principal correspondant au reliquat total des échéances liées. Après l’association, enregistrez les règlements et dépréciations sur le financement. Si un ancien lien est incohérent, le bilan affiche une alerte et un total incomplet. Rectifiez alors l’association dans la créance locative.
 
 **Ajuster la valeur d’une créance locative** permet une dépréciation négative ou une reprise positive pour un créancier, une échéance et une date, avec justificatif ou méthode. Cet ajustement de valeur n’efface pas la dette juridique du locataire et ne crée aucun encaissement.
 
@@ -178,7 +178,7 @@ Les avertissements et **Références du calcul financier** indiquent les sources
 
 Le contrôle immobilier peut présenter la **Dette restante affectée** et la **Valeur nette avant frais et fiscalité de cession** lorsque la couverture et les affectations analytiques des financements sont suffisantes. Les conversions des financements restent consultables séparément de celles de l’acquisition et de l’estimation. Une affectation à un bien reste analytique ; le bilan personnel suit les parties économiques du contrat de prêt. Aucun frais de cession ni impôt n’est ajouté par hypothèse.
 
-Le rapport locatif distingue le revenu net d’exploitation couru et le cash-flow après financement. Ce dernier nécessite des sources de trésorerie rapprochées et une couverture suffisante ; une donnée absente reste non calculable. Le principal remboursé relève du financement, les intérêts et frais sont séparés, et un dépôt compensé réduit un impayé sans devenir un loyer reçu. Les bases du rapport immobilier et locatif figurent dans [le guide de phase 5](immobilier-et-loyers.md) ; les restrictions de ce guide sur la future trésorerie sont complétées par le présent module.
+Le rapport locatif distingue le revenu net d’exploitation couru et le cash-flow après financement. Ce dernier est calculé lorsque les sources de trésorerie sont rapprochées et que la couverture est suffisante. Le principal remboursé relève du financement, les intérêts et frais sont séparés, et un dépôt compensé réduit un impayé. [Indicateurs immobiliers et locatifs](immobilier-et-loyers.md)
 
 ## Historique, sauvegarde et contrats d’API
 
@@ -188,4 +188,4 @@ La migration `0005` amène le coffre au schéma `5` sur une copie contrôlée, s
 
 Pour les développements ou contrôles externes, les contrats applicatifs sont regroupés dans [TreasuryService](../../crates/application/src/treasury.rs), [DebtService](../../crates/application/src/debts.rs) et [FinancialService](../../crates/application/src/finance.rs). Les commandes liées `post_rent_payment`, `post_rental_expense`, `post_deposit` et `post_debt_movement` écrivent atomiquement leurs sources et liens. Les lectures `list_*_at` et les rapports utilisent K ; les rapports reçoivent également D. Le bilan reçoit explicitement le contexte familial ou individuel. Les montants restent des chaînes exactes et les fractions des couples d’entiers ; les consommateurs doivent conserver la distinction entre montant absent et zéro.
 
-Les contrôles exécutés et leurs résultats sont consignés dans [la validation de phase 6](../historique/validation-phase-6.md). Ce guide décrit le périmètre de la phase 6 ; il n’annonce pas les modules des phases suivantes comme réalisés.
+La validation historique décrit les essais de la trésorerie, des financements et du bilan. [Validation des modules financiers](../historique/validation-phase-6.md)

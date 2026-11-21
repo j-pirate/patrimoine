@@ -1,4 +1,4 @@
-# Tableaux de bord et rapports — utilisation de la phase 9
+# Tableaux de bord et rapports
 
 Guide du **12 novembre 2026, Europe/Paris**. Les [preuves de validation](../historique/validation-phase-9.md) distinguent les calculs exacts, les lectures historiques, l’interface et le parcours Linux. Les graphiques présentent les données enregistrées dans le coffre, sans jeu de démonstration ajouté à l’espace utilisateur.
 
@@ -6,7 +6,7 @@ Guide du **12 novembre 2026, Europe/Paris**. Les [preuves de validation](../hist
 
 Ouvrez **Tableau de bord** et choisissez la famille ou un membre dans **Périmètre de consultation**. Pour remonter dans le temps, ouvrez **Date et historique**. La **Date de référence** détermine le jour de consultation. Les **Connaissances disponibles** déterminent les modifications que le rapport peut utiliser. Vous pouvez ainsi revoir une situation telle qu’elle était connue avant une correction.
 
-Choisissez **Actualiser le tableau de bord** pour voir le brut, les dettes, le net et les catégories. Les options du tableau de bord permettent de préciser le début et le pas de l’historique. Le dernier point correspond à la date de référence. Tous les chiffres du rapport sont calculés à partir du même état du coffre.
+Le tableau de bord se calcule à l’ouverture et lorsque vous changez le périmètre ou la période. Pour appliquer les filtres de biens et de dettes, ouvrez **Filtres, période et export du rapport**, puis choisissez **Actualiser le tableau de bord**. Vous pouvez préciser le **Début de la période** et la **Fréquence de l’historique**. Le dernier point correspond à la date de référence. Tous les chiffres du rapport sont calculés à partir du même état du coffre.
 
 Le changement de contexte ou de filtre rend le résultat précédent indisponible jusqu’à un nouveau calcul. Si une requête plus ancienne se termine après la nouvelle, elle ne remplace pas le résultat du nouveau contexte. En cas d’erreur, vérifier le message puis relancer ; un échec ne certifie aucun montant.
 
@@ -26,7 +26,7 @@ Les indicateurs locatifs gardent le périmètre et le pays de leur rapport. Leur
 
 ## Filtrer et retrouver les positions
 
-Les champs **Pays**, **Devise d’origine**, **Type de position**, **Propriétaire associé (positions entières)** et **Rechercher une position** sélectionnent les positions déjà attribuées au périmètre familial ou individuel. Le pays suit les métadonnées datées disponibles ; la devise est celle de la source, même lorsque son montant est affiché en EUR.
+Sous **Filtrer les biens et les dettes**, les champs **Pays**, **Devise d’origine**, **Catégorie**, **Propriétaire associé** et **Rechercher dans le rapport** sélectionnent les positions déjà attribuées au périmètre familial ou individuel. Le pays suit les métadonnées datées disponibles. La devise filtre les sources dans leur monnaie d’origine, même lorsque les montants du rapport sont affichés en euros.
 
 Le filtre de propriétaire associé retient une position entière concernant ce propriétaire. Il ne transforme pas la sélection en calcul de sa quote-part juridique ou en nouveau bilan individuel. Pour consulter la part économique d’un membre, utiliser le sélecteur global de membre. Les propriétaires associés et les références de chaque position permettent d’interpréter les biens communs.
 
@@ -38,13 +38,13 @@ Les alertes de couverture du périmètre restent visibles après filtrage. Masqu
 
 ## Répartitions et comparaison des membres
 
-Les répartitions par **type de position**, **pays** et **devise** reprennent les positions résiduelles du même rapport. Les montants exacts figurent dans les tables associées aux graphiques ; la taille d’une barre est une représentation de ces montants. Les positions non calculables et leur nombre restent visibles, au lieu d’être remplacées par une barre nulle.
+La **Répartition par catégorie** s’affiche dans le rapport. Ouvrez **Évolution et autres répartitions** pour voir les répartitions par **pays** et **devise d’origine**. Toutes reprennent les positions résiduelles du même rapport. Les montants exacts figurent dans les tables des graphiques, qui indiquent également le nombre de positions non calculables.
 
 La vue **Différences connues par membre** compare les bilans individuels calculés avec les mêmes D et K. Un prêt entre deux membres peut figurer dans chacun de leurs bilans, puis être neutralisé dans le bilan familial. Additionner les actifs bruts et les dettes brutes des membres ne remplace donc pas le calcul familial. Une différence individuelle connue garde les limites de son propre bilan.
 
 ## Historique et variation de période
 
-Le **Pas de l’historique** permet une lecture mensuelle ou annuelle entre le début choisi et D. Il conserve le début exact, les fins civiles de mois ou les 31 décembre strictement intermédiaires, puis D exactement. Le rapport contient au maximum **61 points** ; une période dépassant cette capacité doit être raccourcie ou utiliser le pas annuel. Aucune partie de la période n’est tronquée silencieusement.
+La **Fréquence de l’historique** permet une lecture mensuelle ou annuelle entre le début choisi et D. Elle conserve le début exact, les fins civiles de mois ou les 31 décembre strictement intermédiaires, puis D exactement. Le rapport contient au maximum **61 points**. Pour une période plus longue, raccourcissez la période ou choisissez une fréquence annuelle.
 
 Tous les points utilisent les connaissances K sélectionnées. Une correction apprise après K ne modifie pas la courbe de cet ancien état. Modifier D ou le début de période ne change pas la borne K du rapport.
 
@@ -72,4 +72,4 @@ Après le calcul, choisir **Exporter le rapport filtré**, puis son emplacement 
 
 Ce fichier sert à consulter ou traiter le rapport sélectionné. Il ne contient pas une base restaurable ni tous les originaux documentaires, et l’application ne l’utilise pas pour activer un coffre. Pour récupérer les données, utiliser les sauvegardes SQLite ou les archives CSV intégrales avec leurs pièces dans **Sauvegarde et export**. Le XLSX de cette section reste lui aussi intégral, indépendamment des filtres de consultation.
 
-Les lectures du tableau de bord et l’export du rapport ne créent aucune révision financière ni nouvel événement de réimportation. Le schéma reste en version 6. La qualification des volumes, performances et paquets de livraison Linux relève de la phase 10 ; les [résultats de cette version](../historique/validation-phase-9.md) précisent les contrôles effectivement réalisés.
+Le tableau de bord et l’export du rapport consultent les données du coffre en lecture seule. Les vérifications historiques couvrent les calculs, les volumes et les performances observés. [Validation du tableau de bord](../historique/validation-phase-9.md) · [Qualification des volumes](../historique/validation-phase-10.md)

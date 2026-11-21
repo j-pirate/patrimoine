@@ -1,0 +1,69 @@
+{
+  "version": "0.2.0",
+  "source_commit": "3900bd0b0bafecdd23ec9b2e34704d1bbfb3f83a",
+  "source_git_tree": "be8e19fac65baf288397db291e73665b242ecdbc",
+  "source_sha256": "ab9cd0e1614474439e19259948ce05ced81b4738ae050c35dd01f529a9d999f3",
+  "artifact": {
+    "file": "Patrimoine_0.2.0_amd64.AppImage",
+    "size_bytes": 85293560,
+    "sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf"
+  },
+  "build_glibc": {
+    "implementation": "glibc",
+    "version": "2.35"
+  },
+  "environment": "Ubuntu 22.04.5 LTS, Xvfb, UID 1000, réseau Docker coupé, mode extraction",
+  "native_runs": {
+    "desktop": {
+      "passed_steps": 50,
+      "harness_sha256": "1cfc4ad9d29223a660bb1e17e33a4ee2b04e6880c8ae1c938757cf172d287d03",
+      "proof": "preuves/native-appimage.json"
+    },
+    "onboarding": {
+      "passed_steps": 6,
+      "harness_sha256": "7f57e5e7de1e9945fbed9c5a66c2443c09e58e9401b74ec4dc065f83cace6b20",
+      "proof": "preuves/assistant-appimage.json"
+    },
+    "discovery": {
+      "passed_steps": 4,
+      "harness_sha256": "8d6c2837289f45bb572169cd14aad3187ccd3ec072fc688c6729afa55ccc073f",
+      "proof": "preuves/tour-appimage.json"
+    },
+    "upgrade": {
+      "passed_steps": 6,
+      "harness_sha256": "4f7c0f139f70563c300db4ba9607a5f23dce4ec66988c6c0c5ea4dc124b071a7",
+      "proof": "preuves/mise-a-jour-appimage.json",
+      "source_tables": 62,
+      "source_rows": 758,
+      "originals_preserved": 2
+    }
+  },
+  "abi": {
+    "elf_files": 175,
+    "symlinks_skipped": 33,
+    "max_required": {
+      "strong": {
+        "GLIBC": "GLIBC_2.35",
+        "GLIBCXX": "GLIBCXX_3.4.30",
+        "CXXABI": "CXXABI_1.3.9"
+      },
+      "weak": {
+        "GLIBC": "GLIBC_2.30",
+        "GLIBCXX": null,
+        "CXXABI": null
+      }
+    },
+    "failure_count": 0,
+    "optional_absence_count": 0,
+    "proof": "preuves/ubuntu22-abi.json"
+  },
+  "notices": {
+    "files_verified": 734,
+    "components": 468,
+    "ubuntu_components": 113,
+    "proof": "preuves/extraction-check.json"
+  },
+  "source_tests": "preuves/checks-source.json",
+  "source_correspondence": "preuves/source-correspondance.json",
+  "recovery_kit": "preuves/kit-recuperation.json"
+}

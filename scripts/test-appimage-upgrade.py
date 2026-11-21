@@ -100,6 +100,33 @@ def compare_update_reports(previous, updated, allow_additional_sources):
     return updated_references
 
 
+def check_future_schema_refusal(installed, environment, driver_module):
+    dialog_title = 'Démarrage de Patrimoine impossible'
+    with subprocess.Popen([str(installed)], env=environment, stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE, text=True, start_new_session=True) as rejected:
+        try:
+            def dialog_or_exit():
+                if rejected.poll() is not None:
+                    return 'exited'
+                return driver_module.dialog_window(dialog_title)
+
+            window = driver_module.wait_until(dialog_or_exit, 'refus natif du schéma futur', timeout=30)
+            acknowledged = window != 'exited'
+            if acknowledged:
+                driver_module.xdotool('windowfocus', '--sync', window)
+                driver_module.xdotool('key', '--clearmodifiers', 'Return')
+            _, diagnostic = rejected.communicate(timeout=10)
+        finally:
+            if rejected.poll() is None:
+                try:
+                    os.killpg(rejected.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                rejected.wait(timeout=5)
+        assert rejected.returncode != 0 and 'Version de base non prise en charge : 7' in diagnostic, diagnostic
+        return rejected.returncode, acknowledged
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--previous', required=True, type=Path)
@@ -245,10 +272,11 @@ def main():
             with sqlite3.connect(future_db) as connection:
                 connection.execute('PRAGMA user_version=7')
             future_before = database_state(future_vault)
-            rejected = subprocess.run([str(installed)], env={**environment, 'XDG_DATA_HOME': str(future_xdg)}, capture_output=True, text=True, timeout=30)
-            assert rejected.returncode != 0 and 'Version de base non prise en charge : 7' in rejected.stderr, rejected.stderr
+            exit_code, acknowledged = check_future_schema_refusal(
+                installed, {**environment, 'XDG_DATA_HOME': str(future_xdg)}, driver_module)
             assert database_state(future_vault) == future_before
-            report['steps'].append({'name': 'previous-version-refuses-future-schema-without-data-loss', 'status': 'passed', 'exit_code': rejected.returncode})
+            report['steps'].append({'name': 'previous-version-refuses-future-schema-without-data-loss',
+                                    'status': 'passed', 'exit_code': exit_code, 'native_dialog_acknowledged': acknowledged})
             report['source_sequence'] = source_k
             report['updated_sequence'] = source_k + 1
             report['source_tables'] = 62

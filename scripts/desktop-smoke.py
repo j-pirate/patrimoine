@@ -213,7 +213,21 @@ def navigate(driver, label):
 def choose_knowledge(driver, sequence):
     if driver.execute("return document.querySelector('.view-history')?.open === false;"):
         driver.click("//details[contains(@class, 'view-history')]/summary")
-    driver.click(f"//select[@id='global-knowledge']/option[@value='{sequence}']")
+    value = str(sequence)
+    wait_until(lambda: driver.execute("""
+        const select = document.querySelector('#global-knowledge');
+        return !!select && !select.disabled && [...select.options].some(option => option.value === arguments[0]);
+    """, value), f"séquence {value} disponible dans le sélecteur")
+    # Long native GTK option menus can acknowledge a WebDriver click before
+    # updating the selected option. Use the DOM change event, then assert the
+    # UI applied the choice before examining reports from the real Tauri IPC.
+    driver.execute("""
+        const select = document.querySelector('#global-knowledge');
+        select.value = arguments[0];
+        select.dispatchEvent(new Event('change', {bubbles: true}));
+    """, value)
+    wait_until(lambda: driver.execute("return document.querySelector('#global-knowledge').value;") == value,
+               f"séquence {value} sélectionnée")
 
 
 def navigate_exchange(driver):
@@ -1605,7 +1619,12 @@ def dashboard_scenarios(driver, artifacts, steps, phase6, phase7):
     driver.fill("#global-search-query", phase6["accounts"][2]["id"])
     wait_text(driver, "1 résultat.")
     driver.click(button("Ouvrir le module Espèces et devises"))
-    wait_until(lambda: driver.execute("return [...document.querySelectorAll('h2')].some(h=>h.textContent==='Caisses physiques');"), "la recherche ouvre directement les caisses physiques", timeout=30)
+    wait_until(lambda: driver.execute("""
+        return document.querySelector('main h1')?.textContent === 'Espèces et devises'
+            && [...document.querySelectorAll('.module-tabs button[aria-pressed="true"]')]
+                .some(button => button.textContent.trim() === 'Caisses physiques')
+            && !!document.querySelector('#treasury-filter');
+    """), "la recherche ouvre directement les caisses physiques", timeout=30)
     require(driver.execute("return !!document.querySelector('#treasury-filter option[value=\"'+arguments[0]+'\"]');", phase6["accounts"][2]["id"]), "La caisse recherchée manque dans le module ouvert")
     require(driver.invoke("get_status")["mutation_sequence"] == before["mutation_sequence"]
             and driver.invoke("get_status")["generation_id"] == before["generation_id"], "La consultation ou l'export de rapport a modifié le coffre")

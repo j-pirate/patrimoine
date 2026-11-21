@@ -1,4 +1,4 @@
-# Documents et portabilité — utilisation de la phase 8
+# Documents, sauvegardes et exports
 
 Guide du **12 novembre 2026, Europe/Paris**. Les exemples sont synthétiques. Les [preuves de validation](../historique/validation-phase-8.md) distinguent les tests de format, de persistance, d’interface et les deux parcours de récupération.
 
@@ -15,7 +15,7 @@ Les opérations de **Sauvegarde et export** portent toujours sur l’intégralit
 
 ## Importer et retrouver un original
 
-Dans **Documents**, renseigner éventuellement **Description du document à importer**, puis choisir **Importer un document**. Le fichier est copié dans l’espace privé du coffre. Sa disponibilité ne dépend ensuite plus du chemin du fichier source.
+Ouvrez **Outils et réglages → Documents**. Vous pouvez ouvrir **Ajouter une description à l’import** pour renseigner le champ facultatif avant de choisir **Importer un document**. Patrimoine copie le fichier dans le coffre. Vous pourrez le retrouver même si le fichier source a été déplacé.
 
 La bibliothèque présente les documents connus à K. Utiliser la recherche dans le nom, la description ou le type ; les filtres de statut, de type d’objet et d’objet associé permettent de retrouver les pièces. Le sélecteur global de membre ne masque pas automatiquement une partie de cette bibliothèque. Les filtres d’association ne retiennent que les liens applicables à D.
 
@@ -43,7 +43,7 @@ Le **Début de l’association** est obligatoire et reprend initialement D. La f
 
 Une cible retirée ultérieurement peut encore apparaître sur une ancienne association avec l’indication **retiré**. La création d’un nouveau lien exige une cible disponible ; l’historique n’est pas réécrit pour faire disparaître les liens antérieurs.
 
-Dans **Historique**, les révisions documentaires et les associations donnent accès à leurs séquences de connaissance. Toute séquence K fixe, y compris `0`, rend les écritures documentaires indisponibles. L’ouverture et l’export d’une version connue restent possibles ; consulter le passé ne restaure pas le coffre.
+Dans **Outils et réglages → Historique**, les révisions documentaires et les associations donnent accès à leurs séquences de connaissance. Toute séquence K fixe, y compris `0`, rend les écritures documentaires indisponibles. Vous pouvez ouvrir et exporter les versions connues. Pour restaurer le coffre, utilisez **Sauvegarde et export**.
 
 ## Sauvegarder et restaurer SQLite
 
@@ -98,4 +98,4 @@ Il utilise les six migrations SQL textuelles du dépôt, dont les empreintes son
 
 Ce secours contrôle format, empreintes, types, références, intégrité SQLite et documents. Il ne réexécute pas les invariants financiers Rust : pour remettre la récupération en service dans Patrimoine, employer l’analyse et la validation applicatives. Il ne remplace pas la procédure de réimport dans l’interface.
 
-Les empreintes détectent les altérations par rapport au manifeste ; elles ne signent pas l’authenticité de l’archive. Les ZIP ne sont pas chiffrés par l’application. La suppression physique de l’historique n’est pas une commande de ce lot. Les tableaux de bord graphiques restent prévus en phase 9, et la qualification de livraison Linux en phase 10.
+Les empreintes détectent les différences par rapport au manifeste de l’archive. Patrimoine conserve l’historique et produit des ZIP non chiffrés. [Tableaux de bord](tableaux-de-bord.md) · [Installation et récupération Linux](installation-linux.md)

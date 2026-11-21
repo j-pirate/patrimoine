@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "application": "/application/Patrimoine_0.2.0_amd64.AppImage",
+  "steps": [
+    {
+      "name": "new_empty_vault_and_skip_persists_on_restart",
+      "status": "passed"
+    },
+    {
+      "name": "one_step_then_pause_manual_resume_and_member_visible_in_family",
+      "status": "passed"
+    },
+    {
+      "name": "invalid_later_entry_keeps_previously_saved_members",
+      "status": "passed"
+    },
+    {
+      "name": "process_close_and_resume_draft_without_duplicates_all_steps_completed",
+      "status": "passed"
+    },
+    {
+      "name": "existing_used_vault_has_no_forced_wizard_with_new_webview_profile",
+      "status": "passed"
+    },
+    {
+      "name": "used_previous_application_vault_is_preserved_without_wizard",
+      "status": "passed"
+    }
+  ],
+  "started_at": "2026-11-21T17:35:23.887510+00:00",
+  "completed_at": "2026-11-21T17:36:03.305629+00:00",
+  "appimage_sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf"
+}

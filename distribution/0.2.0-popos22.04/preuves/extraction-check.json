@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "target_os": "Ubuntu 22.04.5 LTS",
+  "appimage_sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf",
+  "files_verified": 734,
+  "components": 468,
+  "ubuntu_components": 113,
+  "notices_manifest_sha256": "9afa8642856e0492b75aa5b1b71e5fc00ff3c286a60e685d721d0e275bb3f4df",
+  "application_sha256": "3ca98bd5d8d4cb630505f364c7d4cf6eee3b55e8d0d144f82dabac955289bf3f"
+}

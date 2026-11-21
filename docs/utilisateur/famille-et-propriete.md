@@ -1,6 +1,6 @@
-# Famille, sociétés et propriété — utilisation de la phase 3
+# Famille, sociétés et propriété
 
-Ce guide décrit le registre initial. Les taux, estimations multidevises, profils datés et connaissances historiques sont décrits dans [le complément de phase 4](devises-et-historique.md).
+Ce guide explique la saisie des fiches et des droits. Les taux, estimations multidevises et profils datés ont leur propre guide. [Devises, dates et historique](devises-et-historique.md)
 
 L’application travaille sur une base commune. Une vue individuelle est une sélection patrimoniale ; elle ne limite pas les accès de l’administrateur local. Les nouveaux coffres sont vides : les exemples des tests ne sont jamais chargés dans vos données.
 
@@ -8,7 +8,7 @@ L’application travaille sur une base commune. Une vue individuelle est une sé
 
 1. Dans **Famille**, choisissez **Ajouter un membre de la famille** pour créer sa fiche et commencer à suivre ses biens. Le formulaire **Créer une personne** sert aussi aux contacts extérieurs à la famille, par exemple un copropriétaire ou un locataire.
 2. Dans **Périodes d’appartenance à la famille**, modifiez les dates d’inclusion lorsque nécessaire. La date de fin est exclue. Une fin au 1er juillet signifie que la personne est encore incluse le 30 juin, puis exclue le 1er juillet. Plusieurs périodes non chevauchantes sont possibles.
-3. Dans **Sociétés**, créer les sociétés concernées, puis leurs participations datées. Le propriétaire d’une société peut être une personne ou une autre société. Préciser séparément droits juridiques, économiques et droits de vote.
+3. Dans **Autres biens et dettes → Sociétés**, choisissez **Ajouter une société**, puis renseignez ses associés ou ajoutez des participations datées. Le propriétaire d’une société peut être une personne ou une autre société. Précisez séparément les droits juridiques, économiques et de vote.
 4. Définir pour chaque société sa **méthode datée**. Le mode détaillé retient ses sous-jacents ; le mode global retient une estimation nette des capitaux propres et s’arrête sur ce chemin. La couverture et la responsabilité des associés sont des déclarations explicites, jamais déduites d’une table vide.
 5. Dans **Autres biens et dettes → Patrimoine**, ajouter les droits des copropriétaires ou créer un bien sans rubrique dédiée. Pour un bien immobilier, un compte ou un lot de métal, commencez dans la rubrique correspondante.
 6. Choisir le périmètre familial ou individuel, puis **Contrôler les attributions**. **Date et historique** permet de changer la date de référence. Les sources des droits et estimations sont consultables pour chaque contribution.
@@ -31,14 +31,14 @@ Le formulaire accepte le point ou la virgule et conserve une valeur décimale ca
 
 Le contrôle présente un **sous-total des contributions valorisables** et ses limites. S’il n’existe aucune contribution calculable faute de données, il affiche « Non calculable ». Les valeurs globales de parts ne sont jamais ajoutées une seconde fois à leurs sous-jacents. Un chemin direct indépendant vers une filiale reste cependant conservé.
 
-Le contrôle n’affirme pas un patrimoine net exhaustif :
+Pour interpréter le contrôle des attributions, vérifiez les points suivants.
 
-- Les passifs et créances détaillés ne sont pas encore saisis dans l’application.
-- Le change n’est pas encore implémenté. Une valeur étrangère reçue par l’API reste dans sa devise et ne reçoit pas de parité supposée ; les formulaires de cette phase sont en EUR.
-- La date et les révisions des droits, appartenances, méthodes et estimations sont prises en compte. Les profils et libellés sont les versions connues à la borne de connaissance, sans intervalle civil distinct à ce stade.
-- La responsabilité des associés et les couvertures ambiguës doivent être qualifiées ; une exposition négative ne devient pas automatiquement une dette personnelle.
+- Le contrôle des attributions porte sur le registre des actifs. Consultez le bilan financier pour intégrer les dettes, les créances et les comptes. [Comptes, financements et bilan](comptes-et-financements.md)
+- Les estimations en devises gardent leur valeur d’origine. La conversion utilise les taux manuels disponibles à la date de référence. [Devises, dates et historique](devises-et-historique.md)
+- Les droits, appartenances, méthodes et estimations suivent leurs dates et les versions connues. Les profils peuvent aussi être associés à des périodes.
+- Renseignez la responsabilité des associés et la couverture des sources lorsque ces éléments sont connus.
 
-Le moteur contient aussi des tests de positions de prêts et d’éliminations proportionnelles. Il s’agit d’un contrat du domaine pur, sans gestionnaire de dettes persistant ni formulaire ; la saisie des financements appartient à la phase 6.
+Pour enregistrer un prêt, ouvrez **Autres biens et dettes → Dettes et financements** et créez un seul contrat pour le prêt et la dette correspondante. [Financements et éliminations internes](comptes-et-financements.md)
 
 ## Corrections et archivage
 
@@ -46,10 +46,10 @@ Chaque création/correction porte un motif. Une correction exige la révision qu
 
 Archiver une personne, une société ou un actif ne clôture ni ses droits ni sa période familiale. Utiliser la fin d’un intervalle pour représenter un changement économique. Une annulation de relation ou d’estimation est une correction de la connaissance ; elle conserve les versions précédentes. Une identité encore référencée ne peut pas être annulée en laissant des relations actives orphelines.
 
-La borne de connaissance est une séquence de modification monotone. Le backend sait recalculer une ancienne séquence ; le sélecteur d’interface utilise pour l’instant les connaissances actuelles. La consultation avancée des anciennes révisions et l’historique multidevise sont prévus en phase 4.
+Dans **Date et historique**, le sélecteur **Connaissances disponibles** permet de consulter les versions disponibles après une modification enregistrée. Une ancienne séquence s’ouvre en lecture seule. [Comprendre les dates et l’historique](devises-et-historique.md)
 
 ## Sauvegardes et anciennes données
 
 Le ZIP complet contient également tous les enregistrements du registre, ses révisions, l’audit et les pièces originales. Le filtre de contexte ne limite pas cette sauvegarde. Les identifiants et les résultats du contrôle sont vérifiés après restauration dans les tests.
 
-Un coffre du schéma 1 est validé, copié avec l’API SQLite puis migré en schéma 2 dans une nouvelle génération. L’ancienne reste conservée. Une archive du schéma 1 est d’abord vérifiée dans son format original, puis sa copie préparée est mise à niveau ; le résumé annonce cette migration avant confirmation. Une ancienne version de l’application ne doit pas ouvrir en écriture une base plus récente.
+Les coffres et archives SQLite des schémas 1 à 5 sont vérifiés dans leur format d’origine, puis mis à niveau vers le schéma 6 sur une copie. Le résumé de l’archive annonce la mise à niveau avant la confirmation. [Mise à jour et restauration](installation-linux.md)

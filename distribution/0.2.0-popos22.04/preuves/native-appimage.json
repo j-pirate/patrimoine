@@ -1,0 +1,252 @@
+{
+  "started_at": "2026-11-21T17:36:01.898761+00:00",
+  "application": "/application/Patrimoine_0.2.0_amd64.AppImage",
+  "status": "passed",
+  "steps": [
+    {
+      "name": "real_desktop_render_and_ipc",
+      "status": "passed",
+      "schema_version": 6,
+      "countries": 4,
+      "currencies": 5
+    },
+    {
+      "name": "settings_saved_through_ui_verified_by_ipc",
+      "status": "passed",
+      "settings": {
+        "display_currency": "CHF",
+        "workspace_name": "Coffre du test desktop"
+      }
+    },
+    {
+      "name": "person_created_through_registry_ui",
+      "status": "passed",
+      "id": "43fd1021-46fe-4eff-8ef7-9ff2d4ad8421"
+    },
+    {
+      "name": "joint_property_50_30_20_exact_attributions",
+      "status": "passed"
+    },
+    {
+      "name": "indirect_company_chain_without_double_counting",
+      "status": "passed"
+    },
+    {
+      "name": "real_consolidation_control_ui",
+      "status": "passed",
+      "gross_eur": "350000.00"
+    },
+    {
+      "name": "manual_exchange_rate_created_through_ui",
+      "status": "passed",
+      "rate_id": "2629e51c-c409-4586-bb29-9483bd8f4505",
+      "rate": "0.3"
+    },
+    {
+      "name": "conversion_preview_uses_real_rust_result",
+      "status": "passed"
+    },
+    {
+      "name": "exact_direct_inverse_and_missing_historical_rate",
+      "status": "passed"
+    },
+    {
+      "name": "rate_correction_preserves_prior_knowledge_and_amounts",
+      "status": "passed",
+      "knowledge_sequence": 27,
+      "before_eur": "350300.00",
+      "after_eur": "350310.00"
+    },
+    {
+      "name": "cross_rate_retains_each_source_and_oldest_date",
+      "status": "passed"
+    },
+    {
+      "name": "historical_ui_is_read_only_and_reconstructs_prior_exchange_rate",
+      "status": "passed"
+    },
+    {
+      "name": "exact_entity_and_asset_profile_revisions_and_history",
+      "status": "passed"
+    },
+    {
+      "name": "variation_ui_uses_rust_subtotals_and_marks_missing_references",
+      "status": "passed",
+      "delta_eur": "320310.00",
+      "from_date": "2026-01-01",
+      "to_date": "2026-11-21"
+    },
+    {
+      "name": "property_details_created_through_ui_without_duplicate_asset",
+      "status": "passed"
+    },
+    {
+      "name": "property_cost_estimate_and_units_are_distinct",
+      "status": "passed"
+    },
+    {
+      "name": "idempotent_dues_partial_payments_late_history_and_noi",
+      "status": "passed",
+      "rent_due_eur": "12000.00",
+      "noi_eur": "10000.00"
+    },
+    {
+      "name": "atomic_property_disposal_preserves_old_knowledge_without_sale_cash",
+      "status": "passed"
+    },
+    {
+      "name": "disposal_date_correction_through_ui_updates_rights_atomically",
+      "status": "passed"
+    },
+    {
+      "name": "rental_indicators_render_real_rust_report",
+      "status": "passed"
+    },
+    {
+      "name": "bank_account_and_explicit_opening_through_ui",
+      "status": "passed"
+    },
+    {
+      "name": "journal_transfer_fx_fees_overdraft_and_non_mutating_reconciliation",
+      "status": "passed",
+      "bank_a_eur": "-42.00",
+      "cash_tnd": "330.000",
+      "executed_rate": {
+        "den": "10",
+        "num": "33"
+      }
+    },
+    {
+      "name": "loan_principal_interest_fees_atomic_cash_and_uncalled_guarantee",
+      "status": "passed"
+    },
+    {
+      "name": "deposit_ui_receipt_noncash_settlement_return_and_old_knowledge",
+      "status": "passed",
+      "remaining_deposit_eur": "1200.00",
+      "bank_b_eur": "340.00",
+      "january_unpaid_eur": "700"
+    },
+    {
+      "name": "financial_coverage_ui_internal_elimination_and_partial_net",
+      "status": "passed",
+      "internal_elimination_eur": "10000.00",
+      "net_eur": null
+    },
+    {
+      "name": "metal_lot_opening_and_quote_ui_exact_troy_weight_and_old_price",
+      "status": "passed",
+      "fine_weight_g": "55.98625824",
+      "intrinsic_before_eur": "3359.18"
+    },
+    {
+      "name": "partial_metal_sale_single_cash_proportional_cost_storage_and_owner_transfer",
+      "status": "passed",
+      "net_receipt_eur": "1790.00",
+      "remaining_cost_eur": "1200.00",
+      "remaining_intrinsic_eur": "1707.58"
+    },
+    {
+      "name": "company_period_ui_indicators_excluded_and_two_sided_dividend_no_family_gain",
+      "status": "passed"
+    },
+    {
+      "name": "company_and_metal_rust_reports_ui_with_historical_read_only",
+      "status": "passed"
+    },
+    {
+      "name": "empty_documents_ui_and_ipc",
+      "status": "passed"
+    },
+    {
+      "name": "native_document_import",
+      "status": "passed",
+      "sha256": "86aa358c56c53e0a696c6d3b1a2f7510802298fd4ef7dfa52b4cde37904f606b"
+    },
+    {
+      "name": "native_document_export",
+      "status": "passed"
+    },
+    {
+      "name": "document_library_ui_versions_shared_links_logical_removal_and_historical_K",
+      "status": "passed"
+    },
+    {
+      "name": "native_complete_backup",
+      "status": "passed",
+      "path": "/artifacts/desktop-backup.zip"
+    },
+    {
+      "name": "native_inspect_and_cancel_without_mutation",
+      "status": "passed"
+    },
+    {
+      "name": "native_confirm_restore_with_safety_backup",
+      "status": "passed",
+      "elapsed_seconds": 6.31
+    },
+    {
+      "name": "registry_ids_rights_and_consolidation_after_restore",
+      "status": "passed"
+    },
+    {
+      "name": "exchange_rates_and_historical_results_survive_restore",
+      "status": "passed"
+    },
+    {
+      "name": "all_entity_and_asset_profile_versions_survive_restore",
+      "status": "passed"
+    },
+    {
+      "name": "properties_leases_allocations_and_rental_indicators_survive_restore",
+      "status": "passed"
+    },
+    {
+      "name": "financial_sources_cash_links_debts_deposits_and_old_knowledge_survive_restore",
+      "status": "passed"
+    },
+    {
+      "name": "metal_quantities_prices_costs_transfers_and_company_distributions_survive_restore",
+      "status": "passed"
+    },
+    {
+      "name": "whole_vault_csv_and_xlsx_exports_through_native_dialogs",
+      "status": "passed",
+      "source_sequence": 120
+    },
+    {
+      "name": "csv_inspect_cancel_confirm_new_generation_and_all_source_K_reports",
+      "status": "passed"
+    },
+    {
+      "name": "csv_reconstructed_vault_complete_backup_for_independent_comparison",
+      "status": "passed"
+    },
+    {
+      "name": "dashboard_family_exact_residual_allocations_partial_net_and_historical_chart",
+      "status": "passed",
+      "source_sequence": 120,
+      "points": 12
+    },
+    {
+      "name": "dashboard_gold_filter_and_native_filtered_report_export",
+      "status": "passed"
+    },
+    {
+      "name": "dashboard_member_and_company_views_reuse_recorded_reports_without_fake_company_net",
+      "status": "passed"
+    },
+    {
+      "name": "global_search_at_source_knowledge_opens_real_business_module_read_only",
+      "status": "passed"
+    },
+    {
+      "name": "desktop_screenshot",
+      "status": "passed",
+      "path": "/artifacts/desktop.png"
+    }
+  ],
+  "native_dialogs_requested": true,
+  "completed_at": "2026-11-21T17:38:42.893917+00:00",
+  "appimage_sha256": "1cdfc77eb2169efe664ab681fdaf69677e1f0525ea893735a4d309e90b462eaf"
+}

@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "source_commit": "3900bd0b0bafecdd23ec9b2e34704d1bbfb3f83a",
+  "source_git_tree": "be8e19fac65baf288397db291e73665b242ecdbc",
+  "source_sha256": "ab9cd0e1614474439e19259948ce05ced81b4738ae050c35dd01f529a9d999f3",
+  "source_file_count": 262,
+  "check": "empreinte du conteneur comparée à celle des fichiers du commit isolé, arbre Git résolu sur l’hôte"
+}

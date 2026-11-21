@@ -1,6 +1,6 @@
-# Métaux et sociétés — utilisation de la phase 7
+# Métaux et sociétés
 
-La phase 8 complète ce guide avec les [versions documentaires, associations multiples et exports réimportables](documents-et-portabilite.md). Les limites de portabilité indiquées comme futures ci-dessous correspondent à l’état de la phase 7.
+Vous pouvez relier un lot ou une société à ses justificatifs après la saisie. [Documents, sauvegardes et exports](documents-et-portabilite.md)
 
 Guide du **11 novembre 2026, Europe/Paris**. Les exemples illustrent les règles ; ils ne sont pas injectés dans le coffre. Les [preuves de validation](../historique/validation-phase-7.md) distinguent calcul pur, persistance, interface et parcours Linux réel.
 
@@ -18,7 +18,7 @@ Le **Titulaire juridique initial du lot** est une information descriptive d’or
 
 Après création, actif, métal, poids, unité, pureté, début du suivi et devise des coûts sont fixes. Une correction descriptive ne doit pas réinterpréter les anciens mouvements dans une autre unité. L’archivage conserve le lot et son historique ; il ne crée aucune vente.
 
-Créer la fiche ne confirme aucun stock. Choisir **Confirmer le stock d’ouverture**, saisir une quantité et éventuellement son coût historique total, puis enregistrer à la date exacte de début du suivi. Une quantité explicitement nulle se saisit `0`. Un coût vide reste inconnu ; il ne devient ni zéro ni une estimation déduite du cours actuel. L’ouverture historique n’est pas un nouvel achat et ne crée aucun débit bancaire.
+Si vous avez rattaché un lot dans les options avancées, choisissez **Confirmer le stock d’ouverture** pour enregistrer la quantité de départ et, s’il est connu, son coût historique total. Utilisez la date exacte de début du suivi. Saisissez `0` pour une quantité initiale nulle. Un coût vide reste inconnu. La saisie guidée **Ajouter un lot de métal** enregistre directement la quantité de départ. Le stock d’ouverture décrit une quantité déjà détenue.
 
 ## Achats, ventes partielles et inventaire
 
@@ -45,7 +45,7 @@ Un **Transfert du lieu de stockage** déplace le lot entier. Saisir une variatio
 
 Un lot suivi dans cette version a un seul lieu à chaque date. Il n’existe pas de commande de scission automatique avec filiation de lots et coût transféré. Des stocks répartis physiquement doivent être suivis comme lots identifiés distincts avec leurs sources ; ne pas déplacer artificiellement la totalité du lot si seule une partie a changé de lieu.
 
-Dans **Lots**, sélectionner le lot puis **Transférer les droits du lot**. Choisir la date et décrire la **nouvelle répartition complète** des propriétaires avec fractions juridiques et économiques. Pour transférer la moitié d’un membre à un autre, conserver le premier propriétaire à `1/2` et ajouter le second à `1/2`, en renseignant les droits concernés.
+Dans **Lots → Options avancées**, sélectionnez le lot, puis choisissez **Transférer les droits du lot**. Renseignez la date et la **nouvelle répartition complète** des propriétaires avec les fractions juridiques et économiques. Pour transférer la moitié d’un membre à un autre, conservez le premier propriétaire à `1/2` et ajoutez le second à `1/2`, en renseignant les droits concernés.
 
 **Enregistrer le transfert des droits** clôture les droits actifs à la date du transfert et ouvre les nouveaux dans le même changement. Les fractions juridiques et économiques doivent être clarifiées avant ce transfert ; leurs sommes sont conservées. Les périodes futures et références courantes sont contrôlées. La quantité physique et la valeur du lot entier restent identiques. Un transfert entre membres réorganise leurs parts ; il ne crée pas de gain familial ni de cash. Les anciens droits restent consultables à leur K.
 
@@ -106,6 +106,6 @@ Le pont de variation d’**Historique** reste consacré aux estimations du regis
 
 Les commandes **Modifier** et **Annuler l’enregistrement** exigent un motif et conservent les anciennes révisions. Le stock, les déclarations réglées, capacités de lignes bancaires, signes, dates, devises, propriétaires et références exactes restent contrôlés. Une correction incompatible est refusée avant validation du changement.
 
-La sauvegarde complète inclut les lots, mouvements, cours, primes, droits, périodes de société, distributions et liens, avec leur historique. Les anciens coffres et archives des schémas 1 à 5 sont mis à niveau sur copie vers le schéma 6 ; leur source reste conservée. Les liens documentaires métier complets, CSV/XLSX et réimportation exhaustive restent la phase 8. Les tableaux de bord graphiques globaux restent la phase 9 ; les tableaux de contrôle actuels n’affichent que les sources réellement saisies.
+La sauvegarde complète inclut les lots, mouvements, cours, primes, droits, périodes de société, distributions et liens, avec leur historique. Les anciens coffres et archives des schémas 1 à 5 sont mis à niveau sur copie vers le schéma 6. Les originaux et leurs liens sont disponibles dans la sauvegarde et l’archive CSV intégrale. [Récupération des données](installation-linux.md) · [Vue de société dans le tableau de bord](tableaux-de-bord.md#vue-de-société)
 
 Ces fonctions n’assurent ni suivi fiscal des plus-values, ni comptabilité générale, TVA, facturation ou paie. Aucun cours automatique ou service externe n’est requis. Une couverture complète dépend toujours de l’inventaire réellement vérifié par l’utilisateur ; des données absentes ne deviennent pas des zéros.

@@ -1,4 +1,4 @@
-# Immobilier et loyers — utilisation de la phase 5
+# Immobilier et loyers
 
 Les [premiers pas](premiers-pas.md) présentent la saisie guidée. Ce guide détaille aussi le [rapprochement bancaire, les financements, dépôts et créanciers explicites](comptes-et-financements.md).
 
@@ -6,7 +6,7 @@ La fiche d’Immobilier et l’élément de **Patrimoine** décrivent le même b
 
 ## Décrire le bien et ses unités
 
-Dans **Immobilier et loyers**, choisissez **Ajouter un bien immobilier**. Le nom, le type, le pays et la situation suffisent pour commencer. Vous pouvez ajouter la ville, une estimation et un propriétaire unique. Pour compléter l’adresse, la surface et les périodes, retrouvez la fiche dans **Biens et unités**. Une surface inconnue reste vide. Si le bien a déjà une fiche générique dans **Patrimoine**, utilisez le rattachement proposé dans **Options avancées** pour conserver cette fiche.
+Dans **Immobilier et loyers**, choisissez **Ajouter un bien immobilier**. Le nom, le type, le pays et la situation suffisent pour commencer. Vous pouvez ajouter la ville, une estimation et un propriétaire unique. Pour compléter l’adresse, la surface et les périodes, retrouvez la fiche dans **Biens et unités**, puis choisissez **Modifier**. Une surface inconnue reste vide. Si le bien figure déjà dans **Patrimoine**, ouvrez **Gérer les fiches et les droits d’un bien déjà enregistré**, puis **Ajouter une fiche immobilière** pour le rattacher à sa fiche existante.
 
 **Ajouter une unité** décrit un logement, local ou lot technique dans le bien : référence unique dans ce bien, nom, surface éventuelle, période de suivi et disponibilité déclarée. Un bien simple peut avoir une unité couvrant l’ensemble du bien. Pour des lots juridiquement valorisés et cessibles séparément, créer des actifs immobiliers distincts ; ne pas valoriser simultanément un immeuble entier et ses lots pour les mêmes surfaces.
 
@@ -14,7 +14,7 @@ Les unités de cette version ont une période de suivi et une disponibilité dé
 
 ## Séparer acquisition, estimation et cession
 
-**Enregistrer une acquisition** permet d’indiquer date, prix, frais et devise. Le coût total est prix + frais, sans y ajouter implicitement des travaux ou intérêts. Des frais explicitement nuls se saisissent `0` ; une case vide signifie que les frais sont inconnus et laisse le coût complet non calculable. **Début du suivi sans acquisition supposée** conserve une date d’entrée dans le suivi sans inventer de coût d’achat.
+Dans **Biens et unités → Acquisitions et cessions**, choisissez **Enregistrer une acquisition** pour indiquer la date, le prix, les frais et la devise. Le coût total additionne le prix et les frais d’acquisition. Saisissez `0` si les frais sont nuls et laissez le champ vide si leur montant est inconnu. **Début du suivi sans acquisition supposée** conserve la date d’entrée dans le suivi sans renseigner de coût d’achat.
 
 Le contrôle de valeur distingue :
 
@@ -23,7 +23,7 @@ Le contrôle de valeur distingue :
 - Le gain latent en devise d’origine lorsque les deux sources utilisent la même devise.
 - La différence entre estimation EUR et coût historique EUR. Cette différence inclut l’effet du change ; elle ne se calcule pas en convertissant simplement le gain natif au cours courant.
 
-Exemple : coût `100 000 TND` à `0,30 EUR`, estimation `120 000 TND` à `0,40 EUR` : gain natif `20 000 TND`, différence EUR `48 000 − 30 000 = 18 000 EUR`. Sans estimation ou cours applicable, le résultat reste inconnu. Le coût ne sert pas automatiquement de valeur actuelle. Dette restante et valeur nette restent inconnues tant que les financements ne sont pas intégrés en phase 6.
+Pour un coût de `100 000 TND` à `0,30 EUR` et une estimation de `120 000 TND` à `0,40 EUR`, le gain dans la devise d’origine est de `20 000 TND`. La différence en euros est de `48 000 − 30 000 = 18 000 EUR`. Le calcul utilise la dernière estimation applicable lorsqu’elle est disponible. La dette restante et la valeur nette utilisent les financements rattachés au bien et restent inconnues si leurs sources sont insuffisantes. [Lier un financement à un bien](comptes-et-financements.md#biens-financés-garanties-et-valeurs-globales-de-sociétés)
 
 **Enregistrer une cession** concerne une cession complète des droits suivis sur ce bien. La confirmation enregistre le fait de vente et clôture tous les droits concernés dans la même transaction, à la même date. Un droit commençant ce jour est annulé dans les connaissances actuelles, avec son histoire conservée. Les droits futurs incompatibles doivent être régularisés avant la vente. Un simple changement de libellé ou un archivage ne vend pas le bien.
 
@@ -33,7 +33,7 @@ Une correction de cession conserve ses anciennes versions. Corriger sa date doit
 
 ## Enregistrer baux, conditions et échéances
 
-Dans **Baux et échéances**, créer un bail pour une unité et un locataire identifié dans le registre. Les locataires peuvent être personnes ou sociétés. Les baux successifs sont conservés ; deux baux d’une même unité ne peuvent pas se chevaucher. Un changement d’unité réel demande un nouveau contrat.
+Dans **Baux et échéances**, choisissez **Ajouter un bail**, puis l’unité et le locataire. Pour préparer le logement, ouvrez **Biens et unités → Ajouter une unité**. Une personne extérieure à la famille peut être enregistrée depuis **Famille → Créer une personne**. Le locataire peut aussi être une société. Deux baux d’une même unité doivent couvrir des périodes distinctes. Un changement d’unité demande un nouveau contrat.
 
 Ajouter les **conditions de bail** : loyer hors charges, charges contractuelles, devise, fréquence, jour d’échéance, dépôt requis et période d’application. Le dépôt requis décrit le contrat ; il ne prouve pas qu’un dépôt a été reçu. Un bail conserve sa devise. Une révision de loyer se représente par des conditions successives avec des périodes sans chevauchement.
 
@@ -43,7 +43,7 @@ Une deuxième génération retrouve les mêmes clés et identités ; elle ne cr�
 
 ## Recevoir, affecter et rembourser un paiement
 
-Dans **Paiements et dépenses**, **Enregistrer un paiement** indique le bail, le montant réellement reçu, la devise, la date, le bénéficiaire déclaré et la référence. Le motif de non-rapprochement est requis tant que le compte bancaire n’est pas intégré. Cette source locative ne fabrique pas un second encaissement bancaire et ne s’ajoute pas au stock patrimonial comme une nouvelle banque.
+Dans **Paiements et dépenses**, choisissez **Enregistrer un paiement** et indiquez le bail, le montant réellement reçu, la devise, la date, le bénéficiaire déclaré et la référence. Ce formulaire demande le motif pour lequel le paiement reste à rapprocher. Pour enregistrer ensemble le paiement et son écriture bancaire, utilisez **Comptes bancaires → Loyers et dépôts → Enregistrer un loyer en trésorerie**. [Saisie et rapprochement en trésorerie](comptes-et-financements.md)
 
 **Affecter un paiement** relie tout ou partie de cette réception à une échéance, sur la composante **loyer** ou **charges**. Un paiement peut couvrir plusieurs échéances ; une échéance peut recevoir plusieurs paiements. Le moteur refuse les dépassements du paiement disponible, du dû par composante et les devises incompatibles. Une avance non affectée reste visible ; elle ne solde pas automatiquement un loyer futur.
 
@@ -51,11 +51,11 @@ Exemple : échéance de `1 000 EUR`, réception de `400` puis de `300` : `700` a
 
 Un **remboursement** est négatif et référence la réception d’origine. Il ne peut pas dépasser ce qui a été reçu. Pour une somme déjà affectée, préciser les lignes d’affectation reprises : paiement négatif et reprises négatives sont enregistrés atomiquement. Un remboursement sans reprise ne peut porter que sur la part disponible non affectée. Cette règle évite de présenter une créance comme réglée alors que son paiement a été rendu au locataire.
 
-Les dépôts de garantie ne se saisissent pas comme loyers. Leur réception, restitution et obligation patrimoniale seront intégrées avec les comptes et dettes en phase 6 ; le contrat de calcul pur garantit déjà qu’un dépôt reçu n’est pas un revenu.
+Pour suivre la réception, la restitution ou l’utilisation d’un dépôt de garantie, ouvrez **Comptes bancaires → Loyers et dépôts → Enregistrer un mouvement de dépôt**. Le dépôt est suivi séparément des loyers encaissés. [Dépôts de garantie](comptes-et-financements.md)
 
 ## Lire les indicateurs
 
-Les filtres de bien, pays et société propriétaire complètent le contexte familial ou individuel. Un pays historique ne se déduit pas du profil courant : il doit être daté dans le registre. Les revenus courus suivent les droits économiques pendant leur période, scindée aux changements de droits ou d’appartenance. Les sommes reçues suivent le bénéficiaire déclaré à la date de réception. L’analyse économique d’un revenu conservé par une société ne constitue pas une distribution à ses associés.
+Dans **Indicateurs locatifs**, les filtres de bien, pays et société propriétaire complètent le contexte familial ou individuel. Renseignez les profils datés dans le registre pour filtrer sur un ancien pays. Les revenus courus suivent les droits économiques pendant leur période, scindée aux changements de droits ou d’appartenance. Les sommes reçues suivent le bénéficiaire déclaré à la date de réception. L’analyse économique d’un revenu conservé par une société ne constitue pas une distribution à ses associés.
 
 | Indicateur | Base |
 |---|---|
@@ -73,9 +73,9 @@ L’annualisation sur 365 jours est une convention explicite : elle peut différ
 
 Pour l’occupation contractuelle, une unité est comptée une fois pour les jours où le périmètre possède une part économique connue strictement positive ; sa quote-part ne transforme pas une unité physique en fraction de jour. Les unités d’un tiers sont exclues. Des droits indéterminés qui empêchent de définir le périmètre laissent le pourcentage non calculable.
 
-Les dépenses distinguent exploitation, travaux en capital, intérêts, principal et frais de financement. La date économique est distincte de la date de décaissement renseignée. Le cash-flow après financement reste absent tant que la couverture de trésorerie et les contrats de financement ne sont pas intégrés. Une valeur absente ne signifie jamais financement nul.
+Les dépenses distinguent exploitation, travaux en capital, intérêts, principal et frais de financement. La date économique et la date de décaissement sont saisies séparément. Le cash-flow après financement est calculé lorsque les sources de trésorerie et de financement couvrent la période.
 
-Les impayés du rapport sont répartis proportionnellement aux droits historiques des jours courus. Les affectations ne désignent pas encore un créancier juridique distinct du bénéficiaire de la réception : une répartition préférentielle ou une cession individuelle de créance demande le futur suivi explicite des droits sur créances. Le contrôle du registre n’ajoute pas ces impayés ; leur intégration avec banques, avances, dépôts et couvertures est livrée dans le [bilan financier](comptes-et-financements.md). Un rapport locatif ne certifie donc pas un bilan net exhaustif.
+Le rapport locatif répartit les impayés selon les droits historiques des jours courus. Pour désigner un créancier juridique ou déclarer le traitement patrimonial d’une créance locative, utilisez le suivi des créances explicites. Le bilan financier tient compte de ces créances, des banques, des avances, des dépôts et des couvertures renseignées. [Créances locatives et bilan financier](comptes-et-financements.md)
 
 ## Historique et récupération
 
