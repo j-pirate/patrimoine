@@ -151,7 +151,7 @@ Ouvrir **Déclarations de couverture et droits sur les loyers → Définir les c
 
 Ces droits décrivent la créance à sa naissance ou après une cession explicite. Vendre le bien ne transfère pas automatiquement ses anciens impayés au nouvel acquéreur. Les anciennes échéances sans créanciers suffisamment définis peuvent donc rendre le bilan incomplet même si le rapport locatif affiche un impayé analytique.
 
-Le champ **Même créance déjà représentée par un contrat (facultatif)** sert uniquement lorsque le contrat de financement désigné représente réellement cette même créance. Le lien écarte sa deuxième représentation locative dans le bilan ; il ne cède pas le droit à un autre créancier.
+Le champ **Même créance déjà représentée par un contrat (facultatif)** sert uniquement lorsque le contrat de financement désigné représente réellement cette même créance. Le lien écarte la deuxième représentation locative dans le bilan. Patrimoine 0.1.2 vérifie la devise, le locataire débiteur, les créanciers, leurs fractions et le principal correspondant au reliquat total des échéances liées. Après l’association, enregistrer les règlements et dépréciations sur le financement. Si un ancien lien est incohérent, le bilan reste consultable avec une alerte et un total incomplet. Rectifier l’association dans la créance locative.
 
 **Ajuster la valeur d’une créance locative** permet une dépréciation négative ou une reprise positive pour un créancier, une échéance et une date, avec justificatif ou méthode. Cet ajustement de valeur n’efface pas la dette juridique du locataire et ne crée aucun encaissement.
 

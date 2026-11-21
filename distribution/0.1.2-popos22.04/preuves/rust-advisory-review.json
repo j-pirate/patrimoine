@@ -1,0 +1,35 @@
+{
+  "database_repository": "https://github.com/RustSec/advisory-db",
+  "database_commit": "f291af9b1cc0d21dfcea1709d6b037963cef262b",
+  "database_commit_time": "2026-11-20T13:47:55+01:00",
+  "database_advisory_count": 1555,
+  "locked_dependencies": 432,
+  "cargo_lock_sha256": "9aedaf97094bff060e15be1827a93c74a1ad4e0481de0c90a5580f5fe0877f2a",
+  "vulnerabilities": 0,
+  "warnings": [
+    [
+      "RUSTSEC-2026-0543",
+      "chrono",
+      "0.4.45",
+      "unmaintained"
+    ],
+    [
+      "RUSTSEC-2024-0370",
+      "proc-macro-error",
+      "1.0.4",
+      "unmaintained"
+    ],
+    [
+      "RUSTSEC-2024-0429",
+      "glib",
+      "0.18.5",
+      "unsound"
+    ]
+  ],
+  "reviewed_at": "2026-11-20",
+  "review_again_before": "2026-12-12",
+  "coverage": "RustSec lockfile comparison; yanked-registry checks excluded to avoid inventory-dependent network requests",
+  "review_scope": "Review on 2026-11-20 against RustSec f291af9b1cc0d21dfcea1709d6b037963cef262b. GLib and proc-macro-error remain tracked. Chrono is present in Cargo.lock through serde_with optional dependency metadata, but cargo tree --workspace --locked --offline --all-features --target all -i chrono resolves no compiled dependency. Prior GLib reachability evidence is not a proof of every indirect path in the new binary.",
+  "unexpected_warnings": [],
+  "review_expired": false
+}

@@ -21,7 +21,7 @@ La bibliothèque présente les documents connus à K. Utiliser la recherche dans
 
 Chaque fiche expose le nom original, le type, la taille, la description, le statut, la date d’ajout, les identifiants et le SHA-256. Deux documents logiques peuvent partager les mêmes octets ; le contenu physique est dédupliqué sans fusionner leurs descriptions ni leurs associations.
 
-**Exporter une copie** produit les octets de la version affichée. **Ouvrir le document** prépare une copie privée vérifiée et demande son ouverture au lecteur associé du système Linux. La disponibilité du lecteur dépend du poste. Les autres types de fichiers restent conservables et exportables ; l’application ne transforme pas un original en un autre format.
+**Exporter une copie** produit les octets de la version affichée. **Ouvrir le document** prépare une copie privée vérifiée et demande son ouverture au lecteur associé du système Linux. Si le lecteur associé échoue, l’application affiche un message et l’export manuel reste disponible. Les copies privées de consultation sont nettoyées après sept jours, à l’ouverture du coffre ou lors d’une nouvelle consultation. Les autres types de fichiers restent conservables et exportables ; l’application ne transforme pas un original en un autre format.
 
 ## Description, remplacement et classement
 
@@ -51,7 +51,7 @@ Dans **Sauvegarde et export**, choisir **Créer une sauvegarde complète**. Le Z
 
 Pour restaurer, choisir **Choisir une sauvegarde à analyser**. Vérifier le résumé, puis confirmer le remplacement ou **Annuler**. L’analyse seule ne modifie pas le coffre actif. Les archives anciennes des schémas 1 à 5 sont mises à niveau dans une copie vers le schéma courant 6 ; leur source reste intacte.
 
-La sauvegarde préalable de l’état courant est cochée par défaut. Au moment de **Confirmer le remplacement du coffre**, choisir son emplacement. Si ce choix est annulé, l’activation ne se poursuit pas. La restauration active une nouvelle génération et conserve la précédente pour récupération.
+La sauvegarde préalable de l’état courant est cochée par défaut. Au moment de **Confirmer le remplacement du coffre**, choisir son emplacement. Si ce choix est annulé, l’activation ne se poursuit pas. La restauration active une nouvelle génération et conserve la précédente pour récupération. Si la nouvelle génération est active mais que la finalisation du journal échoue, l’application affiche les données actives et indique la reprise à terminer. Fermer puis rouvrir Patrimoine permet de retenter cette finalisation.
 
 ## Exporter et réimporter le CSV intégral
 

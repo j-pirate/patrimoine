@@ -11,14 +11,14 @@ Voir le fichier LICENSE pour les conditions complètes.
 
 Application **Linux locale de gestion patrimoniale familiale**, en français. Elle permet de suivre plusieurs membres d'une famille, leurs actifs, leurs biens immobiliers, leurs comptes et leurs participations dans des sociétés.
 
-**Version disponible : 0.1.1.** Le dépôt contient le code source, les guides et les installateurs Linux.
+**Version proposée pour Pop!_OS 22.04 et Ubuntu 22.04 : 0.1.2.** Le dépôt contient le code source, les guides et les AppImages Linux.
 
 ## Télécharger et installer
 
 | Système | Paquet et instructions |
 | --- | --- |
-| **Pop!_OS 22.04 / Ubuntu 22.04 (x86_64)** | [AppImage complète](distribution/0.1.1-popos22.04/README.md) |
-| **Debian 13 (x86_64)** | [AppImage distribuée en six archives](distribution/0.1.1/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04 (x86_64)** | [AppImage 0.1.2 complète](distribution/0.1.2-popos22.04/README.md) |
+| **Debian 13 (x86_64)** | [Archive 0.1.1 pour Debian 13](distribution/0.1.1/README.md) |
 
 [Voir tous les téléchargements](distribution/README.md). Les deux constructions ont des exigences de bibliothèques différentes ; leur compatibilité n'est pas universelle sur Linux.
 
@@ -46,6 +46,6 @@ Patrimoine fonctionne localement sans compte externe et sans mise à jour automa
 
 ## État de la version
 
-La version 0.1.1 a été testée sur des jeux de données synthétiques. La variante Pop!_OS 22.04 a été contrôlée dans un environnement Ubuntu 22.04 avec Xvfb, pas sur toutes les configurations graphiques réelles. Les performances sur de très gros coffres sont limitées et des avertissements de dépendances restent documentés.
+La validation de la version 0.1.2 utilise des coffres synthétiques. Les essais graphiques de la version Pop!_OS s’exécutent sur Ubuntu 22.04 avec Xvfb. Le rapport donne la portée des contrôles et les avertissements de dépendances suivis.
 
-Lire les [preuves de validation de la phase 10](docs/historique/validation-phase-10.md) et la [revue de sécurité](docs/technique/revue-securite.md) pour le périmètre exact des tests et leurs limites.
+[Validation 0.1.2](docs/projet/validation-corrections-0.1.2.md) · [Suivi des corrections](docs/projet/suivi-corrections.md) · [Revue de sécurité](docs/technique/revue-securite.md)

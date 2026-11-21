@@ -1,0 +1,19 @@
+{
+  "status": "no_reviewed_advisory_match",
+  "generated_at": "2026-11-20T22:07:59.133Z",
+  "method": "Offline comparison of locked npm names/versions with public github-reviewed OSV SEMVER and npm ECOSYSTEM version events using npm SemVer, plus explicit versions; no project metadata upload",
+  "semver_version": "7.8.5",
+  "lockfile_sha256": "9d202fe3950d38209f6bd1d37cff235c8cdfb0d82246a773f6a9f8aa79bb71fe",
+  "database_repository": "https://github.com/github/advisory-database.git",
+  "database_commit": "e513a44dab27602cb7373052185a2b755b025a03",
+  "database_commit_time": "2026-11-20T21:36:09Z",
+  "database_scope": "advisories/github-reviewed only; unreviewed advisories, malicious-package lists and non-npm ecosystems are outside this JavaScript comparison",
+  "scanned_advisory_files": 38006,
+  "npm_affected_statements": 10786,
+  "withdrawn_advisories_skipped": 1290,
+  "locked_unique_packages": 203,
+  "locked_production_packages": 46,
+  "matches": [],
+  "unresolved_ranges": [],
+  "limits": "An absent match does not establish absence of unknown vulnerabilities. Rust and native runtime libraries require separate reviews."
+}

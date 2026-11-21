@@ -53,6 +53,52 @@ def database_state(vault):
     return {'generation': generation, 'schema': version, 'tables': hashes, 'counts': counts, 'originals': originals}
 
 
+def report_differences(before, after, path=()):
+    if type(before) is not type(after):
+        return [path]
+    if isinstance(before, dict):
+        missing = [(*path, key) for key in sorted(before.keys() ^ after.keys())]
+        return missing + [change for key in sorted(before.keys() & after.keys())
+                          for change in report_differences(before[key], after[key], (*path, key))]
+    if isinstance(before, list):
+        if len(before) != len(after):
+            return [path]
+        return [change for index, (old, new) in enumerate(zip(before, after))
+                for change in report_differences(old, new, (*path, index))]
+    return [] if before == after else [path]
+
+
+def compare_update_reports(previous, updated, allow_additional_sources):
+    changes = report_differences(previous, updated)
+    if not allow_additional_sources:
+        assert not changes, changes
+        return 0
+
+    # The 0.1.2 provenance change adds identities and revisions from the very
+    # same K. Preserve every other report field and every previous source.
+    registry = previous['list_registry_at']
+    known_sources = {
+        record[key]
+        for collection in ('memberships', 'company_policies', 'profile_periods')
+        for record in registry[collection]
+        for key in ('id', 'revision_id')
+    }
+    known_sources.update(period['profile_revision_id'] for period in registry['profile_periods'])
+    updated_references = 0
+    for change in changes:
+        assert change == ('financial', 'source_ids') or (
+            len(change) == 4 and change[:2] == ('financial', 'positions')
+            and isinstance(change[2], int) and change[3] == 'source_ids'
+        ), changes
+        before, after = previous, updated
+        for segment in change:
+            before, after = before[segment], after[segment]
+        added = set(after) - set(before)
+        assert set(before) <= set(after) and added <= known_sources, change
+        updated_references += len(added)
+    return updated_references
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--previous', required=True, type=Path)
@@ -61,6 +107,10 @@ def main():
     parser.add_argument('--artifacts', required=True, type=Path)
     parser.add_argument('--previous-version', default='0.1.0')
     parser.add_argument('--current-version', default='0.1.1')
+    parser.add_argument('--allow-development-tools', action='store_true',
+                        help='Autoriser les outils installés dans l’image de construction de la distribution cible et les consigner.')
+    parser.add_argument('--allow-additional-financial-sources', action='store_true',
+                        help='Accepter des références de provenance supplémentaires et vérifiables au même K.')
     parser.add_argument('--driver-module', type=Path, default=Path(__file__).with_name('desktop-smoke.py'))
     parser.add_argument('--fixture-module', type=Path, default=Path(__file__).with_name('audit-desktop-accessibility.py'))
     args = parser.parse_args()
@@ -73,7 +123,8 @@ def main():
     logfile = None
     try:
         absent = {tool: shutil.which(tool) for tool in ['rustc', 'cargo', 'node', 'npm', 'gcc', 'g++']}
-        assert not any(absent.values()), absent
+        if not args.allow_development_tools:
+            assert not any(absent.values()), absent
         report['development_tools'] = absent
         report['appimages'] = {'previous_sha256': digest(args.previous), 'current_sha256': digest(args.current)}
         assert report['appimages']['previous_sha256'] != report['appimages']['current_sha256']
@@ -152,7 +203,9 @@ def main():
             install(args.current)
             current = start('updated-installation', args.current_version, source_k)
             assert current['generation_id'] == previous['generation_id']
-            assert source_reports() == expected_reports
+            updated_reports = source_reports()
+            report['additional_financial_source_references'] = compare_update_reports(
+                expected_reports, updated_reports, args.allow_additional_financial_sources)
             assert database_state(vault) == baseline
             driver_module.save_settings_ui(driver, 'Installation mise à jour v' + args.current_version, 'CHF')
             changed = database_state(vault)
@@ -162,14 +215,14 @@ def main():
                     assert changed['tables'][table] == baseline['tables'][table], table
             assert changed['counts']['change_sets'] == baseline['counts']['change_sets'] + 1
             assert changed['counts']['audit_events'] == baseline['counts']['audit_events'] + 1
-            assert source_reports() == expected_reports
+            assert source_reports() == updated_reports
             report['steps'].append({'name': 'new-version-write-retains-source-knowledge-and-originals', 'status': 'passed', 'sequence': source_k + 1})
             driver.screenshot(args.artifacts / 'updated-installation.png')
             stop()
             # Restart the actual new package before replacing it with the old one.
             restarted = start('updated-offline-restart', args.current_version, source_k + 1)
             assert restarted['settings']['workspace_name'] == 'Installation mise à jour v' + args.current_version
-            assert database_state(vault) == changed and source_reports() == expected_reports
+            assert database_state(vault) == changed and source_reports() == updated_reports
             stop()
             install(args.previous)
             rolled_back = start('previous-version-rollback', args.previous_version, source_k + 1)

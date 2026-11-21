@@ -1,11 +1,12 @@
-# Télécharger Patrimoine 0.1.1
+# Télécharger Patrimoine
 
-Choisir le paquet selon **la distribution Linux**. Les variantes ont le même code métier mais ont été construites avec des bibliothèques système différentes.
+Choisir l’AppImage selon sa distribution Linux et la version indiquée.
 
 | Système | Formats disponibles | Instructions |
 | --- | --- | --- |
-| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage complète | [Télécharger et installer](0.1.1-popos22.04/README.md) |
-| **Debian 13, x86_64** | AppImage répartie en six ZIP | [Télécharger et reconstituer](0.1.1/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.1.2 complète | [Télécharger et installer](0.1.2-popos22.04/README.md) |
+| **Pop!_OS 22.04 / Ubuntu 22.04, x86_64** | AppImage 0.1.1 archivée | [Ancienne version](0.1.1-popos22.04/README.md) |
+| **Debian 13, x86_64** | AppImage 0.1.1 répartie en six ZIP | [Télécharger et reconstituer](0.1.1/README.md) |
 
 Le paquet Debian 13 ne fonctionne pas directement sur Pop!_OS 22.04 : les versions de bibliothèques sont incompatibles. **Ne pas remplacer manuellement la glibc du système.**
 

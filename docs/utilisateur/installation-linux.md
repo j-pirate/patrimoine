@@ -1,12 +1,12 @@
 # Installation, mise à jour et récupération Linux
 
-**Pop!_OS 22.04 / Ubuntu 22.04 :** les paquets compatibles sont disponibles sur la [page dédiée](../../distribution/0.1.1-popos22.04/README.md). Les instructions Debian 13 ci-dessous ne s'appliquent pas à ces systèmes sans adaptation.
+**Pop!_OS 22.04 / Ubuntu 22.04 :** les paquets compatibles sont disponibles sur la [page dédiée](../../distribution/0.1.2-popos22.04/README.md). Les instructions Debian 13 ci-dessous ne s'appliquent pas à ces systèmes sans adaptation.
 
 Guide du **13 novembre 2026, Europe/Paris**. Le [rapport de qualification](../historique/validation-phase-10.md) donne les paquets, versions, systèmes et volumes effectivement testés. Les [résultats de sécurité](../technique/revue-securite.md) distinguent les contrôles réalisés de leurs limites. Les données des essais sont synthétiques.
 
 ## Choisir le paquet
 
-La cible de cette livraison est **Debian 13, x86_64**, avec session graphique Linux et bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La qualification de cette cible ne vaut pas compatibilité avec toutes les distributions, les anciennes versions de glibc, les machines ARM ou toutes les configurations graphiques.
+La cible de la procédure historique ci-dessous est **Debian 13, x86_64**, avec session graphique Linux et bibliothèques d’exécution GTK 3/WebKitGTK 4.1. La qualification de cette cible ne vaut pas compatibilité avec toutes les distributions, les anciennes versions de glibc, les machines ARM ou toutes les configurations graphiques.
 
 L’AppImage contient le programme et son interface. Node, npm, Rust, un serveur et un compte externe ne sont pas nécessaires pour l’utiliser. Les outils de développement du [guide technique](../technique/developpement-linux.md) servent uniquement à construire ou vérifier les sources. Les lecteurs de documents et outils bureautiques sont séparés : l’export d’un original ne dépend pas de la présence d’un lecteur associé.
 

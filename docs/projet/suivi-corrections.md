@@ -4,7 +4,7 @@ Autorisation du 16 novembre 2026 : appliquer tous les changements du [rapport](r
 
 ## Point de reprise
 
-Les changements sont intégrés dans la version 0.1.2. La validation de la version et la publication de l’AppImage Pop!_OS 22.04 sont suivies dans le [rapport de validation](validation-corrections-0.1.2.md). En cas d’échec de publication, les fichiers concernés et leurs chemins dans le dépôt seront fournis pour une publication manuelle.
+Les changements sont intégrés dans la version 0.1.2 et l’AppImage Pop!_OS 22.04 a passé sa qualification. Les preuves et mesures figurent dans le [rapport de validation](validation-corrections-0.1.2.md). En cas d’échec de publication, les fichiers concernés et leurs chemins dans le dépôt seront fournis pour une publication manuelle.
 
 | Référence | Changement | État | Validation |
 |---|---|---|---|
@@ -18,10 +18,10 @@ Les changements sont intégrés dans la version 0.1.2. La validation de la versi
 | DOC-08 | Inventorier les anciennes preuves et les critères de réception | Intégré | Index des pièces disponibles et critères de réception. 70 membres du ZIP contrôlés. |
 | ARCH-01 | Contrôler la correspondance des contrats Rust et TypeScript | Intégré | Comparaison AST Rust/TypeScript intégrée à la CI et tests de dérive. |
 | ARCH-02 | Exploiter des codes d’erreur et statuts stables | Intégré | Codes et actions typés, statut documentaire sérialisé et tests API. |
-| ARCH-03 | Indexer une fois les capacités des lignes de trésorerie | Intégré | Index des capacités par révision et ligne, validé par les suites de trésorerie et d’opérations. |
+| ARCH-03 | Indexer une fois les capacités des lignes de trésorerie | Intégré | Index des capacités par révision et ligne. Mesure de 4 000 lignes et régression de dépassement. |
 | ARCH-04 | Compléter quelques frontières des normalisations | Intégré | Tests des normalisations, de l’idempotence et des bornes de longueur. |
 | REG-01 | Compléter les sources expliquant les contributions | Intégré | Sources des appartenances et méthodes retenues, test de contributions. |
-| REG-02 | Préparer les index et chemins de change pour un snapshot donné | Intégré | Index de droits, valorisations et profils. Chemins FX mis en cache dans le contexte immuable du calcul. |
+| REG-02 | Préparer les index et chemins de change pour un snapshot donné | Intégré | Index de droits, valorisations et profils. Chemins FX mis en cache dans le contexte immuable du calcul. Mesures avec graphe large, nombreuses estimations et anciens D/K. |
 | REG-03 | Séparer écriture confirmée et actualisation de l’affichage | Intégré | Résultat calculé avant le commit. Confirmation d’écriture distincte des erreurs de relecture, avec tests UI. |
 | REG-04 | Mesurer aussi une longue succession de connaissances | Intégré | Rejeu limité aux K qui modifient les sources et mesure reproductible sur 3 000 changements mixtes. |
 | REG-05 | Rendre les confirmations accessibles au clavier | Intégré | Focus des confirmations et restitution au déclencheur, avec tests clavier. |

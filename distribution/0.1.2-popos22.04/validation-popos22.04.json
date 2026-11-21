@@ -1,0 +1,53 @@
+{
+  "version": "0.1.2",
+  "source_commit": "e9d3d14dbc3b867c44b25ce59cf265f5f9858b3d",
+  "artifact": {
+    "file": "Patrimoine_0.1.2_amd64.AppImage",
+    "size_bytes": 85055992,
+    "sha256": "5e14fd85d7fb5129a5e19da7bbbef495db16fd2fe97f69980971b3caa56a3d47"
+  },
+  "build_glibc": {
+    "implementation": "glibc",
+    "version": "2.35"
+  },
+  "desktop": {
+    "environment": "Ubuntu 22.04.5 LTS, Xvfb, UID 1000, Docker network none",
+    "mode": "APPIMAGE_EXTRACT_AND_RUN=1",
+    "passed_steps": 50,
+    "harness_sha256": "ed15e5205dfee6791c5883bfa109829fa30624efb6f6a5f40cd08aa390e33761",
+    "proof": "preuves/native-appimage.json"
+  },
+  "abi": {
+    "elf_files": 175,
+    "required": {
+      "strong": {
+        "GLIBC": "GLIBC_2.35",
+        "GLIBCXX": "GLIBCXX_3.4.30",
+        "CXXABI": "CXXABI_1.3.9"
+      },
+      "weak": {
+        "GLIBC": "GLIBC_2.30",
+        "GLIBCXX": null,
+        "CXXABI": null
+      }
+    },
+    "failure_count": 0,
+    "optional_absence_count": 0,
+    "proof": "preuves/ubuntu22-abi.json"
+  },
+  "notices": {
+    "files_verified": 734,
+    "components": 468,
+    "ubuntu_components": 113,
+    "proof": "preuves/extraction-check.json"
+  },
+  "upgrade": {
+    "environment": "Ubuntu 22.04.5 LTS, Xvfb, Docker network none, image de construction",
+    "passed_steps": 6,
+    "source_tables": 62,
+    "source_rows": 758,
+    "originals_preserved": 2,
+    "additional_financial_source_references": 14,
+    "proof": "preuves/upgrade-appimage.json"
+  }
+}

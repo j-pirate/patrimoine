@@ -1,0 +1,4 @@
+{"assets":384,"case":"wide_graph","companies":384,"consolidation_ms":178.195608,"date":"2020-12-31","gross_eur":"38400.00","knowledge":2,"status":"passed","valuations":384}
+{"assets":400,"case":"many_valuations","companies":32,"consolidation_ms":223.883962,"date":"2020-12-31","gross_eur":"100000.00","knowledge":2,"status":"passed","valuations":4800}
+{"assets":400,"case":"historical_date","companies":32,"consolidation_ms":150.39355600000002,"date":"2020-01-15","gross_eur":"40000.00","knowledge":2,"status":"passed","valuations":4800}
+{"assets":400,"case":"older_knowledge","companies":32,"consolidation_ms":37.093858,"date":"2020-12-31","gross_eur":"40000.00","knowledge":1,"status":"passed","valuations":400}

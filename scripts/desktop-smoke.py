@@ -97,6 +97,22 @@ class WebDriver:
             element = self.find(xpath)
             return element if self.command("GET", f"/element/{element}/enabled") else None
         element = wait_until(enabled_element, f"élément cliquable : {xpath}")
+        # WebKitWebDriver may scroll a button flush with the viewport bottom.
+        # Keep the target away from the scrollbar before the real pointer click.
+        self.command("POST", "/execute/async", {
+            "script": """
+                const done = arguments[arguments.length - 1];
+                const target = document.evaluate(arguments[0], document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                const visibleTarget = target?.closest('select') ?? target;
+                const rect = visibleTarget?.getBoundingClientRect();
+                if (rect && (rect.top < 24 || rect.bottom > innerHeight - 24 ||
+                             rect.left < 0 || rect.right > innerWidth - 24)) {
+                  visibleTarget.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'});
+                }
+                requestAnimationFrame(() => requestAnimationFrame(() => done(true)));
+            """,
+            "args": [xpath],
+        })
         self.command("POST", f"/element/{element}/click", {})
 
     def text(self):
