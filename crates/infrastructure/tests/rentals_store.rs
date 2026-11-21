@@ -340,6 +340,43 @@ fn corrected_terms(f: &Fixture, rent: &str) -> SaveLeaseTermsInput {
 }
 
 #[test]
+fn correcting_lease_currency_with_an_existing_due_rolls_back_every_record() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path().join("vault");
+    let mut f = fixture(&root);
+    let due = generate(&mut f, "2024-03-01", "2024-04-01")
+        .created
+        .remove(0);
+    assert_eq!(due.currency, "EUR");
+    let before = state(&f);
+    let history = serde_json::to_value(f.vault.list_registry_history().unwrap()).unwrap();
+    let sequence = f.vault.status().unwrap().mutation_sequence;
+    let mut correction = corrected_terms(&f, "1000");
+    correction.currency = "USD".into();
+    assert_eq!(
+        f.vault.save_lease_terms(correction).unwrap_err().code,
+        "validation"
+    );
+    assert_eq!(state(&f), before);
+    assert_eq!(f.vault.status().unwrap().mutation_sequence, sequence);
+    assert_eq!(
+        serde_json::to_value(f.vault.list_registry_history().unwrap()).unwrap(),
+        history
+    );
+    drop(f);
+    let reopened = Vault::open(root).unwrap();
+    assert_eq!(
+        serde_json::to_value(reopened.list_rentals_at(None).unwrap()).unwrap(),
+        before
+    );
+    assert_eq!(
+        serde_json::to_value(reopened.list_registry_history().unwrap()).unwrap(),
+        history
+    );
+    assert_eq!(reopened.status().unwrap().mutation_sequence, sequence);
+}
+
+#[test]
 fn corrected_terms_preserve_due_sources_and_generation_requires_explicit_regularisation() {
     let temp = TempDir::new().unwrap();
     let mut f = fixture(&temp.path().join("vault"));

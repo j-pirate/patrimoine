@@ -1,8 +1,10 @@
 # Modèle relationnel SQLite proposé
 
-Statut : conception de phase 1, non implémentée. Aucun DDL ni aucune migration n'est exécuté dans cette phase. Les noms ci-dessous constituent le catalogue de référence à traduire en migrations lors des phases suivantes.
+Le catalogue ci-dessous conserve la conception initiale. Pour les noms de tables, migrations et écarts effectivement livrés, utiliser la [correspondance du schéma courant](schema-livre.md).
 
-Mise à jour de lecture : ce catalogue reste le modèle cible complet. Le socle et le registre de phase 3 sont désormais implémentés par les migrations `0001`/`0002`, avec certains regroupements explicités dans [les décisions](decisions-architecture.md). Voir [l’avancement](../projet/avancement.md) pour distinguer les tables réellement livrées des modules futurs.
+Statut historique : conception de phase 1. Aucun DDL ni aucune migration n’était exécuté dans cette phase. Les noms ci-dessous sont les concepts initiaux, pas une liste des tables actuelles.
+
+Mise à jour de lecture : les phases 2 à 10 sont implémentées au schéma 6, avec des regroupements et des dispositions remplacées explicités dans [les décisions](decisions-architecture.md) et la [correspondance livrée](schema-livre.md). La numérotation prévisionnelle ci-dessous ne doit pas servir à créer une migration documentaire 0007.
 
 ## Conventions communes
 
@@ -141,6 +143,8 @@ Un transfert de même devise possède deux jambes opposées hors frais ; une con
 
 ## 7. Devises et métaux
 
+Écart livré : les mouvements sont dans `metal_movements`. Les types `split_in`/`split_out`, les tables de lieux séparés et la filiation ci-dessous restent des concepts non livrés. La V1 déplace le lot entier et conserve sa pureté fixe dans `]0,1]` ; seule la quantité restante peut devenir nulle. Voir la [correspondance courante](schema-livre.md).
+
 | Table | Colonnes essentielles et contraintes |
 | --- | --- |
 | `exchange_rates` | Fait ponctuel **V**, `base_currency FK currencies`, `quote_currency FK currencies`, `rate Dec > 0`, `source TEXT?`, `notes TEXT`. Convention : 1 unité de base vaut `rate` unités de cotation ; EUR privilégié en cotation. Base différente de cotation. Une valeur retenue par paire et date, les corrections étant des révisions. |
@@ -172,6 +176,8 @@ Le capital restant est ouverture + tirages + ajustements − principal rembours�
 En présence de solidarité, distinguer exposition juridique maximale et allocation économique patrimoniale. Une allocation économique inconnue interdit un total individuel complet. Les parts économiques du créancier et du débiteur peuvent différer ; l'élimination intrafamiliale est calculée à partir de ces mêmes deux côtés et de la participation économique aux sociétés, pas à partir du collatéral.
 
 ## 9. Pilotage des sociétés
+
+Règle livrée : les observations d’une même société et d’une même fréquence ne se chevauchent pas, même avec des devises différentes. Des fréquences différentes peuvent coexister sans être additionnées. La devise sert à la comparabilité des tendances, pas à autoriser une période concurrente.
 
 | Table | Colonnes essentielles et contraintes |
 | --- | --- |
@@ -255,7 +261,7 @@ La précision exacte et les invariants dépassant une ligne ne peuvent être gar
 | `0004` | Immobilier, unités, contrats, échéances, paiements, dépôts | Paiements partiels/multiples, aucune duplication de dépôt ou loyer. |
 | `0005` | Trésorerie, opérations, financements et garanties | Soldes et transferts atomiques ; dette/créance unique ; éliminations vérifiées. |
 | `0006` | Lots, cours, mouvements métal, données de pilotage société | Conversions exactes ; inventaires historiques ; indicateurs non additionnés au patrimoine. |
-| `0007` | Fonctions documentaires et portabilité avancées, rapports | Restitution intégrale de toutes les versions et documents. |
+| `0007` (prévision remplacée) | Fonctions documentaires et portabilité avancées, rapports | Livrées au schéma 6 avec les tables documentaires `0001`, sans migration 0007. |
 
 Le découpage est prévisionnel : les FK peuvent conduire à créer certaines tables de référence plus tôt, sans exposer une fonctionnalité avant sa validation. Le socle `0001` doit déjà disposer d'une sauvegarde cohérente et d'une restauration testée ; les phases ultérieures les étendent.
 

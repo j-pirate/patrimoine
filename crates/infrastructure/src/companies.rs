@@ -177,23 +177,24 @@ impl CompanyService for Vault {
         {
             *value = exact::normalize_decimal_input(value)?;
         }
-        let id = self.write_phase7("company_financial_period",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
+        self.write_phase7("company_financial_period",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
             phase7::unchanged(tx,"company_financial_periods","company_id",input.id.as_deref(),&input.company_id)?;
             tx.execute("INSERT INTO company_financial_periods VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",params![revision,input.company_id,input.period_start,input.period_end,input.frequency,input.currency,input.revenue,input.operating_expenses,input.operating_result,input.net_result,input.indicative_cash,input.indicative_debt,input.important_receivables,input.dividends_declared,input.indicative_global_value,input.notes]).map_err(db::error)?;
             Ok(())
-        })?;
-        self.list_companies_at(None)?
+        },
+            |tx, key| snapshot(tx, None)?
             .financial_periods
             .into_iter()
-            .find(|p| p.id == id)
-            .ok_or_else(|| invalid("La période enregistrée est introuvable."))
+            .find(|p| p.id == key)
+            .ok_or_else(|| invalid("La période enregistrée est introuvable.")),
+        )
     }
     fn save_company_distribution(
         &mut self,
         mut input: SaveCompanyDistributionInput,
     ) -> Result<CompanyDistribution> {
         normalize_distribution(&mut input)?;
-        let id = self.write_phase7(
+        self.write_phase7(
             "company_distribution",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -216,12 +217,14 @@ impl CompanyService for Vault {
                 }
                 insert_distribution(tx, revision, &input)
             },
-        )?;
-        self.list_companies_at(None)?
-            .distributions
-            .into_iter()
-            .find(|p| p.id == id)
-            .ok_or_else(|| invalid("La distribution enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .distributions
+                    .into_iter()
+                    .find(|p| p.id == key)
+                    .ok_or_else(|| invalid("La distribution enregistrée est introuvable."))
+            },
+        )
     }
     fn post_company_distribution(
         &mut self,

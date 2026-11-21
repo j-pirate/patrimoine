@@ -675,3 +675,53 @@ fn duplicate_raw_zip_entries_and_symlinks_are_rejected_before_extraction() {
         assert_eq!(content(&target_root), before);
     }
 }
+
+#[test]
+fn oversized_streamed_cell_cleans_the_candidate_and_valid_import_can_follow() {
+    let (temp, mut source, owner) = fixture();
+    let original = temp.path().join("original.zip");
+    source.export_csv_archive(&original).unwrap();
+    let oversized = temp.path().join("oversized-cell.zip");
+    rewrite(
+        &oversized,
+        &original,
+        "entity_profiles",
+        &owner.notes.replace('"', "\"\""),
+        &"x".repeat(1024 * 1024 + 1),
+    );
+    let target_root = temp.path().join("target");
+    let mut target = Vault::open(&target_root).unwrap();
+    let before = content(&target_root);
+    let status = target.status().unwrap();
+    let error = target.inspect_csv_import(&oversized).unwrap_err();
+    assert!(
+        error.message.contains("Table entity_profiles, ligne 2"),
+        "{}",
+        error.message
+    );
+    assert!(error.message.contains("1 Mio"));
+    assert_eq!(content(&target_root), before);
+    assert_eq!(target.status().unwrap().generation_id, status.generation_id);
+    assert_eq!(
+        target.status().unwrap().mutation_sequence,
+        status.mutation_sequence
+    );
+    assert_eq!(
+        fs::read_dir(target_root.join("staging")).unwrap().count(),
+        0
+    );
+
+    let inspection = target.inspect_csv_import(&original).unwrap();
+    target
+        .activate_restore(&inspection.token, true, None)
+        .unwrap();
+    assert_ne!(target.status().unwrap().generation_id, status.generation_id);
+    let imported = target
+        .list_registry()
+        .unwrap()
+        .entities
+        .into_iter()
+        .find(|entity| entity.id == owner.id)
+        .unwrap();
+    assert_eq!(imported.notes, owner.notes);
+}

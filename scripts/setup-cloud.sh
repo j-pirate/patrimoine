@@ -24,7 +24,15 @@ else
   rustup toolchain install "$rust_version" --profile minimal --component rustfmt --component clippy
 fi
 
-if ! pkg-config --exists webkit2gtk-4.1 gtk+-3.0; then
+missing_native=()
+command -v pkg-config >/dev/null || missing_native+=(pkg-config)
+if ! command -v pkg-config >/dev/null || ! pkg-config --exists webkit2gtk-4.1 gtk+-3.0 librsvg-2.0; then
+  missing_native+=(libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev)
+fi
+for prerequisite in 'patchelf:patchelf' 'Xvfb:xvfb' 'xauth:xauth' 'dbus-run-session:dbus' 'dbus-launch:dbus-x11'; do
+  command -v "${prerequisite%%:*}" >/dev/null || missing_native+=("${prerequisite#*:}")
+done
+if [ "${#missing_native[@]}" -gt 0 ]; then
   if [ "$(uname -m)" != x86_64 ] || ! test -f /usr/share/keyrings/debian-archive-keyring.gpg; then
     echo 'Ce script cloud cible Debian 13 x86_64. Voir docs/technique/developpement-linux.md pour une installation Linux classique.' >&2
     exit 1
@@ -48,7 +56,7 @@ deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debia
 deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian-security trixie-security main
 EOF
   APT_CONFIG="$PATRIMOINE_TOOL_ROOT/apt.conf" /usr/bin/apt-get update
-  APT_CONFIG="$PATRIMOINE_TOOL_ROOT/apt.conf" /usr/bin/apt-get --download-only -y -o Debug::NoLocking=1 --no-install-recommends install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf xvfb xauth dbus-x11
+  APT_CONFIG="$PATRIMOINE_TOOL_ROOT/apt.conf" /usr/bin/apt-get --download-only -y -o Debug::NoLocking=1 --no-install-recommends install "${missing_native[@]}"
   python3 - "$PATRIMOINE_TOOL_ROOT" <<'PY'
 import pathlib, subprocess, sys
 p = pathlib.Path(sys.argv[1])
@@ -77,6 +85,9 @@ if (root / 'usr/lib').exists():
 PY
 source scripts/cloud-env.sh
 pkg-config --modversion gtk+-3.0 webkit2gtk-4.1
+for prerequisite in patchelf Xvfb xauth dbus-run-session dbus-launch; do
+  command -v "$prerequisite" >/dev/null || { echo "Prérequis absent après préparation : $prerequisite" >&2; exit 1; }
+done
 npm ci --no-audit --no-fund
 cargo fetch --locked
 echo 'Outils et dépendances préparés. Sourcer scripts/cloud-env.sh avant les commandes Rust/Tauri.'

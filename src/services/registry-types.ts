@@ -42,7 +42,7 @@ export interface Contribution {
   object_id: string; label: string; kind: string; country: string | null; category: string; weight: Fraction;
   amount_original: string; currency: string; valuation_id: string | null; valuation_revision_id: string | null;
   valuation_date: string | null; amount_eur: string; exact_eur: Fraction; source_ids: string[];
-  conversion?: FxResult | null;
+  conversion: FxResult | null;
 }
 export interface ConsolidationReport {
   context: string; person_id: string | null; date: string; knowledge_sequence: number; engine_version: string;

@@ -8,3 +8,5 @@
 Pour récupérer le logiciel, ouvrir la [page des téléchargements](../distribution/README.md).
 
 Les documents historiques peuvent décrire des règles ou des états antérieurs. Pour savoir ce qui est actuellement livré, se référer au code, à la documentation d'utilisation et aux limites de validation les plus récentes.
+
+La [matrice de réception](projet/matrice-reception.md) conserve les exigences partiellement satisfaites. Le [schéma livré](technique/schema-livre.md) relie les concepts aux migrations et commandes réelles. L’[index des preuves](historique/preuves.md) et la [matrice des campagnes](historique/campagnes-validation.md) rendent les pièces historiques accessibles depuis GitHub avec leur portée et leur disponibilité.

@@ -1,7 +1,6 @@
 //! Pure exact consolidation over an explicitly versioned registry snapshot.
 use crate::exact::{format_eur, fraction_of, parse_decimal, parse_fraction};
-use crate::fx::{convert_currency_unchecked, converted_rational};
-use crate::profiles::profile_is_dated;
+use crate::fx::{converted_rational, FxContext};
 use crate::validation::company_order;
 use crate::*;
 use num_rational::BigRational;
@@ -173,6 +172,7 @@ pub fn economic_asset_weight(
         date: date.into(),
         knowledge_sequence: Some(s.knowledge_sequence),
     };
+    let index = RegistryIndex::new(s, date, date);
     let mut weights = root_weights(s, &request);
     if context == "company" {
         let company = s
@@ -189,30 +189,16 @@ pub fn economic_asset_weight(
             },
         );
     }
-    if context == "family" {
-        for membership in s
-            .memberships
-            .iter()
-            .filter(|m| applies(&m.valid_from, m.valid_to.as_deref(), date))
-        {
-            if let Some(weight) = weights.get_mut(&membership.person_id) {
-                weight
-                    .sources
-                    .extend([membership.id.clone(), membership.revision_id.clone()]);
-            }
-        }
-    }
     let has_scope = weights.values().any(|w| !w.known.is_zero());
     for company in company_order(s, date)? {
         if context == "company" && Some(company.as_str()) == person_id {
             continue;
         }
-        let incoming = s
+        let incoming = index
             .participations
-            .iter()
-            .filter(|p| {
-                p.company_id == company && applies(&p.valid_from, p.valid_to.as_deref(), date)
-            })
+            .get(company.as_str())
+            .into_iter()
+            .flatten()
             .map(|p| {
                 (
                     p.owner_entity_id.as_str(),
@@ -224,10 +210,11 @@ pub fn economic_asset_weight(
         let weight = income_weight(incoming, &weights, has_scope)?;
         weights.insert(company, weight);
     }
-    let incoming = s
+    let incoming = index
         .ownerships
-        .iter()
-        .filter(|o| o.asset_id == asset_id && applies(&o.valid_from, o.valid_to.as_deref(), date))
+        .get(asset_id)
+        .into_iter()
+        .flatten()
         .map(|o| {
             (
                 o.owner_entity_id.as_str(),
@@ -270,23 +257,101 @@ fn policy<'a>(s: &'a RegistrySnapshot, id: &str, date: &str) -> Option<&'a Compa
         .find(|p| p.company_id == id && applies(&p.valid_from, p.valid_to.as_deref(), date))
 }
 
+/// Indexes belong to one immutable snapshot and the civil dates used below.
+struct RegistryIndex<'a> {
+    companies: BTreeSet<&'a str>,
+    policies: BTreeMap<&'a str, &'a CompanyPolicy>,
+    participations: BTreeMap<&'a str, Vec<&'a Participation>>,
+    ownerships: BTreeMap<&'a str, Vec<&'a Ownership>>,
+    valuations: BTreeMap<(&'a str, &'a str), &'a Valuation>,
+    profiles: BTreeMap<(&'a str, &'a str), Vec<&'a ProfilePeriod>>,
+}
+
+impl<'a> RegistryIndex<'a> {
+    fn new(s: &'a RegistrySnapshot, date: &str, valuation_date: &str) -> Self {
+        let mut out = Self {
+            companies: s
+                .entities
+                .iter()
+                .filter(|e| e.kind == "company")
+                .map(|e| e.id.as_str())
+                .collect(),
+            policies: BTreeMap::new(),
+            participations: BTreeMap::new(),
+            ownerships: BTreeMap::new(),
+            valuations: BTreeMap::new(),
+            profiles: BTreeMap::new(),
+        };
+        for p in &s.company_policies {
+            if applies(&p.valid_from, p.valid_to.as_deref(), date) {
+                out.policies.entry(p.company_id.as_str()).or_insert(p);
+            }
+        }
+        for p in &s.participations {
+            if applies(&p.valid_from, p.valid_to.as_deref(), date) {
+                out.participations
+                    .entry(p.company_id.as_str())
+                    .or_default()
+                    .push(p);
+            }
+        }
+        for o in &s.ownerships {
+            if applies(&o.valid_from, o.valid_to.as_deref(), date) {
+                out.ownerships
+                    .entry(o.asset_id.as_str())
+                    .or_default()
+                    .push(o);
+            }
+        }
+        for v in &s.valuations {
+            if v.effective_on.as_str() <= valuation_date {
+                let key = (v.target_kind.as_str(), v.target_id.as_str());
+                if out
+                    .valuations
+                    .get(&key)
+                    .is_none_or(|previous| previous.effective_on <= v.effective_on)
+                {
+                    out.valuations.insert(key, v);
+                }
+            }
+        }
+        for p in &s.profile_periods {
+            if applies(&p.valid_from, p.valid_to.as_deref(), date) {
+                out.profiles
+                    .entry((p.target_kind.as_str(), p.target_id.as_str()))
+                    .or_default()
+                    .push(p);
+            }
+        }
+        out
+    }
+}
+
 fn root_weights(s: &RegistrySnapshot, r: &ConsolidationRequest) -> BTreeMap<String, Weight> {
+    let mut memberships: BTreeMap<&str, Vec<&Membership>> = BTreeMap::new();
+    if r.context == "family" {
+        for m in &s.memberships {
+            if applies(&m.valid_from, m.valid_to.as_deref(), &r.date) {
+                memberships.entry(m.person_id.as_str()).or_default().push(m);
+            }
+        }
+    }
     s.entities
         .iter()
         .filter(|e| e.kind == "person")
         .map(|e| {
             let selected = if r.context == "family" {
-                s.memberships.iter().any(|m| {
-                    m.person_id == e.id && applies(&m.valid_from, m.valid_to.as_deref(), &r.date)
-                })
+                memberships.contains_key(e.id.as_str())
             } else {
                 r.person_id.as_deref() == Some(&e.id)
             };
-            let sources = if selected {
-                BTreeSet::from([e.id.clone(), e.revision_id.clone()])
-            } else {
-                BTreeSet::new()
-            };
+            let mut sources = BTreeSet::new();
+            if selected {
+                sources.extend([e.id.clone(), e.revision_id.clone()]);
+                for m in memberships.get(e.id.as_str()).into_iter().flatten() {
+                    sources.extend([m.id.clone(), m.revision_id.clone()]);
+                }
+            }
             (
                 e.id.clone(),
                 Weight {
@@ -308,21 +373,20 @@ fn root_weights(s: &RegistrySnapshot, r: &ConsolidationRequest) -> BTreeMap<Stri
 fn target_weight<'a>(
     rows: impl Iterator<Item = (&'a str, &'a str, &'a str, &'a Option<Fraction>)>,
     weights: &BTreeMap<String, Weight>,
-    s: &RegistrySnapshot,
-    date: &str,
+    index: &RegistryIndex<'_>,
     has_scope: bool,
 ) -> Result<Weight> {
     let mut out = Weight::default();
     let mut total = BigRational::zero();
     for (owner, id, revision, share) in rows {
         let mut parent = weights.get(owner).cloned().unwrap_or_default();
-        if s.entities
-            .iter()
-            .any(|e| e.id == owner && e.kind == "company")
-            && !policy(s, owner, date).is_some_and(|p| p.mode == "detailed")
-        {
-            // A global-equity or unspecified method is a boundary on this path.
-            parent = Weight::default();
+        if index.companies.contains(owner) {
+            if let Some(p) = index.policies.get(owner).filter(|p| p.mode == "detailed") {
+                parent.sources.extend([p.id.clone(), p.revision_id.clone()]);
+            } else {
+                // A global-equity or unspecified method is a boundary on this path.
+                parent = Weight::default();
+            }
         }
         if let Some(share) = share {
             let fraction = parse_fraction(share)?;
@@ -346,16 +410,19 @@ fn target_weight<'a>(
     Ok(out)
 }
 
-fn weights(s: &RegistrySnapshot, r: &ConsolidationRequest) -> Result<BTreeMap<String, Weight>> {
+fn weights(
+    s: &RegistrySnapshot,
+    r: &ConsolidationRequest,
+    index: &RegistryIndex<'_>,
+) -> Result<BTreeMap<String, Weight>> {
     let mut out = root_weights(s, r);
     let has_scope = out.values().any(|w| !w.known.is_zero());
     for id in company_order(s, &r.date)? {
-        let incoming = s
+        let incoming = index
             .participations
-            .iter()
-            .filter(|p| {
-                p.company_id == id && applies(&p.valid_from, p.valid_to.as_deref(), &r.date)
-            })
+            .get(id.as_str())
+            .into_iter()
+            .flatten()
             .map(|p| {
                 (
                     p.owner_entity_id.as_str(),
@@ -364,22 +431,10 @@ fn weights(s: &RegistrySnapshot, r: &ConsolidationRequest) -> Result<BTreeMap<St
                     &p.economic_share,
                 )
             });
-        let weight = target_weight(incoming, &out, s, &r.date, has_scope)?;
+        let weight = target_weight(incoming, &out, index, has_scope)?;
         out.insert(id, weight);
     }
     Ok(out)
-}
-
-fn latest_value<'a>(
-    s: &'a RegistrySnapshot,
-    kind: &str,
-    id: &str,
-    date: &str,
-) -> Option<&'a Valuation> {
-    s.valuations
-        .iter()
-        .filter(|v| v.target_kind == kind && v.target_id == id && v.effective_on.as_str() <= date)
-        .max_by(|a, b| a.effective_on.cmp(&b.effective_on))
 }
 
 struct Position<'a> {
@@ -394,13 +449,14 @@ struct Position<'a> {
 
 fn value_position(
     s: &RegistrySnapshot,
-    date: &str,
-    valuation_date: &str,
-    fx_date: &str,
+    dates: (&str, &str),
+    index: &RegistryIndex<'_>,
+    fx: &mut FxContext<'_>,
     position: Position<'_>,
     contributions: &mut Vec<Contribution>,
     warnings: &mut Vec<ConsolidationWarning>,
 ) -> Result<Option<BigRational>> {
+    let (date, fx_date) = dates;
     let Position {
         id,
         label,
@@ -416,20 +472,17 @@ fn value_position(
     if weight.known.is_zero() {
         return Ok(None);
     }
-    let Some(value) = latest_value(s, target_kind, id, valuation_date) else {
+    let Some(value) = index.valuations.get(&(target_kind, id)) else {
         warn(warnings,"missing_valuation",id,"Aucune valorisation applicable à cette date n’est connue. Aucune valeur future n’a été utilisée.");
         return Ok(None);
     };
-    let conversion = convert_currency_unchecked(
-        s,
-        &FxQuery {
-            amount: value.amount.clone(),
-            from_currency: value.currency.clone(),
-            to_currency: "EUR".into(),
-            date: fx_date.into(),
-            knowledge_sequence: Some(s.knowledge_sequence),
-        },
-    )?;
+    let conversion = fx.convert(&FxQuery {
+        amount: value.amount.clone(),
+        from_currency: value.currency.clone(),
+        to_currency: "EUR".into(),
+        date: fx_date.into(),
+        knowledge_sequence: Some(s.knowledge_sequence),
+    })?;
     for warning in &conversion.warnings {
         warn(warnings, &warning.code, id, &warning.message);
     }
@@ -441,7 +494,8 @@ fn value_position(
     } else {
         "asset"
     };
-    let dated_profile = profile_is_dated(s, metadata_kind, id, date);
+    let profile_periods = index.profiles.get(&(metadata_kind, id));
+    let dated_profile = profile_periods.is_some();
     if !dated_profile {
         warn(warnings,"undated_profile",id,&format!("Au {date}, aucune période ne date le profil descriptif. Le libellé reflète les connaissances de la séquence {} ; le pays historique n’est pas attribué par hypothèse.",s.knowledge_sequence));
     }
@@ -452,11 +506,7 @@ fn value_position(
     for leg in &conversion.legs {
         sources.extend([leg.rate_id.clone(), leg.revision_id.clone()]);
     }
-    for period in s.profile_periods.iter().filter(|p| {
-        p.target_kind == metadata_kind
-            && p.target_id == id
-            && applies(&p.valid_from, p.valid_to.as_deref(), date)
-    }) {
+    for period in profile_periods.into_iter().flatten() {
         sources.extend([
             period.id.clone(),
             period.revision_id.clone(),
@@ -524,7 +574,8 @@ pub fn consolidate_with_metals(
             .contains(&w.code.as_str())
         });
     let profiled = apply_profile_periods(registry, &request.date)?;
-    let weights = weights(&profiled, request)?;
+    let index = RegistryIndex::new(&profiled, &request.date, &request.date);
+    let weights = weights(&profiled, request, &index)?;
     let has_scope = weights.values().any(|w| !w.known.is_zero());
     let mut gross = num_rational::BigRational::new(
         report
@@ -556,8 +607,7 @@ pub fn consolidate_with_metals(
                     )
                 }),
             &weights,
-            &profiled,
-            &request.date,
+            &index,
             has_scope,
         )?;
         if weight.known.is_zero() {
@@ -750,7 +800,9 @@ fn consolidate_at_dates(
             "Le contexte ou la borne de connaissance ne correspond pas au registre fourni.",
         ));
     }
-    let weights = weights(s, r)?;
+    let index = RegistryIndex::new(s, &r.date, valuation_date);
+    let mut fx = FxContext::new(s);
+    let weights = weights(s, r, &index)?;
     let has_scope = weights.values().any(|w| !w.known.is_zero());
     let mut warnings = Vec::new();
     let mut contributions = Vec::new();
@@ -759,7 +811,7 @@ fn consolidate_at_dates(
     let mut global_equity = BigRational::zero();
     let mut opaque = false;
     for e in s.entities.iter().filter(|e| e.kind == "company") {
-        let weight = weights.get(&e.id).cloned().unwrap_or_default();
+        let mut weight = weights.get(&e.id).cloned().unwrap_or_default();
         if weight.known.is_zero() && !weight.unknown {
             continue;
         }
@@ -771,10 +823,11 @@ fn consolidate_at_dates(
                 "La participation économique dans cette société est incomplètement définie.",
             );
         }
-        let Some(p) = policy(s, &e.id, &r.date) else {
+        let Some(p) = index.policies.get(e.id.as_str()) else {
             warn(&mut warnings,"missing_company_policy",&e.id,"Choisissez une méthode datée : actifs détaillés ou valeur globale nette. Les sous-jacents ne sont pas additionnés par hypothèse.");
             continue;
         };
+        weight.sources.extend([p.id.clone(), p.revision_id.clone()]);
         if !p.coverage_complete {
             warn(
                 &mut warnings,
@@ -785,7 +838,9 @@ fn consolidate_at_dates(
         }
         if p.mode == "global_equity" {
             opaque = true;
-            if latest_value(s, "company", &e.id, valuation_date)
+            if index
+                .valuations
+                .get(&("company", e.id.as_str()))
                 .is_some_and(|v| parse_decimal(&v.amount).is_ok_and(|a| a.is_negative()))
                 && !p.liability_qualified
             {
@@ -802,9 +857,9 @@ fn consolidate_at_dates(
             };
             if let Some(amount) = value_position(
                 s,
-                &r.date,
-                valuation_date,
-                fx_date,
+                (&r.date, fx_date),
+                &index,
+                &mut fx,
                 position,
                 &mut contributions,
                 &mut warnings,
@@ -815,12 +870,11 @@ fn consolidate_at_dates(
         }
     }
     for a in &s.assets {
-        let incoming = s
+        let incoming = index
             .ownerships
-            .iter()
-            .filter(|o| {
-                o.asset_id == a.id && applies(&o.valid_from, o.valid_to.as_deref(), &r.date)
-            })
+            .get(a.id.as_str())
+            .into_iter()
+            .flatten()
             .map(|o| {
                 (
                     o.owner_entity_id.as_str(),
@@ -829,7 +883,7 @@ fn consolidate_at_dates(
                     &o.economic_share,
                 )
             });
-        let weight = target_weight(incoming, &weights, s, &r.date, has_scope)?;
+        let weight = target_weight(incoming, &weights, &index, has_scope)?;
         let position = Position {
             id: &a.id,
             label: &a.name,
@@ -841,9 +895,9 @@ fn consolidate_at_dates(
         };
         if let Some(amount) = value_position(
             s,
-            &r.date,
-            valuation_date,
-            fx_date,
+            (&r.date, fx_date),
+            &index,
+            &mut fx,
             position,
             &mut contributions,
             &mut warnings,
@@ -876,16 +930,13 @@ fn consolidate_at_dates(
             warn(&mut warnings,"contingent_guarantee",&loan.id,"Cette garantie est suivie hors passifs certains et n’est pas soustraite du patrimoine.");
             continue;
         }
-        let conversion = convert_currency_unchecked(
-            s,
-            &FxQuery {
-                amount: loan.principal.clone(),
-                from_currency: loan.currency.clone(),
-                to_currency: "EUR".into(),
-                date: fx_date.into(),
-                knowledge_sequence: Some(s.knowledge_sequence),
-            },
-        )?;
+        let conversion = fx.convert(&FxQuery {
+            amount: loan.principal.clone(),
+            from_currency: loan.currency.clone(),
+            to_currency: "EUR".into(),
+            date: fx_date.into(),
+            knowledge_sequence: Some(s.knowledge_sequence),
+        })?;
         for warning in &conversion.warnings {
             warn(&mut warnings, &warning.code, &loan.id, &warning.message);
         }

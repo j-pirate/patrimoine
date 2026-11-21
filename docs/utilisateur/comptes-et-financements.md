@@ -182,7 +182,7 @@ Le rapport locatif distingue le revenu net d’exploitation couru et le cash-flo
 
 ## Historique, sauvegarde et contrats d’API
 
-Les corrections motivées créent des révisions ; elles ne réécrivent pas les connaissances déjà consultées. Annuler une source utilisée peut être refusé tant que ses dépendances n’ont pas été traitées. Paramètres, documents et sauvegardes portent toujours sur le coffre actuel, même lorsqu’une vue de calcul consulte un ancien K.
+Les corrections motivées créent des révisions ; elles ne réécrivent pas les connaissances déjà consultées. Annuler une source utilisée peut être refusé tant que ses dépendances n’ont pas été traitées. La bibliothèque **Documents** suit les connaissances K ; les associations sont filtrées à la date D et les écritures documentaires sont bloquées à K fixe. Les paramètres et les sauvegardes/exports intégraux portent sur le coffre actuel et toute son histoire. Voir [le guide documentaire](documents-et-portabilite.md).
 
 La migration `0005` amène le coffre au schéma `5` sur une copie contrôlée, sans inventer les mouvements financiers des phases antérieures. Les sauvegardes conservent comptes, écritures, rapprochements, financements, garanties, dépôts, créanciers et déclarations de couverture, avec leurs révisions. L’archive contient une base SQLite autonome, les documents et le dictionnaire du schéma. Les modalités générales restent décrites dans [Documents et portabilité](../technique/conception-documents-portabilite.md).
 

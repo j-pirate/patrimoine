@@ -131,20 +131,21 @@ impl MetalService for Vault {
     fn save_metal_lot(&mut self, mut input: SaveMetalLotInput) -> Result<MetalLot> {
         input.unit_weight = exact::normalize_decimal_input(&input.unit_weight)?;
         input.purity = exact::normalize_decimal_input(&input.purity)?;
-        let id=self.write_phase7("metal_lot",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
+        self.write_phase7("metal_lot",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
             for (column,value) in [("asset_id",input.asset_id.as_str()),("metal",input.metal.as_str()),("unit_weight",input.unit_weight.as_str()),("weight_unit",input.weight_unit.as_str()),("purity",input.purity.as_str()),("tracking_start",input.tracking_start.as_str()),("cost_currency",input.cost_currency.as_str())] { phase7::unchanged(tx,"metal_lots",column,input.id.as_deref(),value)?; }
             tx.execute("INSERT INTO metal_lots VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",params![revision,input.asset_id,input.metal,input.form,input.designation,input.unit_weight,input.weight_unit,input.purity,input.tracking_start,input.cost_currency,input.legal_owner_entity_id,input.country,input.storage_location,input.valuation_basis,input.notes,input.archived]).map_err(db::error)?;
             Ok(())
-        })?;
-        self.list_metals_at(None)?
+        },
+            |tx, key| snapshot(tx, None)?
             .lots
             .into_iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| invalid("Le lot enregistré est introuvable."))
+            .find(|m| m.id == key)
+            .ok_or_else(|| invalid("Le lot enregistré est introuvable.")),
+        )
     }
     fn save_metal_movement(&mut self, mut input: SaveMetalMovementInput) -> Result<MetalMovement> {
         normalize_movement(&mut input)?;
-        let id = self.write_phase7(
+        self.write_phase7(
             "metal_movement",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -153,16 +154,18 @@ impl MetalService for Vault {
                 immutable_movement(tx, &input)?;
                 insert_movement(tx, revision, &input)
             },
-        )?;
-        self.list_metals_at(None)?
-            .movements
-            .into_iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| invalid("Le mouvement enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .movements
+                    .into_iter()
+                    .find(|m| m.id == key)
+                    .ok_or_else(|| invalid("Le mouvement enregistré est introuvable."))
+            },
+        )
     }
     fn save_metal_quote(&mut self, mut input: SaveMetalQuoteInput) -> Result<MetalQuote> {
         input.price = exact::normalize_decimal_input(&input.price)?;
-        let id = self.write_phase7(
+        self.write_phase7(
             "metal_quote",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -191,17 +194,19 @@ impl MetalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_metals_at(None)?
-            .quotes
-            .into_iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| invalid("Le cours enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .quotes
+                    .into_iter()
+                    .find(|m| m.id == key)
+                    .ok_or_else(|| invalid("Le cours enregistré est introuvable."))
+            },
+        )
     }
     fn save_metal_premium(&mut self, mut input: SaveMetalPremiumInput) -> Result<MetalPremium> {
         input.value = exact::normalize_decimal_input(&input.value)?;
         input.discount_per_unit = exact::normalize_decimal_input(&input.discount_per_unit)?;
-        let id = self.write_phase7(
+        self.write_phase7(
             "metal_premium",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -231,28 +236,31 @@ impl MetalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_metals_at(None)?
-            .premiums
-            .into_iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| invalid("La prime enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .premiums
+                    .into_iter()
+                    .find(|m| m.id == key)
+                    .ok_or_else(|| invalid("La prime enregistrée est introuvable."))
+            },
+        )
     }
     fn save_metal_cash_link(&mut self, mut input: SaveMetalCashLinkInput) -> Result<MetalCashLink> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id=self.write_phase7("metal_cash_link",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
+        self.write_phase7("metal_cash_link",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision| {
             phase7::unchanged(tx,"metal_cash_links","movement_id",input.id.as_deref(),&input.movement_id)?;
             if let Some(parent)=&input.expected_revision_id {
                 let old:String=tx.query_row("SELECT transaction_revision_id FROM metal_cash_links WHERE revision_id=?1",[parent],|r|r.get(0)).map_err(db::error)?;
                 phase7::preserve_cash_origins(tx,std::slice::from_ref(&old),std::slice::from_ref(&input.transaction_revision_id))?;
             }
             insert_link(tx,revision,&input)
-        })?;
-        self.list_metals_at(None)?
+        },
+            |tx, key| snapshot(tx, None)?
             .cash_links
             .into_iter()
-            .find(|m| m.id == id)
-            .ok_or_else(|| invalid("Le lien enregistré est introuvable."))
+            .find(|m| m.id == key)
+            .ok_or_else(|| invalid("Le lien enregistré est introuvable.")),
+        )
     }
     fn post_metal_movement(&mut self, mut input: PostMetalMovementInput) -> Result<MetalMovement> {
         self.ensure_active()?;

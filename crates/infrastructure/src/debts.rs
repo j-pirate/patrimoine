@@ -4,7 +4,7 @@ use patrimoine_application::DebtService;
 use patrimoine_domain::*;
 use rusqlite::{params, Connection, Row, Transaction, TransactionBehavior};
 
-const TABLES: [(&str, &str); 9] = [
+pub(crate) const TABLES: [(&str, &str); 9] = [
     ("debt_contract", "debt_contracts"),
     ("debt_terms", "debt_terms"),
     ("debt_movement", "debt_movements"),
@@ -195,17 +195,8 @@ pub(crate) fn validate_history(c: &Connection) -> Result<()> {
             ));
         }
     }
-    let mut statement = c
-        .prepare("SELECT sequence FROM change_sets ORDER BY sequence")
-        .map_err(db::error)?;
-    let sequences = statement
-        .query_map([], |r| r.get::<_, u64>(0))
-        .map_err(db::error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(db::error)?;
-    for k in sequences {
-        validate_debts(&registry::snapshot(c, Some(k))?, &snapshot(c, Some(k))?)?;
-    }
+    // Financial history replays validate_debts together with all dependent
+    // sources at each relevant K; this function checks raw rows only.
     Ok(())
 }
 
@@ -246,14 +237,15 @@ pub(crate) fn insert_debt_movement(
 }
 
 impl Vault {
-    fn write_debt(
+    fn write_debt<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(&Connection, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -262,8 +254,9 @@ impl Vault {
         let (object, revision) = registry::begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &object, &revision)?;
         crate::finance::validate_current(&tx)?;
+        let result = read(&tx, &object)?;
         tx.commit().map_err(db::error)?;
-        Ok(object)
+        Ok(result)
     }
 }
 
@@ -285,7 +278,7 @@ impl DebtService for Vault {
         )
     }
     fn save_debt_contract(&mut self, input: SaveDebtContractInput) -> Result<DebtContract> {
-        let id = self.write_debt(
+        self.write_debt(
             "debt_contract",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -319,12 +312,14 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .contracts
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le contrat enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .contracts
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le contrat enregistré est introuvable."))
+            },
+        )
     }
     fn save_debt_terms(&mut self, mut input: SaveDebtTermsInput) -> Result<DebtTerms> {
         if let Some(rate) = &mut input.interest_rate {
@@ -341,7 +336,7 @@ impl DebtService for Vault {
                 *share = exact::normalize_fraction(share)?;
             }
         }
-        let id = self.write_debt(
+        self.write_debt(
             "debt_terms",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -390,34 +385,38 @@ impl DebtService for Vault {
                 }
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .terms
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Les conditions enregistrées sont introuvables."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .terms
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Les conditions enregistrées sont introuvables."))
+            },
+        )
     }
     fn save_debt_movement(&mut self, mut input: SaveDebtMovementInput) -> Result<DebtMovement> {
         normalize_debt_movement(&mut input)?;
-        let id = self.write_debt(
+        self.write_debt(
             "debt_movement",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
             &input.reason,
             |tx, _, revision| insert_debt_movement(tx, revision, &input),
-        )?;
-        self.list_debts_at(None)?
-            .movements
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le mouvement enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .movements
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le mouvement enregistré est introuvable."))
+            },
+        )
     }
     fn save_debt_receivable_adjustment(
         &mut self,
         mut input: SaveDebtReceivableAdjustmentInput,
     ) -> Result<DebtReceivableAdjustment> {
         input.valuation_delta = exact::normalize_decimal_input(&input.valuation_delta)?;
-        let id = self.write_debt(
+        self.write_debt(
             "debt_receivable_adjustment",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -453,18 +452,20 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .receivable_adjustments
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("L’ajustement de créance enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .receivable_adjustments
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("L’ajustement de créance enregistré est introuvable."))
+            },
+        )
     }
     fn save_debt_schedule(&mut self, mut input: SaveDebtScheduleInput) -> Result<DebtSchedule> {
         input.expected_principal = exact::normalize_decimal_input(&input.expected_principal)?;
         input.expected_interest = exact::normalize_decimal_input(&input.expected_interest)?;
         input.expected_fees = exact::normalize_decimal_input(&input.expected_fees)?;
-        let id = self.write_debt(
+        self.write_debt(
             "debt_schedule",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -493,12 +494,14 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .schedules
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("L’échéance enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .schedules
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("L’échéance enregistrée est introuvable."))
+            },
+        )
     }
     fn save_debt_payment_allocation(
         &mut self,
@@ -507,7 +510,7 @@ impl DebtService for Vault {
         input.principal = exact::normalize_decimal_input(&input.principal)?;
         input.interest = exact::normalize_decimal_input(&input.interest)?;
         input.fees = exact::normalize_decimal_input(&input.fees)?;
-        let id = self.write_debt(
+        self.write_debt(
             "debt_payment_allocation",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -542,18 +545,20 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .payment_allocations
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("L’affectation enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .payment_allocations
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("L’affectation enregistrée est introuvable."))
+            },
+        )
     }
     fn save_debt_asset_link(&mut self, mut input: SaveDebtAssetLinkInput) -> Result<DebtAssetLink> {
         if let Some(share) = &mut input.attributed_principal_share {
             *share = exact::normalize_fraction(share)?;
         }
-        let id = self.write_debt(
+        self.write_debt(
             "debt_asset_link",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -598,18 +603,20 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .asset_links
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le lien enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .asset_links
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le lien enregistré est introuvable."))
+            },
+        )
     }
     fn save_debt_guarantee(&mut self, mut input: SaveDebtGuaranteeInput) -> Result<DebtGuarantee> {
         if let Some(limit) = &mut input.limit_amount {
             *limit = exact::normalize_decimal_input(limit)?;
         }
-        let id = self.write_debt(
+        self.write_debt(
             "debt_guarantee",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -644,15 +651,17 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .guarantees
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("La garantie enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .guarantees
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("La garantie enregistrée est introuvable."))
+            },
+        )
     }
     fn save_debt_coverage(&mut self, input: SaveDebtCoverageInput) -> Result<DebtCoverage> {
-        let id = self.write_debt(
+        self.write_debt(
             "debt_coverage",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -696,11 +705,13 @@ impl DebtService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_debts_at(None)?
-            .coverages
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("La couverture enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .coverages
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("La couverture enregistrée est introuvable."))
+            },
+        )
     }
 }

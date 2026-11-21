@@ -138,6 +138,10 @@ struct Fixture {
 }
 
 fn fixture() -> Fixture {
+    fixture_with_profiles(true)
+}
+
+fn fixture_with_profiles(dated: bool) -> Fixture {
     let temporary = TempDir::new().unwrap();
     let mut vault = Vault::open(temporary.path().join("vault")).unwrap();
     let alice = entity(&mut vault, "Alice synthétique", "person");
@@ -146,7 +150,23 @@ fn fixture() -> Fixture {
     member(&mut vault, &bob);
     let (alice_asset, alice_value) =
         owned_asset(&mut vault, &alice, "Maison Alice", "FR", "100.01");
-    owned_asset(&mut vault, &bob, "Maison Benoît", "CH", "200");
+    let (bob_asset, _) = owned_asset(&mut vault, &bob, "Maison Benoît", "CH", "200");
+    if dated {
+        for asset in [&alice_asset, &bob_asset] {
+            vault
+                .save_profile_period(SaveProfilePeriodInput {
+                    id: None,
+                    expected_revision_id: None,
+                    reason: "Pays historique explicitement daté".into(),
+                    target_kind: "asset".into(),
+                    target_id: asset.id.clone(),
+                    profile_revision_id: asset.revision_id.clone(),
+                    valid_from: "2024-01-01".into(),
+                    valid_to: None,
+                })
+                .unwrap();
+        }
+    }
     let debt = vault
         .save_debt_contract(SaveDebtContractInput {
             id: None,
@@ -832,4 +852,56 @@ fn invalid_requests_and_destinations_leave_no_partial_report_or_vault_change() {
         .is_err());
     assert!(!wrong_extension.exists());
     assert_eq!(records(f.temporary.path().join("vault").as_path()), before);
+}
+
+#[test]
+fn an_undated_country_remains_unknown_until_a_profile_is_explicit_at_the_selected_k() {
+    let mut f = fixture_with_profiles(false);
+    let before = f.vault.list_registry().unwrap().knowledge_sequence;
+    let report = f.vault.get_dashboard(request()).unwrap();
+    let position = report
+        .positions
+        .iter()
+        .find(|p| p.position.object_id == f.alice_asset.id)
+        .unwrap();
+    assert_eq!(position.country, None);
+    let mut query = request();
+    query.filters.country = Some("FR".into());
+    assert!(f
+        .vault
+        .get_dashboard(query.clone())
+        .unwrap()
+        .positions
+        .is_empty());
+    f.vault
+        .save_profile_period(SaveProfilePeriodInput {
+            id: None,
+            expected_revision_id: None,
+            reason: "Correction explicite de la datation du pays".into(),
+            target_kind: "asset".into(),
+            target_id: f.alice_asset.id.clone(),
+            profile_revision_id: f.alice_asset.revision_id.clone(),
+            valid_from: "2024-01-01".into(),
+            valid_to: None,
+        })
+        .unwrap();
+    let current = f.vault.get_dashboard(query.clone()).unwrap();
+    assert_eq!(current.positions.len(), 1);
+    assert_eq!(current.positions[0].amount_eur.as_deref(), Some("100.01"));
+    query.knowledge_sequence = Some(before);
+    assert!(f.vault.get_dashboard(query).unwrap().positions.is_empty());
+}
+
+#[test]
+fn a_company_without_a_financial_history_does_not_consume_the_monthly_point_budget() {
+    let mut f = fixture();
+    let company = entity(&mut f.vault, "Société sur une longue fenêtre", "company");
+    let mut query = request();
+    query.context = "company".into();
+    query.entity_id = Some(company.id);
+    query.from_date = "2019-01-01".into();
+    query.interval = "monthly".into();
+    let report = f.vault.get_dashboard(query).unwrap();
+    assert!(report.history.is_empty());
+    assert!(report.company.is_some());
 }

@@ -18,7 +18,7 @@ const person: Entity = { id: 'alice', revision_id: 'r2', kind: 'person', display
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.getStatus).mockResolvedValue({ generation_id: 'vault', data_dir: '/local', schema_version: 3,
-    app_version: '0.1.0', document_count: 0, mutation_sequence: 4, country_count: 4, currency_count: 5,
+    app_version: '0.1.0', document_count: 0, mutation_sequence: 4, country_count: 4, currency_count: 5, recovery_required: false, recovery_message: null,
     settings: { workspace_name: 'Coffre de test', display_currency: 'EUR' } });
   vi.mocked(api.listRegistry).mockResolvedValue({ ...emptyRegistry, entities: [person], knowledge_sequence: 4 });
   vi.mocked(api.listRegistryAt).mockResolvedValue(emptyRegistry);

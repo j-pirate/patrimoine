@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../services/api';
@@ -35,6 +35,40 @@ beforeEach(() => {
 });
 
 describe('Sources et trésorerie dans une même opération', () => {
+  it('IMMO-04 distingue les baux homonymes dans le poste bancaire et limite leurs échéances', async () => {
+    const otherHouse = { ...registry.assets[0], id: 'house-b', revision_id: 'house-b-r' };
+    const otherUnit = { ...properties.units[0], id: 'unit-b', revision_id: 'unit-b-r', property_asset_id: 'house-b' };
+    const otherLease = { ...rentals.leases[0], id: 'lease-b', revision_id: 'lease-b-r', unit_id: 'unit-b', valid_from: '2026-02-01', valid_to: '2026-12-01' };
+    const otherDue = { ...rentals.dues[0], id: 'due-b', revision_id: 'due-b-r', lease_id: 'lease-b' };
+    const { user, props, rerender } = open();
+    rerender(<CashPostings {...props}
+      registry={{ ...registry, assets: [...registry.assets, otherHouse] }}
+      properties={{ ...properties, properties: [...properties.properties, { ...properties.properties[0], id: 'property-b', asset_id: 'house-b' }], units: [...properties.units, otherUnit] }}
+      rentals={{ ...rentals, leases: [...rentals.leases, otherLease], dues: [...rentals.dues, otherDue] }} />);
+    await user.click(screen.getByRole('button', { name: 'Enregistrer un loyer en trésorerie' }));
+    const leaseSelect = screen.getByLabelText('Bail concerné');
+    expect(within(leaseSelect).getByRole('option', { name: 'Maison · house · LOGEMENT · Logement · Bénéficiaire documenté · 2026-01-01 → sans fin · lease' })).toBeVisible();
+    await user.selectOptions(leaseSelect, within(leaseSelect).getByRole('option', { name: 'Maison · house-b · LOGEMENT · Logement · Bénéficiaire documenté · 2026-02-01 → 2026-12-01 · lease-b' }));
+    await user.selectOptions(screen.getByLabelText('Bénéficiaire déclaré'), 'owner');
+    await user.type(screen.getByLabelText('Montant signé de la source'), '400');
+    await user.selectOptions(screen.getByLabelText('Compte du mouvement bancaire'), 'bank');
+    await user.click(screen.getByRole('button', { name: 'Ajouter une affectation au loyer' }));
+    const dueSelect = screen.getByLabelText('Échéance affectée 1');
+    expect(within(dueSelect).getAllByRole('option').map(option => option.getAttribute('value'))).toEqual(['', 'due-b']);
+    await user.selectOptions(dueSelect, 'due-b');
+    await user.type(screen.getByLabelText('Montant affecté 1'), '400');
+    await user.type(screen.getByLabelText('Motif de l’opération liée'), 'Loyer du second bien identifié');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la source et la trésorerie ensemble' }));
+    await waitFor(() => expect(api.postRentPayment).toHaveBeenCalledOnce());
+    expect(api.postRentPayment).toHaveBeenCalledWith(expect.objectContaining({
+      payment: expect.objectContaining({ lease_id: 'lease-b' }),
+      allocations: [{ due_id: 'due-b', component: 'rent', amount: '400' }],
+      cash: expect.objectContaining({ transaction: expect.objectContaining({ label: expect.stringContaining('house-b · LOGEMENT · Logement') }) }),
+    }));
+    expect(api.saveRentPayment).not.toHaveBeenCalled();
+    expect(api.saveTreasuryTransaction).not.toHaveBeenCalled();
+  });
+
   it('poste le paiement, ses affectations et sa ligne de banque via une seule commande', async () => {
     const { user, props } = open();
     await user.click(screen.getByRole('button', { name: 'Enregistrer un loyer en trésorerie' }));

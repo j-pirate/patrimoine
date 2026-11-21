@@ -180,4 +180,14 @@ describe('Observations et distributions de sociétés', () => {
     expect(screen.getByLabelText('Motif de l’enregistrement de société')).toHaveValue('Source revue à conserver');
     expect(api.saveCompanyFinancialPeriod).toHaveBeenCalledWith(expect.objectContaining({ id: 'period', expected_revision_id: 'period-r2' }));
   });
+  it('REG-03 distingue une distribution enregistrée d’une relecture des sociétés impossible', async () => {
+    const { user } = await open(); await distributionForm(user);
+    vi.mocked(api.listCompaniesAt).mockRejectedValueOnce(new Error('Relecture des sociétés indisponible'));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la distribution de société' }));
+    expect(await screen.findByText(/L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Relecture des sociétés indisponible');
+    expect(screen.queryByLabelText('Montant positif de la distribution')).not.toBeInTheDocument();
+    expect(api.saveCompanyDistribution).toHaveBeenCalledOnce();
+    expect(api.postCompanyDistribution).not.toHaveBeenCalled();
+  });
+
 });

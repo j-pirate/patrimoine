@@ -20,7 +20,7 @@ const exported: ExportSummary = { path: '/test/csv.zip', sha256: 'export-hash', 
   format: 'structured_csv', schema_version: 6, knowledge_sequence: 52, table_count: 62,
   row_count: 410, document_count: 3, blob_count: 2 };
 const restored: VaultStatus = { generation_id: 'new-generation', data_dir: '/test/coffre', schema_version: 6,
-  app_version: '0.1.0', document_count: 3, mutation_sequence: 52, settings: inspection.settings, country_count: 4, currency_count: 5 };
+  app_version: '0.1.0', document_count: 3, mutation_sequence: 52, settings: inspection.settings, country_count: 4, currency_count: 5, recovery_required: false, recovery_message: null };
 const onRestored = vi.fn<() => Promise<void>>();
 const onBusyChange = vi.fn<(busy: boolean) => void>();
 function show() { render(<PortabilityPage currentSchema={6} onRestored={onRestored} onBusyChange={onBusyChange} />); return userEvent.setup(); }
@@ -44,6 +44,28 @@ beforeEach(() => {
 });
 
 describe('Portabilité intégrale', () => {
+  it('PORT-01 rafraîchit une activation effectuée et affiche la reprise encore nécessaire', async () => {
+    vi.mocked(api.activateRestore).mockResolvedValue({ ...restored, recovery_required: true, recovery_message: 'Le coffre restauré est actif. Fermez et rouvrez l’application pour terminer la reprise.' });
+    const user = await analyze();
+    await user.click(screen.getByRole('button', { name: 'Confirmer le remplacement du coffre' }));
+    expect(await screen.findByText(/L’archive CSV a été réimportée.*Le coffre restauré est actif/)).toBeVisible();
+    expect(onRestored).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('heading', { name: 'Vérifier avant de réimporter' })).not.toBeInTheDocument();
+    expect(api.activateRestore).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('REG-03 garde l’activation confirmée si le rafraîchissement échoue sans permettre sa répétition', async () => {
+    onRestored.mockRejectedValue(new Error('Lecture après activation indisponible'));
+    const user = await analyze();
+    await user.click(screen.getByRole('button', { name: 'Confirmer le remplacement du coffre' }));
+    expect(await screen.findByText(/L’archive CSV a été réimportée.*L’affichage n’a pas pu être actualisé/)).toBeVisible();
+    expect(api.activateRestore).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Confirmer le remplacement du coffre' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choisir une archive CSV à analyser' })).toBeEnabled();
+  });
+
   it('exporte toutes les tables et les originaux sans transmettre un filtre de consultation', async () => {
     const user = show();
     expect(screen.getByText(/indépendamment du membre, de la date, des connaissances K/)).toBeVisible();

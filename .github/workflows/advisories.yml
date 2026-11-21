@@ -1,0 +1,58 @@
+name: Revue des avis publics
+on:
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Cargo.lock
+      - package-lock.json
+      - '**/Cargo.toml'
+      - scripts/audit-js-offline.mjs
+      - scripts/check-advisory-report.py
+      - .github/advisory-review.json
+      - .github/workflows/advisories.yml
+permissions:
+  contents: read
+jobs:
+  public-advisories:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Dépendances locales et outil RustSec épinglé
+        run: |
+          npm ci --no-audit --no-fund
+          cargo install cargo-audit --version 0.23.0 --locked
+      # Only public databases are downloaded. No advisory query receives the
+      # project's dependency inventory; both comparisons run locally.
+      - name: Base publique GitHub à jour
+        uses: actions/checkout@v4
+        with:
+          repository: github/advisory-database
+          path: .local/advisory-database
+          persist-credentials: false
+      - name: Base publique RustSec à jour
+        uses: actions/checkout@v4
+        with:
+          repository: RustSec/advisory-db
+          path: .local/rustsec-db
+          persist-credentials: false
+      - name: Comparaison JavaScript locale
+        run: |
+          node scripts/audit-js-offline.mjs \
+            --database .local/advisory-database \
+            --database-commit-time "$(git -C .local/advisory-database show -s --format=%cI HEAD)" \
+            --output .local/js-advisories.json
+      - name: Comparaison Rust locale et revue des avertissements
+        if: ${{ !cancelled() }}
+        run: |
+          status=0
+          CARGO_NET_OFFLINE=true cargo audit --no-fetch --no-yanked --db .local/rustsec-db --json > .local/rust-advisories.json || status=$?
+          python3 scripts/check-advisory-report.py \
+            --rust-report .local/rust-advisories.json \
+            --database .local/rustsec-db
+          exit "$status"

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { refreshAfterCommit } from '../services/mutations';
 import { api, errorMessage } from '../services/api';
 import type { DocumentLibrarySnapshot, DocumentLink, DocumentRecord } from '../services/documents-types';
-import { EditorFrame, Field, RegistryNotice } from './registry-ui';
+import { EditorFrame, Field, RegistryNotice, useFocusedRegion } from './registry-ui';
 import type { ViewContext } from './registry-ui';
 
 type Editor = { kind: 'metadata' | 'replace'; document: DocumentRecord; description: string; status: string; reason: string; confirmed: boolean }
@@ -32,26 +33,47 @@ export default function DocumentsPage({ context, onChanged, onBusyChange }: {
   const [removal, setRemoval] = useState<DocumentLink | null>(null);
   const [removalReason, setRemovalReason] = useState('');
   const request = useRef(0);
+  const removalFocus = useFocusedRegion(!!removal);
   const readOnly = context.knowledgeSequence != null;
   useEffect(() => { onBusyChange(loading || pending); return () => onBusyChange(false); }, [loading, pending, onBusyChange]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (reportFailure = false) => {
     const selected = ++request.current;
     setLoading(true); setLibrary(null); setError('');
     try { const result = await api.listDocumentLibraryAt(context.knowledgeSequence ?? null); if (selected === request.current) setLibrary(result); }
-    catch (reason) { if (selected === request.current) setError(errorMessage(reason)); }
+    catch (reason) { if (selected === request.current) { if (reportFailure) throw reason; setError(errorMessage(reason)); } }
     finally { if (selected === request.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { request.current += 1; }; }, [reload]);
   useEffect(() => { setEditor(null); setRemoval(null); setMessage(''); }, [context.knowledgeSequence, context.date]);
-  const targetName = (id: string) => library?.targets.find(t => t.id === id)?.label || id;
+  useEffect(() => {
+    let active = true;
+    let stop: (() => void) | undefined;
+    void Promise.resolve(api.onDocumentOpenFailed(error => { if (active) setError(errorMessage(error)); }))
+      .then(unlisten => { if (typeof unlisten === 'function') { if (active) stop = unlisten; else unlisten(); } })
+      .catch(() => undefined);
+    return () => { active = false; stop?.(); };
+  }, []);
+  const targetName = (id: string) => { const target = library?.targets.find(t => t.id === id); return target ? `${target.label}${target.retired ? ' · retiré' : ''}` : id; };
   const linksFor = (id: string) => library?.links.filter(link => link.document_id === id) || [];
-  async function changed() { await onChanged(); await reload(); }
+  const currentDocument = editor && library?.documents.find(document => document.id === editor.document.id);
+  const currentLink = editor?.kind === 'link' && editor.record ? library?.links.find(link => link.id === editor.record?.id) : null;
+  const staleEditor = !!editor && !!library && (!currentDocument || currentDocument.revision_id !== editor.document.revision_id
+    || (editor.kind === 'link' && !!editor.record && currentLink?.revision_id !== editor.record.revision_id));
+  function resumeEditor() {
+    if (!editor || !currentDocument || (editor.kind === 'link' && editor.record && !currentLink)) return;
+    // The user explicitly adopts the reloaded source; every draft field stays intact.
+    setEditor(editor.kind === 'link' ? { ...editor, document: currentDocument, record: currentLink || null }
+      : { ...editor, document: currentDocument, confirmed: false });
+    setError('');
+    setMessage('La source du formulaire a été actualisée après comparaison. Votre saisie et votre motif sont conservés ; vérifiez-les avant d’enregistrer.');
+  }
+  async function changed() { await onChanged(); await reload(true); }
   async function mutate(action: () => Promise<unknown>, success: string) {
     if (readOnly) return;
     setPending(true); setError(''); setMessage('');
     try {
       if (await action() === false) { setMessage('Choix de fichier annulé ; la saisie est conservée.'); return; }
-      setEditor(null); setRemoval(null); await changed(); setMessage(success);
+      setEditor(null); setRemoval(null); await refreshAfterCommit(changed, success, setMessage);
     } catch (reason) { setError(errorMessage(reason)); }
     finally { setPending(false); }
   }
@@ -87,7 +109,7 @@ export default function DocumentsPage({ context, onChanged, onBusyChange }: {
     setEditor({ kind: 'link', document, record, target: record?.target_object_id || '', role: record?.role || '', from: record?.valid_from || context.date, to: record?.valid_to || '', reason: '' });
   }
   async function save(event: FormEvent) {
-    event.preventDefault(); if (!editor || readOnly) return;
+    event.preventDefault(); if (!editor || readOnly || staleEditor) return;
     const e = editor;
     if (e.kind === 'metadata') await mutate(() => api.saveDocumentMetadata({ id: e.document.id, expected_revision_id: e.document.revision_id, reason: e.reason.trim(), description: e.description, status: e.status, confirmed: e.status === 'deleted' && e.confirmed }), 'La description et le statut ont été enregistrés dans une nouvelle révision.');
     if (e.kind === 'replace') await mutate(async () => {
@@ -108,7 +130,7 @@ export default function DocumentsPage({ context, onChanged, onBusyChange }: {
   return <div className="registry-workspace" aria-busy={loading || pending}>
     <RegistryNotice>La bibliothèque présente tous les documents du coffre connus à la séquence choisie. Utilisez les filtres d’association pour consulter les pièces d’un objet. Les associations suivent la date {context.date} ; les versions suivent les connaissances sélectionnées. Les originaux et leurs anciennes versions sont conservés. Ouvrir confie une copie contrôlée au lecteur associé du système.</RegistryNotice>
     {readOnly && <RegistryNotice><strong>Lecture seule historique.</strong> Documents et associations connus à la séquence {context.knowledgeSequence}. L’ouverture et l’export d’une copie restent disponibles.</RegistryNotice>}
-    {error && <RegistryNotice error><strong>Opération documentaire impossible.</strong><p>{error}</p><button type="button" className="button secondary" disabled={pending} onClick={() => { void reload(); }}>Recharger la bibliothèque</button></RegistryNotice>}
+    {error && <RegistryNotice error><strong>Opération documentaire impossible.</strong><p>{error}</p><p>Votre saisie est conservée. Après un conflit, rechargez la bibliothèque, comparez les versions puis choisissez explicitement de reprendre sur la source actualisée. Vous pouvez aussi fermer et rouvrir le formulaire depuis le document actuel.</p><button type="button" className="button secondary" disabled={pending} onClick={() => { void reload(); }}>Recharger la bibliothèque</button></RegistryNotice>}
     {message && <RegistryNotice>{message}</RegistryNotice>}
     {loading && <p role="status">Chargement des documents…</p>}
     {!loading && library && <>
@@ -123,10 +145,20 @@ export default function DocumentsPage({ context, onChanged, onBusyChange }: {
         <details><summary>Versions antérieures de ce document</summary>{library.versions.filter(v => v.id === document.id && v.revision_id !== document.revision_id).map(version => <article key={version.revision_id}><h4>Version du {dateLabel(version.recorded_at)}</h4><p>{version.original_name} · {statusNames[version.status] || version.status} · {sizeLabel(version.size_bytes)}</p><p>{version.description || 'Description non renseignée.'}</p><p className="hash">Révision : {version.revision_id}<br />SHA-256 : {version.sha256}</p><div className="row-actions"><button type="button" className="button secondary small-button" disabled={pending} onClick={() => { void readDocument(version, true); }}>Ouvrir cette version</button><button type="button" className="button secondary small-button" disabled={pending} onClick={() => { void readDocument(version, false); }}>Exporter cette version</button></div></article>)}{!library.versions.some(v => v.id === document.id && v.revision_id !== document.revision_id) && <p>Aucune version antérieure connue à cette séquence.</p>}</details>
       </section>)}
       {editor && !readOnly && <EditorFrame title={editor.kind === 'link' ? 'Association documentaire' : editor.kind === 'replace' ? 'Remplacer l’original documentaire' : editor.status === 'deleted' ? 'Retirer le document du classement' : 'Description et statut du document'} pending={pending} onCancel={() => setEditor(null)}><form onSubmit={event => { void save(event); }}><fieldset disabled={pending}><p>Document : {editor.document.original_name}. La révision attendue est celle de la source affichée.</p>
+        {staleEditor && <section className="notice notice-error" aria-label="Comparer les versions documentaires"><h3>La source du formulaire a changé</h3><p>L’enregistrement attend votre comparaison. La révision attendue n’a pas été modifiée et votre saisie est conservée.</p>
+          <div className="table-scroll"><table><caption>Source initiale, version actuelle et saisie conservée</caption><thead><tr><th>Champ</th><th>Source initiale</th><th>Version actuelle</th><th>Votre saisie</th></tr></thead><tbody>
+            <tr><th>Révision du document</th><td>{editor.document.revision_id}</td><td>{currentDocument?.revision_id || 'Document absent'}</td><td>—</td></tr>
+            <tr><th>Original et empreinte</th><td>{editor.document.original_name}<p className="hash">{editor.document.sha256}</p></td><td>{currentDocument?.original_name || 'Document absent'}<p className="hash">{currentDocument?.sha256}</p></td><td>{editor.kind === 'replace' ? 'Nouvel original à choisir après validation' : 'Original conservé'}</td></tr>
+            <tr><th>Description</th><td>{editor.document.description || 'Non renseignée'}</td><td>{currentDocument?.description || 'Non renseignée'}</td><td>{editor.kind === 'link' ? 'Description conservée' : editor.description || 'Non renseignée'}</td></tr>
+            <tr><th>Statut</th><td>{statusNames[editor.document.status] || editor.document.status}</td><td>{currentDocument ? statusNames[currentDocument.status] || currentDocument.status : 'Document absent'}</td><td>{editor.kind === 'metadata' ? statusNames[editor.status] || editor.status : 'Statut conservé'}</td></tr>
+            {editor.kind === 'link' && editor.record && <><tr><th>Révision de l’association</th><td>{editor.record.revision_id}</td><td>{currentLink?.revision_id || 'Association retirée'}</td><td>—</td></tr><tr><th>Objet associé</th><td>{targetName(editor.record.target_object_id)}</td><td>{currentLink ? targetName(currentLink.target_object_id) : 'Association retirée'}</td><td>{targetName(editor.target)}</td></tr><tr><th>Rôle</th><td>{editor.record.role || 'Non précisé'}</td><td>{currentLink?.role || 'Non précisé'}</td><td>{editor.role || 'Non précisé'}</td></tr><tr><th>Période</th><td>{editor.record.valid_from || 'Sans début'} → {editor.record.valid_to || 'Sans fin'}</td><td>{currentLink ? `${currentLink.valid_from || 'Sans début'} → ${currentLink.valid_to || 'Sans fin'}` : 'Association retirée'}</td><td>{editor.from || 'Sans début'} → {editor.to || 'Sans fin'}</td></tr></>}
+          </tbody></table></div>
+          {currentDocument && (editor.kind !== 'link' || !editor.record || currentLink) ? <button type="button" className="button secondary" onClick={resumeEditor}>Reprendre sur cette version en conservant ma saisie</button> : <p>Cette source a été retirée. Conservez votre saisie puis fermez le formulaire avant de choisir une autre action depuis la bibliothèque actuelle.</p>}
+        </section>}
         {editor.kind === 'link' ? <><Field id="document-link-target" label="Objet métier à associer"><select id="document-link-target" required disabled={!!editor.record} value={editor.target} onChange={event => { const value = event.currentTarget.value; setEditor(e => e?.kind === 'link' ? { ...e, target: value } : e); }}><option value="">Choisir un objet…</option>{library.targets.filter(t => !t.retired || t.id === editor.target).map(target => <option key={target.id} value={target.id}>{targetKinds[target.kind] || target.kind} · {target.label}{target.retired ? ' · retiré' : ''}</option>)}</select></Field><Field id="document-link-role" label="Rôle de l’association (facultatif)"><input id="document-link-role" value={editor.role} maxLength={200} onChange={event => { const value = event.currentTarget.value; setEditor(e => e?.kind === 'link' ? { ...e, role: value } : e); }} /></Field><div className="form-grid"><Field id="document-link-from" label="Début de l’association"><input id="document-link-from" type="date" required value={editor.from} onChange={event => { const value = event.currentTarget.value; setEditor(e => e?.kind === 'link' ? { ...e, from: value } : e); }} /></Field><Field id="document-link-to" label="Fin de l’association exclue (facultative)"><input id="document-link-to" type="date" value={editor.to} onChange={event => { const value = event.currentTarget.value; setEditor(e => e?.kind === 'link' ? { ...e, to: value } : e); }} /></Field></div>{editor.record && <p>Pour changer d’objet, retirer cette association puis en créer une nouvelle. Son historique sera conservé.</p>}</> : <><Field id="document-description" label="Description du document"><textarea id="document-description" maxLength={10000} value={editor.description} onChange={event => { const value = event.currentTarget.value; setEditor(e => e && e.kind !== 'link' ? { ...e, description: value } : e); }} /></Field>{editor.kind === 'metadata' ? <Field id="document-status" label="Nouveau statut du document"><select id="document-status" value={editor.status} onChange={event => { const value = event.currentTarget.value; setEditor(e => e?.kind === 'metadata' ? { ...e, status: value, confirmed: false } : e); }}>{Object.entries(statusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></Field> : <p>Le choix du nouvel original s’ouvre après validation. Les anciens octets et leurs empreintes restent conservés.</p>}{editor.kind === 'metadata' && editor.status === 'deleted' && <><p>Ce retrait masque le document du classement actif. Ses originaux, versions et associations restent dans le coffre et ses sauvegardes.</p><label className="checkbox-label"><input id="document-delete-confirm" type="checkbox" checked={editor.confirmed} onChange={event => { const value = event.currentTarget.checked; setEditor(e => e?.kind === 'metadata' ? { ...e, confirmed: value } : e); }} />Confirmer le retrait du document du classement courant</label></>}</>}
-        <Field id="document-reason" label="Motif de la modification documentaire"><textarea id="document-reason" required value={editor.reason} onChange={event => { const value = event.currentTarget.value; setEditor(e => e && ({ ...e, reason: value })); }} /></Field><button type="submit" className="button" disabled={!editor.reason.trim() || (editor.kind === 'metadata' && editor.status === 'deleted' && !editor.confirmed)}>{editor.kind === 'link' ? 'Enregistrer l’association documentaire' : editor.kind === 'replace' ? 'Choisir et enregistrer le nouvel original' : 'Enregistrer la description et le statut'}</button>
+        <Field id="document-reason" label="Motif de la modification documentaire"><textarea id="document-reason" required value={editor.reason} onChange={event => { const value = event.currentTarget.value; setEditor(e => e && ({ ...e, reason: value })); }} /></Field><button type="submit" className="button" disabled={staleEditor || !editor.reason.trim() || (editor.kind === 'metadata' && editor.status === 'deleted' && !editor.confirmed)}>{editor.kind === 'link' ? 'Enregistrer l’association documentaire' : editor.kind === 'replace' ? 'Choisir et enregistrer le nouvel original' : 'Enregistrer la description et le statut'}</button>
       </fieldset></form></EditorFrame>}
-      {removal && !readOnly && <section className="card restore-review"><h2>Retirer une association documentaire</h2><p>Le document et ses autres associations restent conservés. L’ancienne association restera consultable dans l’historique.</p><form onSubmit={event => { event.preventDefault(); void mutate(() => api.removeDocumentLink(removal.id, removal.revision_id, removalReason.trim()), 'L’association a été retirée ; le document et ses autres associations sont conservés.'); }}><fieldset disabled={pending}><Field id="document-link-remove-reason" label="Motif du retrait de l’association"><textarea id="document-link-remove-reason" required value={removalReason} onChange={event => setRemovalReason(event.currentTarget.value)} /></Field><button type="submit" className="button danger" disabled={!removalReason.trim()}>Confirmer le retrait de l’association</button><button type="button" className="button secondary" onClick={() => setRemoval(null)}>Conserver l’association</button></fieldset></form></section>}
+      {removal && !readOnly && <section ref={removalFocus} tabIndex={-1} className="card restore-review" aria-label="Retirer une association documentaire"><h2>Retirer une association documentaire</h2><p>Le document et ses autres associations restent conservés. L’ancienne association restera consultable dans l’historique.</p><form onSubmit={event => { event.preventDefault(); void mutate(() => api.removeDocumentLink(removal.id, removal.revision_id, removalReason.trim()), 'L’association a été retirée ; le document et ses autres associations sont conservés.'); }}><fieldset disabled={pending}><Field id="document-link-remove-reason" label="Motif du retrait de l’association"><textarea id="document-link-remove-reason" required value={removalReason} onChange={event => setRemovalReason(event.currentTarget.value)} /></Field><button type="submit" className="button danger" disabled={!removalReason.trim()}>Confirmer le retrait de l’association</button><button type="button" className="button secondary" onClick={() => setRemoval(null)}>Conserver l’association</button></fieldset></form></section>}
     </>}
   </div>;
 }

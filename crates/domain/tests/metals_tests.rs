@@ -564,6 +564,99 @@ fn declared_zero_cost_and_resale_adjustments_do_not_require_an_unneeded_fx_rate(
 }
 
 #[test]
+fn monetary_adjustments_without_a_quote_use_their_own_euro_conversion() {
+    let mut s = fixture();
+    s.m.quotes.clear();
+    s.m.lots[0].cost_currency = "USD".into();
+    s.m.movements[0].cost_amount = Some("0".into());
+    s.m.premiums[0].currency = "USD".into();
+    let missing_fx = s.report("2024-03-31");
+    assert_eq!(missing_fx.premium_original.as_deref(), Some("20.00"));
+    assert_eq!(missing_fx.discount_original.as_deref(), Some("10.00"));
+    assert_eq!(missing_fx.premium_eur, None);
+    assert_eq!(missing_fx.discount_eur, None);
+    assert!(missing_fx
+        .warnings
+        .iter()
+        .any(|w| w.code == "missing_exchange_rate" && w.object_id == "premium"));
+
+    s.fx("usd", "0.5", "2024-03-01");
+    let r = s.report("2024-03-31");
+    assert_eq!(r.premium_eur.as_deref(), Some("10.00"));
+    assert_eq!(r.discount_eur.as_deref(), Some("5.00"));
+    assert_eq!(r.intrinsic_eur, None);
+    assert_eq!(r.resale_eur, None);
+    assert!(r.source_ids.contains(&"usd-r".into()));
+    assert!(r.conversions.iter().any(|fx| {
+        fx.from_currency == "USD"
+            && fx.to_currency == "EUR"
+            && fx.legs.iter().any(|leg| leg.rate_id == "usd")
+    }));
+}
+
+#[test]
+fn euro_adjustments_remain_known_when_a_foreign_quote_cannot_be_converted() {
+    let mut s = fixture();
+    s.m.quotes[0].currency = "USD".into();
+    let r = s.report("2024-03-31");
+    assert_eq!(r.intrinsic_eur, None);
+    assert_eq!(r.premium_original, None);
+    assert_eq!(r.discount_original, None);
+    assert_eq!(r.premium_eur.as_deref(), Some("20.00"));
+    assert_eq!(r.discount_eur.as_deref(), Some("10.00"));
+    assert_eq!(r.resale_eur, None);
+}
+
+#[test]
+fn proportional_premium_requires_intrinsic_but_explicit_zeros_do_not_require_fx() {
+    let mut s = fixture();
+    s.m.quotes.clear();
+    s.m.premiums[0].kind = "fraction_of_intrinsic".into();
+    s.m.premiums[0].value = "0.1".into();
+    s.m.premiums[0].currency = "USD".into();
+    s.fx("usd", "0.5", "2024-03-01");
+    let r = s.report("2024-03-31");
+    assert_eq!(r.premium_eur, None);
+    assert_eq!(r.discount_eur.as_deref(), Some("5.00"));
+    assert_eq!(r.resale_eur, None);
+
+    s.r.exchange_rates.clear();
+    s.m.premiums[0].value = "0".into();
+    s.m.premiums[0].discount_per_unit = "0".into();
+    let zero = s.report("2024-03-31");
+    assert_eq!(zero.premium_eur.as_deref(), Some("0.00"));
+    assert_eq!(zero.discount_eur.as_deref(), Some("0.00"));
+    assert_eq!(zero.intrinsic_eur, None);
+    assert!(!zero
+        .warnings
+        .iter()
+        .any(|w| w.code == "missing_exchange_rate"));
+}
+
+#[test]
+fn confirmed_zero_stock_keeps_euro_zero_with_a_foreign_quote_without_fx() {
+    let mut s = fixture();
+    s.m.movements[0].quantity_change = "0".into();
+    s.m.movements[0].cost_amount = Some("0".into());
+    s.m.quotes[0].currency = "USD".into();
+    let r = s.report("2024-03-31");
+    assert_eq!(r.status, "complete");
+    assert_eq!(r.currency, "EUR");
+    assert_eq!(r.valuation_eur.as_deref(), Some("0.00"));
+    assert_eq!(r.intrinsic_original.as_deref(), Some("0.00"));
+    assert!(r.source_ids.contains(&"quote-r".into()));
+    assert!(!r.warnings.iter().any(|w| w.code == "missing_exchange_rate"));
+
+    s.m.movements.clear();
+    let unknown = s.report("2024-03-31");
+    assert_eq!(unknown.status, "partial");
+    assert_eq!(unknown.quantity_remaining, None);
+    assert_eq!(unknown.valuation_eur, None);
+    assert_eq!(unknown.premium_eur, None);
+    assert_eq!(unknown.discount_eur, None);
+}
+
+#[test]
 fn observation_date_excludes_future_purchase_stock_and_its_cash_warning() {
     let mut s = fixture();
     s.m.movements.push(movement(

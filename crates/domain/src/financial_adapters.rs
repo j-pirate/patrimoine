@@ -69,7 +69,7 @@ pub fn financial_property_report(
     finance: &FinanceSnapshot,
     q: &PropertyReportRequest,
 ) -> Result<PropertyReport> {
-    validate_finance(registry, properties, rentals, treasury, debts, finance)?;
+    validate_finance_sources(registry, properties, rentals, treasury, debts, finance)?;
     let mut out = property_report(registry, properties, q)?;
     out.warnings
         .retain(|w| w.code != "financing_not_inventoried");
@@ -459,7 +459,7 @@ pub fn financial_rental_report(
     finance: &FinanceSnapshot,
     q: &RentalReportRequest,
 ) -> Result<RentalReport> {
-    validate_finance(registry, properties, rentals, treasury, debts, finance)?;
+    validate_finance_sources(registry, properties, rentals, treasury, debts, finance)?;
     let settlements = non_cash_settlements(treasury)?;
     let mut out = rental_report_with_settlements(registry, properties, rentals, q, &settlements)?;
     out.warnings.retain(|w| w.code != "treasury_not_integrated");

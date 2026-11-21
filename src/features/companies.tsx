@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, displayCurrencies, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { CompanyDistribution, CompanyFinancialPeriod, CompanyReport, CompanySnapshot, PostedCompanyDistributionCashLink } from '../services/companies-types';
 import type { Fraction, RegistrySnapshot, SaveRecord } from '../services/registry-types';
 import type { TreasurySnapshot, TreasuryTransaction } from '../services/treasury-types';
@@ -51,19 +52,20 @@ export default function CompaniesPage({ registry, context, onChanged, onBusyChan
   const entityName = (id: string) => { const e = registry.entities.find(e => e.id === id); return e ? entityAt(registry, e, context.date).display_name : id; };
   const assetName = (id: string) => { const a = registry.assets.find(a => a.id === id); return a ? assetAt(registry, a, context.date).name : id; };
   const accountName = (id: string) => { const a = treasury?.accounts.find(a => a.id === id); return a ? `${assetName(a.asset_id)} · ${a.currency}` : id; };
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const request = ++requestId.current;
     setLoading(true); setError(''); setSnapshot(null); setTreasury(null);
     try {
       const k = context.knowledgeSequence ?? null;
       const [observations, journal] = await Promise.all([api.listCompaniesAt(k), api.listTreasuryAt(k)]);
       if (request === requestId.current) { setSnapshot(observations); setTreasury(journal); }
-    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (request === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
   useEffect(() => { onBusyChange(loading || pending); return () => onBusyChange(false); }, [loading, pending, onBusyChange]);
-  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); setMessage(''); }, [context.date, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); }, [context.date, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { setMessage(''); }, [context.date, context.knowledgeSequence]);
   useEffect(() => { reportId.current += 1; setReport(null); }, [selected, frequency]);
 
   function open(kind: Kind, record: RecordRow | null = null) {
@@ -122,7 +124,7 @@ export default function CompaniesPage({ registry, context, onChanged, onBusyChan
         }
       }
       setEditor(null); setReport(null);
-      await onChanged(); await reload(); setMessage('La source de société et ses révisions ont été conservées.');
+      await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'La source de société et ses révisions ont été conservées.', setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -131,7 +133,7 @@ export default function CompaniesPage({ registry, context, onChanged, onBusyChan
     setPending(true); setError(''); setMessage('');
     try {
       await api.voidRegistryRecord(removal.id, removal.revision_id, removalReason.trim());
-      setRemoval(null); setReport(null); await onChanged(); await reload(); setMessage('L’annulation reste consultable dans les anciennes connaissances.');
+      setRemoval(null); setReport(null); await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'L’annulation reste consultable dans les anciennes connaissances.', setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }

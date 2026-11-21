@@ -186,13 +186,25 @@ def appimage_inventory(stage: Path, appdir: Path | None) -> list[dict]:
     return records
 
 
-def debian_inventory(stage: Path, appdir: Path, sysroot: Path) -> tuple[list[dict], list[str], list[dict]]:
-    """Map actual bundled .so names to local Debian package file inventories."""
-    libraries = sorted({path.name: path for path in appdir.rglob("*") if path.is_file() and ".so" in path.name}.values())
-    # dpkg owns host files. The non-privileged sysroot was extracted from these
-    # locally cached Debian archives, so read their file lists when needed.
+def bundled_libraries(appdir: Path) -> list[dict]:
+    return [{"path": path.relative_to(appdir).as_posix(), "sha256": digest(path.read_bytes())}
+            for path in sorted(appdir.rglob("*")) if path.is_file() and ".so" in path.name]
+
+
+def debian_inventory(stage: Path, appdir: Path, sysroot: Path, hostroot: Path = Path("/")) -> tuple[list[dict], list[str], list[dict]]:
+    """Bind binary, version and copyright to the same verified environment.
+
+    hostroot is injectable only for local fixture tests; dpkg-query always reads
+    the installed host database. A stale sysroot candidate cannot mask the host.
+    """
+    with tempfile.TemporaryDirectory(prefix="patrimoine-debian-evidence-") as temporary:
+        return _debian_inventory(stage, appdir, sysroot, hostroot, Path(temporary))
+
+
+def _debian_inventory(stage, appdir, sysroot, hostroot, extracted):
+    libraries = [appdir / item["path"] for item in bundled_libraries(appdir)]
     archives = sorted((sysroot.parent / "apt/archives").glob("*.deb"))
-    owned: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    owned = defaultdict(list)
     cached_metadata = {}
     for archive in archives:
         package = subprocess.check_output(["dpkg-deb", "-f", str(archive), "Package"], text=True).strip()
@@ -200,90 +212,112 @@ def debian_inventory(stage: Path, appdir: Path, sysroot: Path) -> tuple[list[dic
         source_field = subprocess.check_output(["dpkg-deb", "-f", str(archive), "Source"], text=True).strip()
         source_match = re.fullmatch(r"([^ ()]+)(?: \(([^()]+)\))?", source_field)
         source_name = source_match[1] if source_match else package
-        # A Debian binary-only rebuild adds +bN to the binary version while
-        # retaining the original source version unless Source names it explicitly.
         source_version = source_match[2] if source_match and source_match[2] else re.sub(r"\+b[0-9]+$", "", version)
-        cached_metadata[package] = {"version": version, "source_package": source_name, "source_version": source_version,
-                                    "binary_metadata_origin": "locally cached Debian archive"}
+        cached_metadata[archive] = {"version": version, "source_package": source_name, "source_version": source_version,
+                                    "binary_metadata_origin": "locally cached Debian archive",
+                                    "debian_archive_sha256": digest(archive.read_bytes())}
         listing = subprocess.check_output(["dpkg-deb", "--contents", str(archive)], text=True)
         for line in listing.splitlines():
             fields = line.split()
-            if len(fields) >= 6:
-                path = fields[5]
-                name = Path(path).name
-                if ".so" in name:
-                    owned[name].append((package, path.lstrip("./")))
-    selected: dict[str, list[str]] = defaultdict(list)
-    binary_evidence: dict[str, list[dict]] = defaultdict(list)
-    selected_metadata = {}
+            if len(fields) >= 6 and ".so" in Path(fields[5]).name:
+                owned[Path(fields[5]).name].append((package, fields[5].lstrip("./"), "sysroot", archive))
+    roots = {"sysroot": sysroot, "host": hostroot}
+    selected = {}
     unmapped = []
-    build_ids: dict[Path, str | None] = {}
-    def build_id(path: Path) -> str | None:
+    build_ids = {}
+    archive_roots = {}
+
+    def archive_root(archive):
+        if archive not in archive_roots:
+            directory = extracted / str(len(archive_roots))
+            subprocess.check_output(["dpkg-deb", "--extract", str(archive), str(directory)])
+            archive_roots[archive] = directory
+        return archive_roots[archive]
+
+    def build_id(path):
         path = path.resolve()
         if path not in build_ids:
             process = subprocess.run(["readelf", "--notes", str(path)], capture_output=True, text=True)
-            found = re.search(r"Build ID:\s*([0-9a-f]+)", process.stdout)
+            found = re.search(r"Build ID:\s*([0-9a-f]+)", process.stdout) if process.returncode == 0 else None
             build_ids[path] = found.group(1) if found else None
         return build_ids[path]
+
     for bundled_path in libraries:
         library = bundled_path.name
-        matches = owned.get(library, [])
-        # Host runtime files may not have been downloaded into the sysroot.
+        matches = list(owned.get(library, []))
         found = subprocess.run(["dpkg-query", "-S", f"*/{library}"], capture_output=True, text=True)
         for line in found.stdout.splitlines():
             if ": " in line:
                 package, source = line.split(": ", 1)
-                matches.append((package.split(":", 1)[0], source.lstrip("/")))
-        verified = set()
-        for package, relative in matches:
-            source = next((path for path in [sysroot / relative, Path("/") / relative] if path.is_file()), None)
-            if source is None:
-                continue
+                # Retain the architecture qualifier when querying installed metadata.
+                matches.append((package, source.lstrip("/"), "host", None))
+        verified = False
+        for package, relative, origin, archive in matches:
+            source = roots[origin] / relative
+            if not source.is_file() or not source.resolve().is_relative_to(roots[origin].resolve()):
+                continue  # A sysroot symlink to the host does not prove archive provenance.
             first, second = build_id(bundled_path), build_id(source)
             method = "GNU build-id" if first and first == second else None
             if method is None and digest(bundled_path.read_bytes()) == digest(source.read_bytes()):
                 method = "identical SHA-256"
-            if method is None or package in verified:
+            if method is None:
                 continue
-            verified.add(package)
-            if source.resolve().is_relative_to(sysroot.resolve()):
-                metadata = cached_metadata.get(package)
-                if metadata is None:
-                    raise ValueError(f"No cached Debian metadata for {package}")
+            if origin == "sysroot":
+                evidence_root = archive_root(archive)
+                archive_file = evidence_root / relative
+                # Multiple versions can coexist in apt/archives. A sysroot
+                # filename alone cannot bind its bytes to any one of them.
+                if (not archive_file.is_file() or not archive_file.resolve().is_relative_to(evidence_root.resolve())
+                        or digest(source.read_bytes()) != digest(archive_file.read_bytes())):
+                    continue
+                metadata = cached_metadata[archive]
             else:
+                evidence_root = hostroot
                 data = subprocess.check_output(["dpkg-query", "-W", "-f=${Version}\t${source:Package}\t${source:Version}", package], text=True).strip().split("\t")
                 if len(data) != 3 or not all(data):
                     raise ValueError(f"Incomplete installed Debian source metadata for {package}")
                 metadata = {"version": data[0], "source_package": data[1], "source_version": data[2],
                             "binary_metadata_origin": "installed Debian package database"}
-            if package in selected_metadata and selected_metadata[package] != metadata:
-                raise ValueError(f"Conflicting Debian package versions in bundled libraries: {package}")
-            selected_metadata[package] = metadata
-            selected[package].append(library)
-            binary_evidence[package].append({"bundled_path": bundled_path.relative_to(appdir).as_posix(), "package_file": relative,
-                                             "method": method, "build_id": first, "bundled_sha256": digest(bundled_path.read_bytes())})
+            name = package.split(":", 1)[0]
+            os_release = roots[origin] / "etc/os-release"
+            ubuntu = os_release.is_file() and re.search(r'^ID=["\']?ubuntu["\']?$', os_release.read_text(), re.M)
+            ecosystem = "ubuntu" if ubuntu else "debian"
+            source_name = quote(metadata['source_package'], safe='')
+            source_version = quote(metadata['source_version'], safe='')
+            source_url = (f"https://launchpad.net/ubuntu/+source/{source_name}/{source_version}" if ubuntu
+                          else f"https://sources.debian.org/src/{source_name}/{source_version}/")
+            key = (name, origin, metadata["version"])
+            record = selected.setdefault(key, {"ecosystem": ecosystem, "name": name, **metadata,
+                "package_environment": origin,
+                "source_browser_url": source_url,
+                "scope": ["shared libraries actually bundled in AppDir"], "bundled_libraries": [], "binary_evidence": [],
+                "declared_licence": "See Debian machine-readable copyright text", "files": [], "_evidence_root": evidence_root})
+            if record["source_package"] != metadata["source_package"] or record["source_version"] != metadata["source_version"]:
+                raise ValueError(f"Conflicting Debian source metadata for {package}")
+            record["bundled_libraries"].append(library)
+            record["binary_evidence"].append({"bundled_path": bundled_path.relative_to(appdir).as_posix(), "package_file": relative,
+                "package_environment": origin, "method": method, "build_id": first, "bundled_sha256": digest(bundled_path.read_bytes())})
+            verified = True
+            break
         if not verified:
-            unmapped.append(library)
+            unmapped.append(bundled_path.relative_to(appdir).as_posix())
     records = []
-    for package, bundled in sorted(selected.items()):
-        paths = [sysroot / "usr/share/doc" / package / "copyright", Path("/usr/share/doc") / package / "copyright"]
-        copyright_file = next((path for path in paths if path.is_file()), None)
-        metadata = selected_metadata[package]
-        files = []
-        if copyright_file:
-            files = copied_files([copyright_file], copyright_file.parent, stage / "LICENSES/debian" / safe_name(package), stage)
-        records.append({"ecosystem": "debian", "name": package, **metadata,
-                        "source_browser_url": f"https://sources.debian.org/src/{quote(metadata['source_package'], safe='')}/{quote(metadata['source_version'], safe='')}/",
-                        "scope": ["shared libraries actually bundled in AppDir"],
-                        "bundled_libraries": sorted(set(bundled)), "binary_evidence": binary_evidence[package],
-                        "declared_licence": "See Debian machine-readable copyright text", "files": files})
-    # Debian copyright files commonly refer to these complete standard texts.
-    # Preserve them in the AppImage notices instead of relying on the target OS.
-    common_directory = next((path for path in [sysroot / "usr/share/common-licenses", Path("/usr/share/common-licenses")] if path.is_dir()), None)
+    for (package, origin, version), record in sorted(selected.items()):
+        evidence_root = record.pop("_evidence_root")
+        copyright_file = evidence_root / "usr/share/doc" / package / "copyright"
+        # Never substitute the other environment's copyright, even if it exists.
+        if copyright_file.is_file() and copyright_file.resolve().is_relative_to(evidence_root.resolve()):
+            record["files"] = copied_files([copyright_file], copyright_file.parent,
+                stage / "LICENSES/debian" / origin / f"{safe_name(package)}-{safe_name(version)}", stage)
+        record["copyright_environment"] = origin
+        record["bundled_libraries"] = sorted(set(record["bundled_libraries"]))
+        records.append(record)
     common = []
-    if common_directory:
-        common = copied_files([path for path in sorted(common_directory.iterdir()) if path.is_file()], common_directory,
-                              stage / "LICENSES/debian/common-licenses", stage)
+    for origin in sorted({record["package_environment"] for record in records}):
+        directory = roots[origin] / "usr/share/common-licenses"
+        if directory.is_dir():
+            common += copied_files([path for path in sorted(directory.iterdir()) if path.is_file()], directory,
+                stage / "LICENSES/debian/common-licenses" / origin, stage)
     return records, unmapped, common
 
 
@@ -311,16 +345,22 @@ def main() -> None:
         missing = [f"{p['ecosystem']}:{p['name']}@{p['version']}" for p in packages if not p["files"]]
         manifest = {"generated_by": MARKER, "format_version": 1, "target": "x86_64-unknown-linux-gnu", "offline": True,
                     "scope": "Cargo normal/build/procedural-macro release graph, npm production closure; excludes dev/test-only and does not claim every listed component is linked",
-                    "application_licence": "UNLICENSED; no additional licence grant is made by these third-party notices",
+                    "application_licence": "GPL-3.0-only",
+                    "application_licence_file": {"path": "APPLICATION-LICENSE.txt", "sha256": digest((ROOT / "LICENSE").read_bytes()), "size_bytes": (ROOT / "LICENSE").stat().st_size},
                     "cargo_lock_sha256": digest((ROOT / "Cargo.lock").read_bytes()), "package_lock_sha256": digest((ROOT / "package-lock.json").read_bytes()),
-                    "appdir_scanned": args.appdir is not None, "unmapped_bundled_libraries": unmapped, "missing_licence_files": missing,
+                    "appdir_scanned": args.appdir is not None,
+                    "appdir_bundled_libraries": bundled_libraries(args.appdir.resolve()) if args.appdir else [],
+                    "unmapped_bundled_libraries": unmapped, "missing_licence_files": missing,
                     "debian_common_licence_files": common, "packages": packages}
+        if missing or unmapped:
+            raise ValueError(f"Incomplete notices: missing={missing}; unmapped={unmapped}")
+        (stage / "APPLICATION-LICENSE.txt").write_bytes((ROOT / "LICENSE").read_bytes())
         (stage / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
         lines = ["PATRIMOINE — THIRD-PARTY NOTICES", "", manifest["scope"], "", manifest["application_licence"], "",
                  "Exact resolved versions, source URLs, evidence and file hashes: manifest.json.",
                  "Complete collected licence/copyright texts: LICENSES/.",
                  "MPL-covered crates are listed with versioned source archive URLs; local modifications are not made to their source in this application.",
-                 "Bundled Debian libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Debian Sources link.",
+                 "Bundled Debian/Ubuntu libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Debian Sources or Launchpad link.",
                  "GTK/GLib/WebKit and other LGPL libraries remain dynamically linked. The AppImage can be extracted and those libraries replaced; their copyright and applicable LGPL texts are included below.",
                  "The pinned Type-2 runtime includes static musl, libfuse, squashfuse, zstd, zlib and mimalloc code; launcher/runtime provenance and licence texts are included separately from the Debian .so inventory. Unknown static dependency versions are disclosed in manifest.json; a licence-text reference version is not proof of the linked binary version.",
                  "Static libfuse relinking/source requirements also apply to the AppImage runtime; extraction alone does not satisfy those requirements.",

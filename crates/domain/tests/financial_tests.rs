@@ -933,3 +933,178 @@ fn claim_transfer_after_deposit_application_moves_only_the_seven_hundred_remaini
         "1000.00",
     );
 }
+
+fn represented_rent() -> Sources {
+    let mut s = Sources::complete();
+    s.bank(Some("0"));
+    s.rental("outside");
+    s.loan("1000", "a", "outside");
+    s.finance.rent_claims[0].valid_from = "2024-03-05".into();
+    s.finance.rent_claims[0].represented_by_debt_id = Some("loan".into());
+    s
+}
+
+fn assert_representation_rejected(s: &Sources) {
+    let error = s.validate().unwrap_err();
+    assert_eq!(error.code, "validation");
+    let report = s.report(None, "2024-03-31");
+    assert_eq!(report.status, "partial");
+    assert_eq!(report.net_eur, None);
+    assert!(report
+        .warnings
+        .iter()
+        .any(|w| w.code == "rent_loan_representation_mismatch"));
+}
+
+#[test]
+fn a_representative_loan_requires_the_tenant_and_the_actual_creditors() {
+    let s = represented_rent();
+    s.validate().unwrap();
+    totals(
+        &s.report(Some("a"), "2024-03-31"),
+        "1000.00",
+        "0.00",
+        "1000.00",
+    );
+    for (creditor, debtor) in [("outside", "a"), ("a", "b"), ("b", "outside")] {
+        let mut invalid = represented_rent();
+        invalid.debts.terms[0].parties[0].entity_id = creditor.into();
+        invalid.debts.terms[0].parties[1].entity_id = debtor.into();
+        assert_representation_rejected(&invalid);
+    }
+}
+
+#[test]
+fn shared_rent_creditors_must_have_the_same_exact_loan_fractions() {
+    let mut s = represented_rent();
+    s.finance.rent_claims[0].parties = vec![
+        RentClaimParty {
+            entity_id: "a".into(),
+            economic_share: Some(share("1", "3")),
+        },
+        RentClaimParty {
+            entity_id: "b".into(),
+            economic_share: Some(share("2", "3")),
+        },
+    ];
+    let mut other = s.debts.terms[0].parties[0].clone();
+    other.line_id = "loan-creditor-b".into();
+    other.entity_id = "b".into();
+    other.legal_share = Some(share("2", "3"));
+    other.economic_share = Some(share("2", "3"));
+    s.debts.terms[0].parties[0].legal_share = Some(share("1", "3"));
+    s.debts.terms[0].parties[0].economic_share = Some(share("1", "3"));
+    s.debts.terms[0].parties.push(other);
+    s.validate().unwrap();
+    assert_eq!(
+        s.report(Some("a"), "2024-03-31").net_eur.as_deref(),
+        Some("333.33")
+    );
+    s.debts.terms[0].parties[0].economic_share = Some(share("1", "2"));
+    s.debts.terms[0].parties[2].economic_share = Some(share("1", "2"));
+    assert_representation_rejected(&s);
+    s.debts.terms[0].parties[0].economic_share = None;
+    assert_representation_rejected(&s);
+}
+
+#[test]
+fn several_represented_dues_share_the_loans_principal_capacity() {
+    let mut s = represented_rent();
+    let mut due = s.rentals.dues[0].clone();
+    due.id = "due-two".into();
+    due.revision_id = "due-two-r".into();
+    due.generation_key = "second-due".into();
+    due.period_start = "2024-04-01".into();
+    due.period_end = "2024-05-01".into();
+    due.due_on = "2024-04-05".into();
+    s.rentals.dues.push(due);
+    let mut second = s.finance.rent_claims[0].clone();
+    second.id = "second-claim".into();
+    second.revision_id = "second-claim-r".into();
+    second.due_id = "due-two".into();
+    second.valid_from = "2024-04-05".into();
+    s.finance.rent_claims[0].valid_from = "2024-04-05".into();
+    s.finance.rent_claims.push(second);
+    assert!(
+        s.validate().is_err(),
+        "one principal cannot replace two full dues"
+    );
+    let invalid = s.report(None, "2024-04-30");
+    assert_eq!(invalid.net_eur, None);
+    assert!(invalid
+        .warnings
+        .iter()
+        .any(|w| w.code == "rent_loan_representation_mismatch"));
+    s.debts.movements[0].principal_change = "2000".into();
+    s.validate().unwrap();
+    totals(&s.report(None, "2024-04-30"), "2000.00", "0.00", "2000.00");
+}
+
+#[test]
+fn representation_checks_term_continuity_and_dated_changes() {
+    let mut s = represented_rent();
+    s.debts.terms[0].valid_to = Some("2024-03-20".into());
+    assert_representation_rejected(&s);
+    let mut later = s.debts.terms[0].clone();
+    later.id = "later-terms".into();
+    later.revision_id = "later-terms-r".into();
+    later.valid_from = "2024-03-20".into();
+    later.valid_to = None;
+    later.parties[0].entity_id = "b".into();
+    s.debts.terms.push(later);
+    assert_representation_rejected(&s);
+    assert_eq!(s.report(None, "2024-03-10").status, "complete");
+}
+
+#[test]
+fn represented_rent_is_settled_from_the_loan_source_after_transfer() {
+    let mut s = represented_rent();
+    s.debts.movements.push(DebtMovement {
+        id: "loan-paid".into(),
+        revision_id: "loan-paid-r".into(),
+        debt_id: "loan".into(),
+        kind: "principal_repayment".into(),
+        effective_on: "2024-03-10".into(),
+        principal_change: "-250".into(),
+        interest_paid: "0".into(),
+        fees_paid: "0".into(),
+        unlinked_reason: "Remboursement rapproché de son entrée bancaire".into(),
+        notes: String::new(),
+    });
+    s.cash("loan-receipt", "loan", "250", "2024-03-10", "principal");
+    s.link(
+        "loan-receipt-link",
+        "debt_movement",
+        "loan-paid",
+        "loan-receipt",
+        "250",
+    );
+    let link = s.treasury.cash_links.last_mut().unwrap();
+    link.component = "principal".into();
+    link.side = "creditor".into();
+    s.validate().unwrap();
+    totals(&s.report(None, "2024-03-31"), "1000.00", "0.00", "1000.00");
+    // A rental-only receipt cannot leave an unchanged representative loan and
+    // still certify a complete balance, including when it settles the full due.
+    let mut stale = represented_rent();
+    stale.receipt("1000", "1000", "2024-03-10");
+    assert_representation_rejected(&stale);
+}
+
+#[test]
+fn represented_rent_cannot_be_settled_again_by_a_later_deposit_application() {
+    let mut s = represented_rent();
+    s.deposit("deposit-in", "received", "2000", "2024-03-01");
+    s.validate().unwrap();
+    assert_eq!(
+        s.report(None, "2024-03-06").net_eur.as_deref(),
+        Some("1000.00")
+    );
+    s.deposit("apply", "applied_to_due", "-300", "2024-03-10");
+    // This state is already forbidden by the pre-existing non-cash settlement
+    // invariant, before a report can consume it. A rejected write cannot create
+    // this future state in a persisted historical snapshot.
+    let error = s.validate().unwrap_err();
+    assert_eq!(error.code, "validation");
+    assert!(error.message.contains("source unique avant compensation"));
+}

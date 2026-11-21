@@ -2,6 +2,8 @@
 
 Ce document définit des **tests à implémenter** et des résultats attendus. Aucun test applicatif n’a été exécuté en phase 1. Tous les jeux de données ci-dessous sont synthétiques.
 
+Pour la réception après implémentation, consulter la [matrice des exigences livrées et partielles](matrice-reception.md), l’[inventaire des preuves et critères](../historique/preuves.md) et les [identités des campagnes](../historique/campagnes-validation.md). Le plan ci-dessous conserve ses critères initiaux ; il ne clôt pas les reliquats déclarés.
+
 ## 1. Stratégie de validation
 
 1. Tests unitaires Rust du domaine sans UI : résultats chiffrés, invariants et cas inconnus.

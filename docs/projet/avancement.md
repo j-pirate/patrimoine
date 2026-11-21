@@ -2,6 +2,8 @@
 
 Mis à jour le 13 novembre 2026, Europe/Paris.
 
+Lecture de réception actualisée le 20 novembre : la [matrice des exigences](matrice-reception.md) conserve les limites et les reliquats, notamment le pont intermodules et les cibles de qualification partiellement atteintes. Les phases « implémentées » ci-dessous décrivent leur périmètre livré, sans clore ces reliquats. Les [campagnes et identités](../historique/campagnes-validation.md) distinguent chaque programme testé.
+
 ## Conception livrée — phase 1
 
 - Phase 1 : analyse du besoin, architecture et frontières techniques.

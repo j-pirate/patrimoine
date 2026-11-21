@@ -181,7 +181,13 @@ impl DashboardService for Vault {
     fn get_dashboard(&self, mut request: DashboardRequest) -> Result<DashboardReport> {
         self.ensure_active()?;
         validate_dashboard_request(&request)?;
-        let dates = dashboard_dates(&request)?;
+        // The company view contains source observations, without generating
+        // a monthly/yearly financial series. Its window has no point budget.
+        let dates = if request.context == "company" {
+            Vec::new()
+        } else {
+            dashboard_dates(&request)?
+        };
         let mut c = db::readonly(&self.db_path())?;
         let tx = c.transaction().map_err(db::error)?;
         let latest = db::sequence(&tx)?;

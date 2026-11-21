@@ -737,3 +737,148 @@ fn a_purchase_paid_by_an_opaque_company_for_a_visible_lot_does_not_certify_a_fal
         .iter()
         .any(|w| w.code == "opaque_equity_before_metal_operation"));
 }
+
+#[test]
+fn a_partial_company_dividend_keeps_the_external_share_of_cash_visible() {
+    let mut s = Fixture::new();
+    s.without_metals();
+    s.registry.participations[0].legal_share = Some(f("1", "2"));
+    s.registry.participations[0].economic_share = Some(f("1", "2"));
+    s.registry.participations[0].voting_share = Some(f("1", "2"));
+    let mut outside = s.registry.participations[0].clone();
+    outside.id = "co-outside-rights".into();
+    outside.revision_id = "co-outside-rights-r".into();
+    outside.owner_entity_id = "outside".into();
+    s.registry.participations.push(outside);
+    assert_eq!(s.report(None).net_eur.as_deref(), Some("600.00"));
+    s.distribution(&["payer", "beneficiary"]);
+    let report = s.report(None);
+    assert_eq!(report.status, "complete");
+    assert_eq!(report.net_eur.as_deref(), Some("850.00"));
+}
+
+#[test]
+fn a_distribution_within_the_same_opaque_parent_preserves_its_equity_value() {
+    let mut s = Fixture::new();
+    s.without_metals();
+    s.registry.company_policies[0].mode = "global_equity".into();
+    s.treasury
+        .transactions
+        .iter_mut()
+        .find(|t| t.id == "opening-bank-a")
+        .unwrap()
+        .entries[0]
+        .amount = "0".into();
+    let mut sub = s
+        .registry
+        .entities
+        .iter()
+        .find(|e| e.id == "co")
+        .unwrap()
+        .clone();
+    sub.id = "sub".into();
+    sub.revision_id = "sub-r".into();
+    sub.display_name = "Detailed subsidiary".into();
+    s.registry.entities.push(sub);
+    let mut right = s.registry.participations[0].clone();
+    right.id = "sub-rights".into();
+    right.revision_id = "sub-rights-r".into();
+    right.company_id = "sub".into();
+    right.owner_entity_id = "co".into();
+    s.registry.participations.push(right);
+    let mut policy = s.registry.company_policies[0].clone();
+    policy.id = "sub-policy".into();
+    policy.revision_id = "sub-policy-r".into();
+    policy.company_id = "sub".into();
+    policy.mode = "detailed".into();
+    s.registry.company_policies.push(policy);
+    let mut asset = s
+        .registry
+        .assets
+        .iter()
+        .find(|a| a.id == "bank-co-asset")
+        .unwrap()
+        .clone();
+    asset.id = "bank-sub-asset".into();
+    asset.revision_id = "bank-sub-asset-r".into();
+    s.registry.assets.push(asset);
+    s.registry
+        .ownerships
+        .push(ownership("bank-sub-asset", "sub"));
+    let mut account = s
+        .treasury
+        .accounts
+        .iter()
+        .find(|a| a.id == "bank-co")
+        .unwrap()
+        .clone();
+    account.id = "bank-sub".into();
+    account.revision_id = "bank-sub-r".into();
+    account.asset_id = "bank-sub-asset".into();
+    account.legal_owner_entity_id = "sub".into();
+    s.treasury.accounts.push(account);
+    s.treasury.transactions.push(journal(
+        "opening-sub",
+        "opening",
+        START,
+        &[("bank-sub", "1000")],
+    ));
+    s.registry.valuations.push(Valuation {
+        id: "old-parent-equity".into(),
+        revision_id: "old-parent-equity-r".into(),
+        target_kind: "company".into(),
+        target_id: "co".into(),
+        amount: "5000".into(),
+        currency: "EUR".into(),
+        effective_on: START.into(),
+        source: "Parent includes its subsidiary".into(),
+    });
+    assert_eq!(s.report(None).net_eur.as_deref(), Some("5000.00"));
+    s.distribution(&["payer", "beneficiary"]);
+    let distribution = s.companies.distributions.last_mut().unwrap();
+    distribution.company_id = "sub".into();
+    distribution.beneficiary_entity_id = "co".into();
+    let tx = s.treasury.transactions.last_mut().unwrap();
+    tx.entries[0].account_id = "bank-sub".into();
+    tx.entries[1].account_id = "bank-co".into();
+    let report = s.report(None);
+    assert_eq!(report.status, "complete");
+    assert_eq!(report.net_eur.as_deref(), Some("5000.00"));
+    assert!(!report
+        .warnings
+        .iter()
+        .any(|w| w.code == "opaque_equity_before_distribution"));
+}
+
+#[test]
+fn empty_foreign_quoted_stock_needs_no_fx_but_unknown_quantity_or_rights_stay_unknown() {
+    let mut s = Fixture::new();
+    s.metals.lots[0].cost_currency = "USD".into();
+    s.metals.movements[0].quantity_change = "0".into();
+    s.metals.movements[0].cost_amount = Some("0".into());
+    s.metals.quotes[0].currency = "USD".into();
+    let report = s.report(None);
+    assert_eq!(report.status, "complete");
+    assert_eq!(report.net_eur.as_deref(), Some("1100.00"));
+    assert!(!report
+        .warnings
+        .iter()
+        .any(|w| w.code == "missing_exchange_rate"));
+    assert!(report.source_ids.iter().any(|id| id == "opening-lot"));
+    let right = s
+        .registry
+        .ownerships
+        .iter_mut()
+        .find(|o| o.asset_id == "metal-asset")
+        .unwrap();
+    right.economic_share = None;
+    assert_eq!(s.report(None).net_eur, None);
+    s.registry
+        .ownerships
+        .iter_mut()
+        .find(|o| o.asset_id == "metal-asset")
+        .unwrap()
+        .economic_share = Some(f("1", "1"));
+    s.metals.movements.clear();
+    assert_eq!(s.report(None).net_eur, None);
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, displayCurrencies, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { DocumentSummary } from '../services/api';
 import type { RegistrySnapshot } from '../services/registry-types';
 import type { RentalSnapshot } from '../services/rental-types';
@@ -44,22 +45,24 @@ export default function TreasuryPage({ mode, registry, context, onChanged, onBus
   const [removalReason, setRemovalReason] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [report, setReport] = useState<TreasuryReport | null>(null);
+  const [loadedKnowledge, setLoadedKnowledge] = useState<number | null | undefined>(undefined);
   const requestId = useRef(0);
   const reportId = useRef(0);
   const readOnly = context.knowledgeSequence != null;
   useEffect(() => { onBusyChange(loading || pending || childBusy); return () => onBusyChange(false); }, [loading, pending, childBusy, onBusyChange]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const request = ++requestId.current;
-    setLoading(true); setError(''); setSnapshot(null); setRentals(null); setProperties(null); setDebts(null);
+    setLoading(true); setError('');
     try {
       const k = context.knowledgeSequence ?? null;
       const [treasury, leases, homes, financing, docs] = await Promise.all([api.listTreasuryAt(k), api.listRentalsAt(k), api.listPropertiesAt(k), api.listDebtsAt(k), api.listDocuments()]);
-      if (request === requestId.current) { setSnapshot(treasury); setRentals(leases); setProperties(homes); setDebts(financing); setDocuments(docs); }
-    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+      if (request === requestId.current) { setSnapshot(treasury); setRentals(leases); setProperties(homes); setDebts(financing); setDocuments(docs); setLoadedKnowledge(context.knowledgeSequence ?? null); }
+    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (request === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
-  useEffect(() => { setEditor(null); setRemoval(null); setReport(null); setMessage(''); reportId.current += 1; }, [context.date, context.knowledgeSequence, registry.knowledge_sequence, mode]);
+  useEffect(() => { setEditor(null); setRemoval(null); setReport(null); reportId.current += 1; }, [context.date, context.knowledgeSequence, registry.knowledge_sequence, mode]);
+  useEffect(() => { setMessage(''); }, [context.date, context.knowledgeSequence, mode]);
   useEffect(() => { setReport(null); reportId.current += 1; }, [selectedAccount]);
   const assetName = (id: string) => { const a = registry.assets.find(item => item.id === id); return a ? assetAt(registry, a, context.date).name : id; };
   const entityName = (id: string) => { const e = registry.entities.find(item => item.id === id); return e ? entityAt(registry, e, context.date).display_name : id; };
@@ -72,11 +75,11 @@ export default function TreasuryPage({ mode, registry, context, onChanged, onBus
     debt_movement: debts?.movements.filter(p => ['drawdown', 'principal_repayment'].includes(p.kind)).map(p => ({ id: p.id, revision_id: p.revision_id, label: `${debts.contracts.find(d => d.id === p.debt_id)?.name || p.debt_id} · ${p.effective_on}`, amount: p.principal_change })) ?? [],
     deposit_movement: snapshot?.deposits.filter(p => ['received', 'returned'].includes(p.kind)).map(p => ({ id: p.id, revision_id: p.revision_id, label: `${p.kind === 'received' ? 'Dépôt reçu' : 'Restitution'} · ${p.amount} ${p.currency} · ${p.effective_on}`, amount: p.amount })) ?? [],
   };
-  async function changed() { await onChanged(); await reload(); setReport(null); }
+  async function changed() { await onChanged(); await reload(true); setReport(null); }
   async function mutate(action: () => Promise<unknown>, success: string) {
     if (readOnly) return;
     setPending(true); setError(''); setMessage('');
-    try { await action(); setEditor(null); setRemoval(null); await changed(); setMessage(success); }
+    try { await action(); setEditor(null); setRemoval(null); await refreshAfterCommit(changed, success, setMessage); }
     catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -121,9 +124,9 @@ export default function TreasuryPage({ mode, registry, context, onChanged, onBus
     {readOnly && <RegistryNotice><strong>Lecture seule historique.</strong> Connaissances à la séquence {context.knowledgeSequence}. Revenez aux connaissances actuelles pour modifier les comptes ou leurs mouvements.</RegistryNotice>}
     <div className="module-tabs">{([['accounts', mode === 'cash' ? 'Caisses' : 'Comptes'], ['journal', 'Journal et transferts'], ['reconciliations', 'Relevés et soldes'], ['links', 'Rapprocher une source'], ['postings', 'Loyers et dépôts']] as const).map(([id, label]) => <button type="button" key={id} className={`button ${tab === id ? '' : 'secondary'}`} disabled={pending || childBusy} onClick={() => { setTab(id); setEditor(null); setRemoval(null); }}>{label}</button>)}</div>
     {loading && <p role="status">Chargement de la trésorerie…</p>}
-    {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>En cas de conflit ou de source déjà liée, rechargez les données et vérifiez les références. Aucune correction n’a été confirmée.</p><button type="button" className="button secondary" disabled={pending} onClick={() => { void reload(); }}>Recharger la trésorerie</button></RegistryNotice>}
+    {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>En cas de conflit ou de source déjà liée, rechargez les données et vérifiez les références. La confirmation d’enregistrement apparaît séparément ci-dessous.</p><button type="button" className="button secondary" disabled={pending} onClick={() => { void reload(); }}>Recharger la trésorerie</button></RegistryNotice>}
     {message && <RegistryNotice>{message}</RegistryNotice>}
-    {!loading && snapshot && rentals && properties && debts && <>
+    {snapshot && rentals && properties && debts && loadedKnowledge === (context.knowledgeSequence ?? null) && <>
       {tab !== 'postings' && <section className="card registry-filters"><Field id="treasury-filter" label={mode === 'cash' ? 'Caisse consultée' : 'Compte consulté'}><select id="treasury-filter" value={selectedAccount} disabled={pending} onChange={event => { const changedValue = event.currentTarget.value; setSelectedAccount(changedValue); }}><option value="">Tous les comptes de cette section</option>{accounts.map(a => <option key={a.id} value={a.id}>{accountName(a.id)}</option>)}</select></Field></section>}
       {tab === 'accounts' && <>
         <section className="card"><div className="section-title"><h2>{mode === 'cash' ? 'Caisses physiques' : 'Comptes bancaires enregistrés'}</h2><button type="button" className="button" disabled={pending || readOnly} onClick={() => edit('account')}>{mode === 'cash' ? 'Ajouter une caisse' : 'Ajouter un compte bancaire'}</button></div><p>Rattachez le compte à un actif existant du registre, puis enregistrez son ouverture dans le journal.</p><button type="button" className="button secondary" disabled={pending} onClick={onNavigateRegistry}>Gérer les actifs et leurs propriétaires</button></section>

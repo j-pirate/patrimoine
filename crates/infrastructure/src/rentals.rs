@@ -4,7 +4,7 @@ use patrimoine_application::RentalService;
 use patrimoine_domain::*;
 use rusqlite::{params, Connection, Row, Transaction};
 
-const TABLES: [(&str, &str); 6] = [
+pub(crate) const TABLES: [(&str, &str); 6] = [
     ("lease", "leases"),
     ("lease_terms", "lease_terms"),
     ("rent_due", "rent_dues"),
@@ -148,14 +148,9 @@ pub(crate) fn validate_history(c: &Connection) -> Result<()> {
             ));
         }
     }
-    let mut statement = c
-        .prepare("SELECT sequence FROM change_sets ORDER BY sequence")
-        .map_err(db::error)?;
-    let sequences = statement
-        .query_map([], |r| r.get::<_, u64>(0))
-        .map_err(db::error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(db::error)?;
+    let mut kinds = [registry::KINDS, properties::KINDS].concat();
+    kinds.extend(TABLES.iter().map(|(kind, _)| *kind));
+    let sequences = registry::history_sequences(c, &kinds)?;
     for k in sequences {
         validate_rentals(
             &registry::snapshot(c, Some(k))?,
@@ -227,14 +222,15 @@ pub(crate) fn insert_payment(
 }
 
 impl Vault {
-    fn write_rental(
+    fn write_rental<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(&Connection, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -244,8 +240,9 @@ impl Vault {
         write(&tx, &id, &revision)?;
         validate_current(&tx)?;
         crate::finance::validate_current(&tx)?;
+        let result = read(&tx, &id)?;
         tx.commit().map_err(db::error)?;
-        Ok(id)
+        Ok(result)
     }
 }
 
@@ -257,7 +254,7 @@ impl RentalService for Vault {
         snapshot(&tx, knowledge_sequence)
     }
     fn save_lease(&mut self, input: SaveLeaseInput) -> Result<Lease> {
-        let id = self.write_rental(
+        self.write_rental(
             "lease",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -278,18 +275,22 @@ impl RentalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_rentals_at(None)?
-            .leases
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| AppError::new("integrity", "Le bail enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .leases
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new("integrity", "Le bail enregistré est introuvable.")
+                    })
+            },
+        )
     }
     fn save_lease_terms(&mut self, mut input: SaveLeaseTermsInput) -> Result<LeaseTerms> {
         input.rent = exact::normalize_decimal_input(&input.rent)?;
         input.charges = exact::normalize_decimal_input(&input.charges)?;
         input.deposit_required = exact::normalize_decimal_input(&input.deposit_required)?;
-        let id = self.write_rental(
+        self.write_rental(
             "lease_terms",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -321,17 +322,19 @@ impl RentalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_rentals_at(None)?
-            .lease_terms
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| {
-                AppError::new(
-                    "integrity",
-                    "Les conditions enregistrées sont introuvables.",
-                )
-            })
+            |tx, key| {
+                snapshot(tx, None)?
+                    .lease_terms
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new(
+                            "integrity",
+                            "Les conditions enregistrées sont introuvables.",
+                        )
+                    })
+            },
+        )
     }
     fn save_rent_due(&mut self, mut input: SaveRentDueInput) -> Result<RentDue> {
         input.rent = exact::normalize_decimal_input(&input.rent)?;
@@ -348,7 +351,7 @@ impl RentalService for Vault {
             generation_key: input.generation_key.clone(),
             notes: input.notes.clone(),
         };
-        let id = self.write_rental(
+        self.write_rental(
             "rent_due",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -384,16 +387,20 @@ impl RentalService for Vault {
                 }
                 insert_due(tx, rev, &draft)
             },
-        )?;
-        self.list_rentals_at(None)?
-            .dues
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| AppError::new("integrity", "L’échéance enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .dues
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new("integrity", "L’échéance enregistrée est introuvable.")
+                    })
+            },
+        )
     }
     fn save_rent_payment(&mut self, mut input: SaveRentPaymentInput) -> Result<RentPayment> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id = self.write_rental(
+        self.write_rental(
             "rent_payment",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -408,12 +415,16 @@ impl RentalService for Vault {
                 )?;
                 insert_payment(tx, rev, &input)
             },
-        )?;
-        self.list_rentals_at(None)?
-            .payments
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| AppError::new("integrity", "Le paiement enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .payments
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new("integrity", "Le paiement enregistré est introuvable.")
+                    })
+            },
+        )
     }
     fn refund_rent_payment(&mut self, mut input: RefundRentPaymentInput) -> Result<RentPayment> {
         self.ensure_active()?;
@@ -530,7 +541,7 @@ impl RentalService for Vault {
         mut input: SaveRentAllocationInput,
     ) -> Result<RentAllocation> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id = self.write_rental(
+        self.write_rental(
             "rent_allocation",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -551,16 +562,20 @@ impl RentalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_rentals_at(None)?
-            .allocations
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| AppError::new("integrity", "L’affectation enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .allocations
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new("integrity", "L’affectation enregistrée est introuvable.")
+                    })
+            },
+        )
     }
     fn save_rental_expense(&mut self, mut input: SaveRentalExpenseInput) -> Result<RentalExpense> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id = self.write_rental(
+        self.write_rental(
             "rental_expense",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -590,12 +605,16 @@ impl RentalService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_rentals_at(None)?
-            .expenses
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| AppError::new("integrity", "La dépense enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .expenses
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| {
+                        AppError::new("integrity", "La dépense enregistrée est introuvable.")
+                    })
+            },
+        )
     }
     fn generate_rent_dues(&mut self, input: GenerateRentDuesInput) -> Result<RentGenerationResult> {
         self.ensure_active()?;
@@ -622,13 +641,15 @@ impl RentalService for Vault {
             &before,
             &input,
         )?;
+        let by_generation_key: std::collections::BTreeMap<_, _> = before
+            .dues
+            .iter()
+            .map(|due| (due.generation_key.as_str(), due))
+            .collect();
         let mut existing_count = 0;
         let mut missing = Vec::new();
         for draft in drafts {
-            let previous = before
-                .dues
-                .iter()
-                .find(|d| d.generation_key == draft.generation_key);
+            let previous = by_generation_key.get(draft.generation_key.as_str());
             if let Some(row) = previous {
                 if row.lease_id != draft.lease_id
                     || row.terms_revision_id != draft.terms_revision_id
@@ -656,7 +677,7 @@ impl RentalService for Vault {
                 missing.push(draft);
             }
         }
-        let mut ids = Vec::new();
+        let mut ids = std::collections::BTreeSet::new();
         if !missing.is_empty() {
             let (change, stamp) = db::mutation(&tx, input.reason.trim())?;
             for draft in missing {
@@ -675,7 +696,7 @@ impl RentalService for Vault {
                 )
                 .map_err(db::error)?;
                 insert_due(&tx, &revision, &draft)?;
-                ids.push(id);
+                ids.insert(id);
             }
             validate_current(&tx)?;
             crate::finance::validate_current(&tx)?;

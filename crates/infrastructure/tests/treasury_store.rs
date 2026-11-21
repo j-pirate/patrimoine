@@ -1,7 +1,7 @@
 //! Independent persistence oracles for exact local cash and source links.
 use patrimoine_application::{
-    FinancialService, PropertyService, RegistryService, RentalService, TreasuryService,
-    VaultService,
+    DebtService, FinancialService, PortabilityService, PropertyService, RegistryService,
+    RentalService, TreasuryService, VaultService,
 };
 use patrimoine_domain::*;
 use patrimoine_infrastructure::Vault;
@@ -324,6 +324,9 @@ struct RentalFixture {
     due: RentDue,
 }
 fn rental_fixture(path: &std::path::Path) -> RentalFixture {
+    rental_fixture_from(path, "2025-01-01")
+}
+fn rental_fixture_from(path: &std::path::Path, lease_start: &str) -> RentalFixture {
     let mut v = Vault::open(path).unwrap();
     let owner = person(&mut v);
     let tenant = person(&mut v);
@@ -367,7 +370,7 @@ fn rental_fixture(path: &std::path::Path) -> RentalFixture {
             reason: "Bail synthétique".into(),
             unit_id: unit.id,
             tenant_entity_id: tenant.id,
-            valid_from: "2025-01-01".into(),
+            valid_from: lease_start.into(),
             valid_to: Some("2026-01-01".into()),
             notes: String::new(),
         })
@@ -384,7 +387,7 @@ fn rental_fixture(path: &std::path::Path) -> RentalFixture {
             frequency: "monthly".into(),
             due_day: 5,
             deposit_required: "2000".into(),
-            valid_from: "2025-01-01".into(),
+            valid_from: lease_start.into(),
             valid_to: Some("2026-01-01".into()),
             notes: String::new(),
         })
@@ -1201,4 +1204,333 @@ fn unallocated_receipt_is_an_advance_liability_until_explicit_allocation() {
     assert_eq!(allocated.known_liabilities_eur, "500.00");
     assert_eq!(allocated.known_net_eur, "201000.00");
     assert_eq!(f.v.list_treasury_at(None).unwrap().transactions.len(), 2);
+}
+
+fn rental_loan(v: &mut Vault, creditor: &str, debtor: &str) -> DebtContract {
+    let contract = v
+        .save_debt_contract(SaveDebtContractInput {
+            id: None,
+            expected_revision_id: None,
+            reason: "Financement de test".into(),
+            name: "Créance locative représentée".into(),
+            currency: "EUR".into(),
+            tracking_start: "2025-03-05".into(),
+            notes: String::new(),
+            archived: false,
+        })
+        .unwrap();
+    v.save_debt_terms(SaveDebtTermsInput {
+        id: None,
+        expected_revision_id: None,
+        reason: "Contreparties de test".into(),
+        debt_id: contract.id.clone(),
+        valid_from: "2025-03-05".into(),
+        valid_to: None,
+        principal_status: "complete".into(),
+        interest_rate: None,
+        interest_convention: String::new(),
+        notes: String::new(),
+        parties: [("creditor", creditor), ("debtor", debtor)]
+            .into_iter()
+            .map(|(side, entity)| FinancingParty {
+                line_id: format!("loan-{side}"),
+                side: side.into(),
+                entity_id: entity.into(),
+                legal_share: fraction(),
+                economic_share: fraction(),
+                liability_kind: "single".into(),
+                notes: String::new(),
+            })
+            .collect(),
+    })
+    .unwrap();
+    v.save_debt_movement(SaveDebtMovementInput {
+        id: None,
+        expected_revision_id: None,
+        reason: "Encours historique".into(),
+        debt_id: contract.id.clone(),
+        kind: "opening".into(),
+        effective_on: "2025-03-05".into(),
+        principal_change: "1000".into(),
+        interest_paid: "0".into(),
+        fees_paid: "0".into(),
+        unlinked_reason: "Ouverture sans nouveau flux de trésorerie".into(),
+        notes: String::new(),
+    })
+    .unwrap();
+    contract
+}
+
+fn representative_claim_input(f: &RentalFixture, contract: &DebtContract) -> SaveRentClaimInput {
+    let old = f.v.list_finance_at(None).unwrap().rent_claims[0].clone();
+    SaveRentClaimInput {
+        id: Some(old.id),
+        expected_revision_id: Some(old.revision_id),
+        reason: "Même créance identifiée".into(),
+        due_id: old.due_id,
+        parties: old.parties,
+        valid_from: old.valid_from,
+        valid_to: old.valid_to,
+        represented_by_debt_id: Some(contract.id.clone()),
+        notes: old.notes,
+    }
+}
+
+fn complete_financial_state(v: &Vault) -> Value {
+    serde_json::json!({
+        "ordinary": state(v), "finance": v.list_finance_at(None).unwrap(), "debts": v.list_debts_at(None).unwrap(),
+    })
+}
+
+#[test]
+fn an_inverse_or_unrelated_rental_loan_is_rejected_without_changing_k_or_history() {
+    for inverse in [true, false] {
+        let tmp = TempDir::new().unwrap();
+        let mut f = rental_fixture_from(&tmp.path().join("v"), "2025-03-01");
+        describe_finance(&mut f);
+        let owner = f.owner.id.clone();
+        let other = person(&mut f.v);
+        let tenant = f.lease.tenant_entity_id.clone();
+        let contract = if inverse {
+            rental_loan(&mut f.v, &tenant, &owner)
+        } else {
+            rental_loan(&mut f.v, &owner, &other.id)
+        };
+        let before = complete_financial_state(&f.v);
+        let k = f.v.list_finance_at(None).unwrap().knowledge_sequence;
+        let previous_report = serde_json::to_value(financial(&f, "2025-03-31")).unwrap();
+        let input = representative_claim_input(&f, &contract);
+        assert_eq!(f.v.save_rent_claim(input).unwrap_err().code, "validation");
+        assert_eq!(complete_financial_state(&f.v), before);
+        assert_eq!(f.v.list_finance_at(None).unwrap().knowledge_sequence, k);
+        let old =
+            f.v.get_financial_report(FinancialReportRequest {
+                context: "person".into(),
+                person_id: Some(owner),
+                date: "2025-03-31".into(),
+                knowledge_sequence: Some(k),
+            })
+            .unwrap();
+        assert_eq!(serde_json::to_value(old).unwrap(), previous_report);
+    }
+}
+
+#[test]
+fn a_valid_representative_rental_loan_preserves_old_k_and_rejects_later_party_drift() {
+    let tmp = TempDir::new().unwrap();
+    let mut f = rental_fixture_from(&tmp.path().join("v"), "2025-03-01");
+    describe_finance(&mut f);
+    let owner = f.owner.id.clone();
+    let tenant = f.lease.tenant_entity_id.clone();
+    let contract = rental_loan(&mut f.v, &owner, &tenant);
+    let k = f.v.list_finance_at(None).unwrap().knowledge_sequence;
+    assert_eq!(
+        financial(&f, "2025-03-31").net_eur.as_deref(),
+        Some("202000.00")
+    );
+    f.v.save_rent_claim(representative_claim_input(&f, &contract))
+        .unwrap();
+    let current = financial(&f, "2025-03-31");
+    assert_eq!(current.status, "complete");
+    assert_eq!(current.net_eur.as_deref(), Some("201000.00"));
+    let old =
+        f.v.get_financial_report(FinancialReportRequest {
+            context: "person".into(),
+            person_id: Some(owner),
+            date: "2025-03-31".into(),
+            knowledge_sequence: Some(k),
+        })
+        .unwrap();
+    assert_eq!(old.net_eur.as_deref(), Some("202000.00"));
+    let other = person(&mut f.v);
+    let old_terms = f.v.list_debts_at(None).unwrap().terms[0].clone();
+    let mut parties = old_terms.parties;
+    parties
+        .iter_mut()
+        .find(|p| p.side == "debtor")
+        .unwrap()
+        .entity_id = other.id;
+    let before = complete_financial_state(&f.v);
+    assert!(f
+        .v
+        .save_debt_terms(SaveDebtTermsInput {
+            id: Some(old_terms.id),
+            expected_revision_id: Some(old_terms.revision_id),
+            reason: "Modification incohérente des parties".into(),
+            debt_id: contract.id,
+            valid_from: old_terms.valid_from,
+            valid_to: old_terms.valid_to,
+            principal_status: old_terms.principal_status,
+            interest_rate: old_terms.interest_rate,
+            interest_convention: old_terms.interest_convention,
+            parties,
+            notes: old_terms.notes,
+        })
+        .is_err());
+    assert_eq!(complete_financial_state(&f.v), before);
+}
+
+#[test]
+fn old_inconsistent_rental_loans_can_be_reopened_restored_and_corrected() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().join("v");
+    let mut f = rental_fixture_from(&root, "2025-03-01");
+    describe_finance(&mut f);
+    let owner = f.owner.id.clone();
+    let tenant = f.lease.tenant_entity_id.clone();
+    let wrong = rental_loan(&mut f.v, &tenant, &owner);
+    let march_loan = rental_loan(&mut f.v, &owner, &tenant);
+    let april_loan = rental_loan(&mut f.v, &owner, &tenant);
+    let asset = f.v.list_properties_at(None).unwrap().properties[0]
+        .asset_id
+        .clone();
+    let march =
+        f.v.save_rent_claim(representative_claim_input(&f, &march_loan))
+            .unwrap();
+    let april_due =
+        f.v.save_rent_due(SaveRentDueInput {
+            id: None,
+            expected_revision_id: None,
+            reason: "Échéance synthétique d’avril".into(),
+            lease_id: f.lease.id.clone(),
+            terms_revision_id: f.due.terms_revision_id.clone(),
+            period_start: "2025-04-01".into(),
+            period_end: "2025-05-01".into(),
+            due_on: "2025-04-05".into(),
+            rent: "1000".into(),
+            charges: "0".into(),
+            currency: "EUR".into(),
+            generation_key: "manual-test-april".into(),
+            notes: String::new(),
+        })
+        .unwrap();
+    let april =
+        f.v.save_rent_claim(SaveRentClaimInput {
+            id: None,
+            expected_revision_id: None,
+            reason: "Créance synthétique d’avril".into(),
+            due_id: april_due.id,
+            parties: march.parties.clone(),
+            valid_from: "2025-04-05".into(),
+            valid_to: None,
+            represented_by_debt_id: Some(april_loan.id),
+            notes: String::new(),
+        })
+        .unwrap();
+    let status = f.v.status().unwrap();
+    let legacy_k = status.mutation_sequence;
+    let path = std::path::Path::new(&status.data_dir)
+        .join("generations")
+        .join(status.generation_id)
+        .join("patrimoine.sqlite3");
+    drop(f.v);
+    // The old writer accepted these two links after creating the backing
+    // contract. Preserve that revision ordering in the synthetic legacy vault.
+    let connection = rusqlite::Connection::open(path).unwrap();
+    connection
+        .execute(
+            "UPDATE rent_claims SET represented_by_debt_id=?1 WHERE revision_id IN (?2,?3)",
+            rusqlite::params![wrong.id, march.revision_id, april.revision_id],
+        )
+        .unwrap();
+    drop(connection);
+
+    let report = |vault: &Vault, knowledge_sequence| {
+        vault
+            .get_financial_report(FinancialReportRequest {
+                context: "person".into(),
+                person_id: Some(owner.clone()),
+                date: "2025-04-30".into(),
+                knowledge_sequence,
+            })
+            .unwrap()
+    };
+    let assert_incomplete = |report: FinancialReport, warnings| {
+        assert_eq!(report.status, "partial");
+        assert!(report.net_eur.is_none());
+        assert_eq!(
+            report
+                .warnings
+                .iter()
+                .filter(|w| w.code == "rent_loan_representation_mismatch")
+                .count(),
+            warnings
+        );
+    };
+    let mut vault = Vault::open(&root).unwrap();
+    assert_incomplete(report(&vault, None), 2);
+    let unrelated = person(&mut vault);
+    assert!(vault
+        .list_registry()
+        .unwrap()
+        .entities
+        .iter()
+        .any(|entity| entity.id == unrelated.id));
+    assert_incomplete(report(&vault, None), 2);
+    vault
+        .get_property_report(PropertyReportRequest {
+            asset_id: asset.clone(),
+            date: "2025-04-30".into(),
+            knowledge_sequence: Some(legacy_k),
+        })
+        .unwrap();
+    vault
+        .get_rental_report(RentalReportRequest {
+            country: None,
+            context: "person".into(),
+            person_id: Some(owner.clone()),
+            asset_id: Some(asset),
+            from_date: "2025-03-01".into(),
+            to_date: "2025-04-30".into(),
+            date: "2025-04-30".into(),
+            knowledge_sequence: Some(legacy_k),
+        })
+        .unwrap();
+
+    let backup = tmp.path().join("backup.zip");
+    let csv = tmp.path().join("csv.zip");
+    vault.create_backup(&backup).unwrap();
+    vault.export_csv_archive(&csv).unwrap();
+    let mut restored = Vault::open(tmp.path().join("restored")).unwrap();
+    let inspection = restored.inspect_restore(&backup).unwrap();
+    restored
+        .activate_restore(&inspection.token, true, None)
+        .unwrap();
+    assert_incomplete(report(&restored, None), 2);
+    let inspection = restored.inspect_csv_import(&csv).unwrap();
+    restored
+        .activate_restore(&inspection.token, true, None)
+        .unwrap();
+    assert_incomplete(report(&restored, None), 2);
+
+    let claim_input = |claim: RentClaim, represented_by_debt_id| SaveRentClaimInput {
+        id: Some(claim.id),
+        expected_revision_id: Some(claim.revision_id),
+        reason: "Corriger le lien historique de la créance locative".into(),
+        due_id: claim.due_id,
+        parties: claim.parties,
+        valid_from: claim.valid_from,
+        valid_to: claim.valid_to,
+        represented_by_debt_id,
+        notes: claim.notes,
+    };
+    let before = vault.status().unwrap().mutation_sequence;
+    assert_eq!(
+        vault
+            .save_rent_claim(claim_input(march.clone(), Some(wrong.id)))
+            .unwrap_err()
+            .code,
+        "validation",
+    );
+    assert_eq!(vault.status().unwrap().mutation_sequence, before);
+    for (claim, remaining) in [(march, 1), (april, 0)] {
+        vault.save_rent_claim(claim_input(claim, None)).unwrap();
+        if remaining > 0 {
+            assert_incomplete(report(&vault, None), remaining);
+        }
+    }
+    drop(vault);
+    let reopened = Vault::open(&root).unwrap();
+    assert_eq!(report(&reopened, None).status, "complete");
+    assert_incomplete(report(&reopened, Some(legacy_k)), 2);
 }

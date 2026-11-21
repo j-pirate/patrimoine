@@ -473,3 +473,72 @@ fn french_form_normalization_does_not_weaken_the_persisted_decimal_contract() {
         assert!(exact::normalize_decimal_input(invalid).is_err());
     }
 }
+
+#[test]
+fn contribution_sources_explain_family_membership_and_each_applied_company_method() {
+    let mut s = fixture();
+    s.memberships.push(Membership {
+        id: "past-member-a".into(),
+        revision_id: "past-member-a-r".into(),
+        person_id: "a".into(),
+        valid_from: "2000-01-01".into(),
+        valid_to: Some("2020-01-01".into()),
+        relationship: String::new(),
+    });
+    company(&mut s, "detailed", "detailed");
+    company(&mut s, "global", "global_equity");
+    participation(&mut s, "a", "detailed", 1, 1);
+    participation(&mut s, "a", "global", 1, 1);
+    asset(&mut s, "mixed", "1000");
+    own(&mut s, "a", "mixed", 1, 2);
+    own(&mut s, "detailed", "mixed", 1, 4);
+    own(&mut s, "global", "mixed", 1, 4);
+    value(&mut s, "company", "global", "400");
+    let family = report(&s, None);
+    assert_eq!(family.gross_eur, "1150.00");
+    let mixed = family
+        .contributions
+        .iter()
+        .find(|c| c.object_id == "mixed")
+        .unwrap();
+    assert_eq!(mixed.weight, fraction(3, 4));
+    for source in [
+        "member-a",
+        "member-a-r",
+        "policy-detailed",
+        "policy-detailed-r",
+    ] {
+        assert!(
+            mixed.source_ids.iter().any(|id| id == source),
+            "missing {source}"
+        );
+    }
+    for unused in [
+        "past-member-a",
+        "member-b",
+        "policy-global",
+        "policy-global-r",
+    ] {
+        assert!(
+            !mixed.source_ids.iter().any(|id| id == unused),
+            "unused {unused}"
+        );
+    }
+    let global = family
+        .contributions
+        .iter()
+        .find(|c| c.object_id == "global")
+        .unwrap();
+    for source in ["member-a", "member-a-r", "policy-global", "policy-global-r"] {
+        assert!(
+            global.source_ids.iter().any(|id| id == source),
+            "missing {source}"
+        );
+    }
+    let personal = report(&s, Some("a"));
+    assert_eq!(personal.gross_eur, family.gross_eur);
+    assert!(personal
+        .contributions
+        .iter()
+        .all(|c| !c.source_ids.iter().any(|id| id.starts_with("member-"))));
+}

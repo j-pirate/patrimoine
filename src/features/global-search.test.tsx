@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import GlobalSearch from './global-search';
 import { api } from '../services/api';
 import type { DocumentLibrarySnapshot } from '../services/documents-types';
+import type { TreasurySnapshot } from '../services/treasury-types';
 import { emptyRegistry } from '../services/registry-types';
 
 vi.mock('../services/api', async importOriginal => {
@@ -37,6 +38,53 @@ describe('Recherche globale au K sélectionné', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ouvrir le module Espèces et devises' }));
     expect(onNavigate).toHaveBeenCalledWith('cash-accounts');
     expect(api.listTreasuryAt).toHaveBeenCalledWith(8);
+  });
+  it.each([
+    ['cash-receipt', 'cash-accounts', 'Espèces et devises'],
+    ['cash-count', 'cash-accounts', 'Espèces et devises'],
+    ['cash-link', 'cash-accounts', 'Espèces et devises'],
+    ['mixed-receipt', 'bank', 'Comptes bancaires'],
+    ['bank-count', 'bank', 'Comptes bancaires'],
+  ])('SEARCH-01 ouvre %s dans son module correspondant', async (id, page, label) => {
+    const cash = { id: 'cash', revision_id: 'cash-r1', asset_id: 'cash-asset', kind: 'cash', currency: 'EUR', tracking_start: '2026-01-01', legal_owner_entity_id: 'alice', bank_name: '', reference: '', country: 'FR', storage_location: 'Coffre privé', notes: '', archived: false };
+    const treasury: TreasurySnapshot = {
+      accounts: [cash, { ...cash, id: 'bank', kind: 'bank' }],
+      transactions: [
+        { id: 'cash-receipt', revision_id: 'cash-receipt-r1', kind: 'receipt', effective_on: '2026-02-01', label: 'Recette en espèces', reference: '', notes: '', entries: [{ line_id: 'line', account_id: 'cash', amount: '10', role: 'principal' }] },
+        { id: 'mixed-receipt', revision_id: 'mixed-receipt-r1', kind: 'transfer', effective_on: '2026-02-01', label: 'Transfert banque et caisse', reference: '', notes: '', entries: [{ line_id: 'out', account_id: 'cash', amount: '-10', role: 'principal' }, { line_id: 'in', account_id: 'bank', amount: '10', role: 'principal' }] },
+      ],
+      reconciliations: ['cash', 'bank'].map(account => ({ id: `${account}-count`, revision_id: `${account}-count-r1`, account_id: account, effective_on: '2026-02-01', statement_balance: '10', statement_reference: 'Comptage', document_id: null, notes: '' })),
+      cash_links: [{ id: 'cash-link', revision_id: 'cash-link-r1', source_kind: 'rent_payment', source_id: 'payment', source_revision_id: 'payment-r1', transaction_revision_id: 'cash-receipt-r1', line_id: 'line', amount: '10', component: 'rent', side: 'receipt', notes: '' }], deposits: [], knowledge_sequence: 8,
+    };
+    vi.mocked(api.listTreasuryAt).mockResolvedValue(treasury);
+    vi.mocked(api.listDocumentLibraryAt).mockResolvedValue({ ...library, targets: [{ id, label: id, retired: false, kind: id.endsWith('count') ? 'account_reconciliation' : id.endsWith('link') ? 'cash_link' : 'treasury_transaction' }] });
+    const { onNavigate } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Rechercher dans le coffre' }));
+    await screen.findByText('Saisir au moins deux caractères.');
+    fireEvent.change(screen.getByLabelText('Nom, description documentaire ou identifiant'), { target: { value: id } });
+    fireEvent.click(screen.getByRole('button', { name: `Ouvrir le module ${label}` }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(page);
+  });
+
+  it('REG-05 conserve le focus de la destination après ouverture d’un résultat', async () => {
+    render(<><h1 tabIndex={-1}>Destination</h1><GlobalSearch registry={registry} context={context} disabled={false} onNavigate={() => requestAnimationFrame(() => screen.getByRole('heading', { name: 'Destination' }).focus())} /></>);
+    const toggle = screen.getByRole('button', { name: 'Rechercher dans le coffre' });
+    fireEvent.click(toggle);
+    await screen.findByText('Saisir au moins deux caractères.');
+    fireEvent.change(screen.getByLabelText('Nom, description documentaire ou identifiant'), { target: { value: 'contrat' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ouvrir le module Documents' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Destination' })).toHaveFocus());
+    expect(toggle).not.toHaveFocus();
+  });
+
+  it('REG-05 rend le focus au bouton après une fermeture simple par Échap', async () => {
+    setup();
+    const toggle = screen.getByRole('button', { name: 'Rechercher dans le coffre' });
+    fireEvent.click(toggle);
+    await screen.findByText('Saisir au moins deux caractères.');
+    fireEvent.keyDown(screen.getByLabelText('Nom, description documentaire ou identifiant'), { key: 'Escape' });
+    await waitFor(() => expect(toggle).toHaveFocus());
+    expect(screen.queryByRole('region', { name: 'Recherche globale dans le coffre' })).not.toBeInTheDocument();
   });
   it('charge à la demande et trouve une description avec accents indépendamment du membre choisi', async () => {
     setup();

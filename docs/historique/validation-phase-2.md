@@ -98,6 +98,8 @@ La campagne finale a terminé avec le statut `passed` et neuf étapes réussies 
 
 Rapport de cette exécution : `.local/desktop-smoke.WToKYmZZ/desktop-result.json`, capture `desktop.png` et archives synthétiques dans le même dossier, ignorés par Git. Chaque nouvelle exécution crée son propre dossier et son propre rapport.
 
+Disponibilité actualisée : ces originaux sont [conservés seulement dans l’environnement](preuves.md#disponibilité-par-campagne), hors ZIP distribué ; le présent compte rendu est la pièce versionnée de cette campagne.
+
 Deux problèmes ont été distingués et corrigés pendant cette intégration : l’automatisation WebKit envoyait une rafale de touches trop rapidement (attente de chaque valeur DOM ajoutée ; mises à jour React fonctionnelles et test de saisie concomitante), et GTK ne sélectionnait pas l’extension du nom dans le dialogue de sauvegarde (sélection complète du champ ajoutée au pilote). Le parcours final ne contourne ni les dialogues ni les portées de fichiers du backend.
 
 Le sysroot non privilégié permet la compilation dans le cloud, mais WebKit attend ses sous-processus aux chemins système pour lancer une fenêtre. La vérification graphique utilise donc l’image Debian complète ; elle n’est pas revendiquée comme lancement direct sur l’hôte cloud. Sur un poste Linux, le guide demande une installation normale des bibliothèques système.

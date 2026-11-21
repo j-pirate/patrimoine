@@ -173,6 +173,64 @@ fn shared_bytes_distinct_logical_documents_and_metadata_versions_keep_initial_da
 }
 
 #[test]
+fn import_and_identical_replacement_share_mime_and_summary_keeps_added_date() {
+    let temp = TempDir::new().unwrap();
+    let mut vault = Vault::open(temp.path().join("vault")).unwrap();
+    for (extension, mime) in [
+        ("CSV", "text/plain"),
+        (
+            "docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        (
+            "xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+        ("odt", "application/vnd.oasis.opendocument.text"),
+        ("ods", "application/vnd.oasis.opendocument.spreadsheet"),
+        ("rtf", "application/rtf"),
+    ] {
+        let source = temp.path().join(format!("same.{extension}"));
+        fs::write(&source, b"same original bytes").unwrap();
+        let imported = vault
+            .import_document(&source, "Initial description")
+            .unwrap();
+        assert_eq!(imported.mime_type, mime);
+        let library = vault.list_document_library_at(None).unwrap();
+        let document = library
+            .documents
+            .iter()
+            .find(|d| d.id == imported.id)
+            .unwrap();
+        let replacement = vault
+            .replace_document(
+                ReplaceDocumentInput {
+                    id: document.id.clone(),
+                    expected_revision_id: document.revision_id.clone(),
+                    reason: "Même original, métadonnées cohérentes".into(),
+                    description: "Description corrigée".into(),
+                },
+                &source,
+            )
+            .unwrap();
+        assert_eq!(replacement.sha256, imported.sha256);
+        assert_eq!(replacement.mime_type, imported.mime_type);
+        assert_eq!(replacement.added_at, imported.added_at);
+        let corrected = vault
+            .save_document_metadata(metadata(&replacement, "active"))
+            .unwrap();
+        let summary = vault
+            .list_documents()
+            .unwrap()
+            .into_iter()
+            .find(|d| d.id == imported.id)
+            .unwrap();
+        assert_eq!(summary.added_at, imported.added_at);
+        assert_eq!(summary.added_at, corrected.added_at);
+    }
+}
+
+#[test]
 fn one_document_can_link_two_business_objects_and_removing_one_keeps_other_and_bytes() {
     let (temp, mut v, entity, asset, document) = fixture();
     let first = v.save_document_link(link(&document, &entity.id)).unwrap();
@@ -327,6 +385,7 @@ fn document_and_workspace_are_not_documentary_business_targets_and_void_targets_
     assert!(v.save_document_link(link(&document, &invalid)).is_err());
     assert_eq!(state(&v), before);
     let association = v.save_document_link(link(&document, &entity.id)).unwrap();
+    let before_retirement = v.list_document_library_at(None).unwrap();
     v.void_registry_record(VoidRecordInput {
         id: entity.id.clone(),
         expected_revision_id: entity.revision_id,
@@ -334,6 +393,19 @@ fn document_and_workspace_are_not_documentary_business_targets_and_void_targets_
     })
     .unwrap();
     let library = v.list_document_library_at(None).unwrap();
+    assert_eq!(
+        library
+            .targets
+            .iter()
+            .find(|t| t.id == entity.id)
+            .unwrap()
+            .label,
+        entity.display_name
+    );
+    let historical = v
+        .list_document_library_at(Some(before_retirement.knowledge_sequence))
+        .unwrap();
+    assert_eq!(historical.targets, before_retirement.targets);
     assert!(
         library
             .targets
@@ -344,6 +416,53 @@ fn document_and_workspace_are_not_documentary_business_targets_and_void_targets_
     );
     assert_eq!(library.links, vec![association]);
     assert!(v.save_document_link(link(&document, &entity.id)).is_err());
+}
+
+#[test]
+fn retired_target_uses_its_last_known_label_without_exposing_future_renames_at_old_k() {
+    let (_temp, mut vault, entity, _, document) = fixture();
+    vault
+        .save_document_link(link(&document, &entity.id))
+        .unwrap();
+    let before_rename = vault.list_document_library_at(None).unwrap();
+    let renamed = vault
+        .save_entity(SaveEntityInput {
+            id: Some(entity.id.clone()),
+            expected_revision_id: Some(entity.revision_id.clone()),
+            reason: "Nom corrigé avant retrait".into(),
+            kind: entity.kind.clone(),
+            display_name: "Nom historique reconnaissable".into(),
+            first_name: entity.first_name.clone(),
+            last_name: entity.last_name.clone(),
+            birth_date: entity.birth_date.clone(),
+            residence_country: entity.residence_country.clone(),
+            preferred_currency: entity.preferred_currency.clone(),
+            activity: entity.activity.clone(),
+            notes: entity.notes.clone(),
+            archived: entity.archived,
+        })
+        .unwrap();
+    vault
+        .void_registry_record(VoidRecordInput {
+            id: renamed.id.clone(),
+            expected_revision_id: renamed.revision_id.clone(),
+            reason: "Retrait de la cible renommée".into(),
+        })
+        .unwrap();
+    let current = vault.list_document_library_at(None).unwrap();
+    let target = current.targets.iter().find(|t| t.id == entity.id).unwrap();
+    assert!(target.retired);
+    assert_eq!(target.label, renamed.display_name);
+    let historical = vault
+        .list_document_library_at(Some(before_rename.knowledge_sequence))
+        .unwrap();
+    let old_target = historical
+        .targets
+        .iter()
+        .find(|t| t.id == entity.id)
+        .unwrap();
+    assert!(!old_target.retired);
+    assert_eq!(old_target.label, entity.display_name);
 }
 
 #[test]
@@ -506,4 +625,21 @@ fn rehashed_archive_validates_hidden_old_document_metadata_not_only_latest_activ
     let before = state(&v);
     assert!(v.inspect_restore(&bad).is_err());
     assert_eq!(state(&v), before);
+}
+
+#[test]
+fn document_status_wire_values_remain_compatible_and_unknown_states_are_rejected() {
+    for value in ["active", "archived", "deleted"] {
+        let status = DocumentStatus::try_from(value).unwrap();
+        assert_eq!(
+            serde_json::to_string(&status).unwrap(),
+            format!("\"{value}\"")
+        );
+        assert_eq!(
+            serde_json::from_str::<DocumentStatus>(&format!("\"{value}\"")).unwrap(),
+            status
+        );
+    }
+    assert!(DocumentStatus::try_from("pending").is_err());
+    assert!(serde_json::from_str::<DocumentStatus>("\"pending\"").is_err());
 }

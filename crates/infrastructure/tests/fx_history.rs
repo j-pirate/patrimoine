@@ -1066,6 +1066,10 @@ fn backup_restore_preserves_fx_profiles_history_and_document_bytes() {
     let target = Vault::open(&target_root).unwrap();
     assert_eq!(snapshot(&target), state);
     assert_eq!(
+        serde_json::to_value(target.list_registry_at(Some(0)).unwrap()).unwrap(),
+        serde_json::to_value(RegistrySnapshot::default()).unwrap()
+    );
+    assert_eq!(
         serde_json::to_value(target.list_registry_at(Some(historical_k)).unwrap()).unwrap(),
         historical
     );
@@ -1107,4 +1111,36 @@ fn backup_restore_preserves_fx_profiles_history_and_document_bytes() {
     target.export_document(&document.id, &exported).unwrap();
     assert_eq!(fs::read(exported).unwrap(), bytes);
     assert_eq!(fs::read(backup).unwrap(), archive_bytes);
+}
+
+#[test]
+fn knowledge_zero_remains_empty_after_corrections_and_does_not_mutate_the_vault() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path().join("coffre");
+    let mut vault = Vault::open(&root).unwrap();
+    let owner = person(&mut vault, "Alice");
+    vault
+        .save_entity(edit_person(&owner, "Alice corrigée", "TN"))
+        .unwrap();
+    rate(&mut vault, "USD", "EUR", "0.9", "2026-01-01");
+    let baseline = snapshot(&vault);
+    let before = vault.status().unwrap().mutation_sequence;
+    let at_zero = vault.list_registry_at(Some(0)).unwrap();
+    assert_eq!(
+        serde_json::to_value(&at_zero).unwrap(),
+        serde_json::to_value(RegistrySnapshot::default()).unwrap()
+    );
+    let fx = conversion(&vault, "100", "USD", "EUR", "2026-01-01", Some(0));
+    assert_eq!(fx.status, "non_calculable");
+    assert!(fx.legs.is_empty());
+    assert_eq!(fx.knowledge_sequence, 0);
+    assert_eq!(vault.status().unwrap().mutation_sequence, before);
+    assert_eq!(snapshot(&vault), baseline);
+    drop(vault);
+    let reopened = Vault::open(root).unwrap();
+    assert_eq!(
+        serde_json::to_value(reopened.list_registry_at(Some(0)).unwrap()).unwrap(),
+        serde_json::to_value(RegistrySnapshot::default()).unwrap()
+    );
+    assert_eq!(reopened.status().unwrap().mutation_sequence, before);
 }

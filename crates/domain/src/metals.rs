@@ -932,18 +932,16 @@ pub fn metal_report(
         .cloned();
     let zero_stock = quantity.as_ref().is_some_and(Zero::is_zero);
     // A confirmed empty lot has the same exact zero value in every currency.
-    // Without a metal quote, report that valuation explicitly in EUR rather
-    // than requiring a fictitious conversion from its historical cost currency.
-    let currency = quote
-        .as_ref()
-        .map(|r| r.currency.clone())
-        .unwrap_or_else(|| {
-            if zero_stock {
-                "EUR".into()
-            } else {
-                lot.cost_currency.clone()
-            }
-        });
+    // Report that valuation explicitly in EUR even when a foreign quote is
+    // present, so downstream consumers do not require a rate for this zero.
+    let currency = if zero_stock {
+        "EUR".into()
+    } else {
+        quote
+            .as_ref()
+            .map(|r| r.currency.clone())
+            .unwrap_or_else(|| lot.cost_currency.clone())
+    };
     let intrinsic = if zero_stock {
         Some(BigRational::zero())
     } else if let (Some(weight), Some(price)) = (&fine, &quote) {
@@ -984,7 +982,7 @@ pub fn metal_report(
             warn(&mut warnings,"conflicting_metal_quote",&price.id,"Plusieurs cours distincts existent pour ce métal à la même date ; le choix déterministe est tracé, sans moyenne implicite.");
         }
     }
-    let rate_eur = if intrinsic.is_some() && !zero_stock {
+    let rate_eur = if intrinsic.as_ref().is_some_and(|v| !v.is_zero()) {
         rate(
             registry,
             &currency,
@@ -1002,8 +1000,13 @@ pub fn metal_report(
         (Some(v), Some(r)) => Some(v * r),
         _ => None,
     };
-    let (premium_value, discount) = if zero_stock {
-        (Some(BigRational::zero()), Some(BigRational::zero()))
+    let (premium_value, discount, premium_eur, discount_eur) = if zero_stock {
+        (
+            Some(BigRational::zero()),
+            Some(BigRational::zero()),
+            Some(BigRational::zero()),
+            Some(BigRational::zero()),
+        )
     } else if let (Some(row), Some(qty)) = (&premium, &quantity) {
         sources.extend([row.id.clone(), row.revision_id.clone()]);
         let declared_premium = nonnegative(&row.value)?;
@@ -1015,6 +1018,25 @@ pub fn metal_report(
                 registry,
                 &row.currency,
                 &currency,
+                &q.date,
+                &mut conversions,
+                &mut sources,
+                &mut warnings,
+                &row.id,
+            )?
+        } else {
+            Some(BigRational::one())
+        };
+        // Monetary adjustments have their own declared currency. Their euro
+        // value remains calculable independently of the metal quote and of
+        // the conversion into the report's original currency.
+        let conversion_eur = if currency == "EUR" {
+            conversion.clone()
+        } else if needs_conversion {
+            rate(
+                registry,
+                &row.currency,
+                "EUR",
                 &q.date,
                 &mut conversions,
                 &mut sources,
@@ -1036,9 +1058,23 @@ pub fn metal_report(
         } else {
             conversion.as_ref().map(|r| qty * &declared_discount * r)
         };
-        (p, d)
+        let p_eur = if declared_premium.is_zero() {
+            Some(BigRational::zero())
+        } else if row.kind == "fraction_of_intrinsic" {
+            intrinsic_eur.as_ref().map(|v| v * &declared_premium)
+        } else {
+            conversion_eur.as_ref().map(|r| qty * &declared_premium * r)
+        };
+        let d_eur = if declared_discount.is_zero() {
+            Some(BigRational::zero())
+        } else {
+            conversion_eur
+                .as_ref()
+                .map(|r| qty * &declared_discount * r)
+        };
+        (p, d, p_eur, d_eur)
     } else {
-        (None, None)
+        (None, None, None, None)
     };
     if !zero_stock && premium.is_none() {
         warn(&mut warnings,"missing_metal_resale_terms",&lot.id,"La prime et la décote de revente ne sont pas déclarées ; l’intrinsèque reste distinct d’une estimation de revente complète.");
@@ -1055,16 +1091,16 @@ pub fn metal_report(
         }
         _ => None,
     };
-    let premium_eur = match (&premium_value, &rate_eur) {
-        (Some(v), Some(r)) => Some(v * r),
-        _ => None,
-    };
-    let discount_eur = match (&discount, &rate_eur) {
-        (Some(v), Some(r)) => Some(v * r),
-        _ => None,
-    };
-    let resale_eur = match (&resale, &rate_eur) {
-        (Some(v), Some(r)) => Some(v * r),
+    let resale_eur = match (&intrinsic_eur, &premium_eur, &discount_eur) {
+        (Some(i), Some(p), Some(d)) => {
+            let value = i + p - d;
+            if value.is_negative() {
+                warn(&mut warnings,"negative_metal_resale",&lot.id,"La décote déclarée dépasse l’intrinsèque et la prime ; la valeur de revente reste non calculable.");
+                None
+            } else {
+                Some(value)
+            }
+        }
         _ => None,
     };
     let valuation = if lot.valuation_basis == "intrinsic" {

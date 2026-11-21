@@ -49,6 +49,7 @@ pub struct Vault {
     generation: String,
     _lock: File,
     candidates: HashMap<String, Candidate>,
+    recovery_message: Option<String>,
 }
 impl Vault {
     pub fn open(root: impl AsRef<Path>) -> Result<Self> {
@@ -70,11 +71,12 @@ impl Vault {
                 "Le verrou du coffre doit être un fichier ordinaire.",
             ));
         }
-        lock.try_lock_exclusive().map_err(|_| {
-            AppError::new(
-                "locked",
-                "Ce coffre est déjà ouvert dans une autre instance de l’application.",
-            )
+        lock.try_lock_exclusive().map_err(|error| {
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                AppError::new("locked", "Ce coffre est déjà ouvert dans une autre instance de l’application.")
+            } else {
+                AppError::new("lock_io", format!("Le verrou du coffre ne peut pas être acquis : {error}. Vérifiez les droits et l’accès au support."))
+            }
         })?;
         for child in ["generations", "staging", "recovery"] {
             directory(&root.join(child))?;
@@ -118,8 +120,6 @@ impl Vault {
                     write_current(&root, &journal.old_generation)?;
                     selected = journal.old_generation;
                 }
-                fs::remove_file(journal_path).map_err(io)?;
-                sync_dir(&root.join("recovery"))?;
             }
             selected
         } else {
@@ -144,8 +144,12 @@ impl Vault {
             generation,
             _lock: lock,
             candidates: HashMap::new(),
+            recovery_message: None,
         };
         db::validate_generation(&vault.generation_path())?;
+        if let Err(error) = vault.finish_activation() {
+            vault.recovery_message = Some(format!("Le coffre indiqué est actif. La finalisation de sa reprise reste nécessaire : {} Fermez puis rouvrez l’application pour réessayer.", error.message));
+        }
         vault.upgrade_generation()?;
         vault.status()?;
         Ok(vault)
@@ -198,6 +202,9 @@ impl Vault {
         result
     }
     fn select_generation(&mut self, generation: String) -> Result<()> {
+        // Un incident ponctuel de finalisation ne doit pas condamner les
+        // prochaines restaurations à EEXIST jusqu'au prochain démarrage.
+        self.finish_activation().map_err(|error| AppError::new("recovery_required", format!("Le coffre actuel reste actif. Sa reprise doit être finalisée avant un nouveau remplacement : {} Fermez puis rouvrez l’application pour réessayer.", error.message)))?;
         db::validate_generation(&self.root.join("generations").join(&generation))?;
         let journal = ActivationJournal {
             old_generation: self.generation.clone(),
@@ -214,19 +221,45 @@ impl Vault {
         })?)
         .map_err(io)?;
         file.sync_all().map_err(io)?;
-        publish_file(&journal_temp, &journal_path)?;
+        if let Err(error) = publish_file(&journal_temp, &journal_path) {
+            let _ = fs::remove_file(&journal_temp);
+            if let Err(cleanup) = self.finish_activation() {
+                self.recovery_message = Some(cleanup.message);
+            }
+            return Err(error);
+        }
         if let Err(error) = write_current(&self.root, &generation) {
-            let _ = write_current(&self.root, &self.generation);
-            return Err(error);
+            match current(&self.root) {
+                Ok(actual) if actual == generation => {
+                    self.generation = generation;
+                    self.recovery_message = Some(format!("La restauration est activée, mais sa conservation après une panne doit encore être confirmée : {} Fermez puis rouvrez l’application pour terminer la reprise.", error.message));
+                    return Ok(());
+                }
+                Ok(actual) if actual == self.generation => {
+                    if let Err(cleanup) = self.finish_activation() {
+                        self.recovery_message = Some(format!("Le coffre précédent reste actif. {} Fermez puis rouvrez l’application pour terminer la reprise.", cleanup.message));
+                    }
+                    return Err(error);
+                }
+                _ => return Err(AppError::new("recovery_required", "Le coffre actif ne peut plus être confirmé. Fermez puis rouvrez l’application pour terminer la reprise ; les générations précédentes sont conservées.")),
+            }
         }
-        let old_generation = std::mem::replace(&mut self.generation, generation);
-        if let Err(error) = db::validate_generation(&self.generation_path()) {
-            write_current(&self.root, &old_generation)?;
-            self.generation = old_generation;
-            return Err(error);
+        self.generation = generation;
+        if let Err(error) = self.finish_activation() {
+            self.recovery_message = Some(format!("La restauration est activée. La finalisation du journal reste nécessaire : {} Fermez puis rouvrez l’application pour terminer la reprise.", error.message));
         }
-        fs::remove_file(journal_path).map_err(io)?;
-        sync_dir(&self.root.join("recovery"))?;
+        Ok(())
+    }
+    fn finish_activation(&mut self) -> Result<()> {
+        let journal_path = self.root.join("recovery/activation.json");
+        if journal_path.exists() || self.recovery_message.is_some() {
+            self.ensure_active()?;
+            // CURRENT doit être durable avant de retirer son information de reprise.
+            sync_dir(&self.root)?;
+            remove_activation_journal(&journal_path)?;
+            sync_dir(&self.root.join("recovery"))?;
+        }
+        self.recovery_message = None;
         Ok(())
     }
 }
@@ -250,6 +283,9 @@ impl VaultService for Vault {
             settings: db::settings(&c)?,
             country_count: count("countries")?,
             currency_count: count("currencies")?,
+            recovery_required: self.recovery_message.is_some()
+                || self.root.join("recovery/activation.json").exists(),
+            recovery_message: self.recovery_message.clone(),
         })
     }
     fn save_settings(&mut self, mut settings: Settings) -> Result<Settings> {
@@ -329,22 +365,9 @@ impl VaultService for Vault {
                 }
             } else {
                 fs::rename(&temp, &target).map_err(io)?;
-                sync_dir(target.parent().expect("parent"))?;
             }
-            let mime = match source
-                .extension()
-                .and_then(|v| v.to_str())
-                .unwrap_or("")
-                .to_ascii_lowercase()
-                .as_str()
-            {
-                "pdf" => "application/pdf",
-                "png" => "image/png",
-                "jpg" | "jpeg" => "image/jpeg",
-                "txt" | "md" => "text/plain",
-                _ => "application/octet-stream",
-            }
-            .to_owned();
+            sync_blob_directory(&self.generation_path(), target.parent().expect("parent"))?;
+            let mime = documents::mime(source);
             let document = id();
             let revision = id();
             let mut c = db::connect(&self.db_path())?;
@@ -554,3 +577,6 @@ impl Drop for Vault {
         }
     }
 }
+
+#[cfg(test)]
+mod activation_recovery_tests;

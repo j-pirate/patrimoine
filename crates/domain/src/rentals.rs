@@ -1691,8 +1691,8 @@ pub fn rental_report_with_settlements(
         };
         add_metric(&mut totals, "operating_expenses", value);
     }
-    // A live contract without terms or generated receivables is missing data,
-    // never a vacant unit or an earned income of zero.
+    // Missing contractual data only affects the scope exposed to that period.
+    // Cash receipts retain their explicitly named recipient independently.
     let observed_stop = ds(date(&q.date)?
         .next_day()
         .ok_or_else(|| invalid("Date d’observation hors limite."))?);
@@ -1705,6 +1705,16 @@ pub fn rental_report_with_settlements(
             && !s.lease_terms.iter().any(|t| {
                 t.lease_id == lease.id && applies(&t.valid_from, t.valid_to.as_deref(), &q.date)
             })
+            && weight(
+                registry,
+                properties,
+                asset,
+                q,
+                &q.date,
+                &mut warnings,
+                &mut trace,
+            )?
+            .is_none_or(|w| !w.is_zero())
         {
             totals.insert("contractual_annual_rent", None);
             warning(
@@ -1724,17 +1734,65 @@ pub fn rental_report_with_settlements(
         if start >= end || (q.context != "property" && disposed(properties, asset, start)) {
             continue;
         }
-        let terms_known = terms_cover(s, &lease.id, start, end);
-        let dues_known = covers(
-            s.dues
-                .iter()
-                .filter(|d| d.lease_id == lease.id)
-                .map(|d| (d.period_start.as_str(), d.period_end.as_str()))
-                .collect(),
-            start,
-            end,
-        );
-        if !terms_known || !dues_known {
+        let mut dates = boundaries(registry, properties, start, end);
+        for (from, to) in s
+            .lease_terms
+            .iter()
+            .filter(|t| t.lease_id == lease.id)
+            .map(|t| (t.valid_from.as_str(), t.valid_to.as_deref().unwrap_or(end)))
+            .chain(
+                s.dues
+                    .iter()
+                    .filter(|d| d.lease_id == lease.id)
+                    .map(|d| (d.period_start.as_str(), d.period_end.as_str())),
+            )
+        {
+            for date in [from, to] {
+                if date > start && date < end {
+                    dates.insert(date.into());
+                }
+            }
+        }
+        if dates.len() > 20000 {
+            return Err(AppError::new(
+                "capacity",
+                "Trop de frontières temporelles locatives.",
+            ));
+        }
+        let dates: Vec<_> = dates.into_iter().collect();
+        let mut missing_terms = false;
+        let mut missing_dues = false;
+        for pair in dates.windows(2) {
+            let terms_known = terms_cover(s, &lease.id, &pair[0], &pair[1]);
+            let dues_known = covers(
+                s.dues
+                    .iter()
+                    .filter(|d| d.lease_id == lease.id)
+                    .map(|d| (d.period_start.as_str(), d.period_end.as_str()))
+                    .collect(),
+                &pair[0],
+                &pair[1],
+            );
+            if terms_known && dues_known {
+                continue;
+            }
+            if weight(
+                registry,
+                properties,
+                asset,
+                q,
+                &pair[0],
+                &mut warnings,
+                &mut trace,
+            )?
+            .is_some_and(|w| w.is_zero())
+            {
+                continue;
+            }
+            missing_terms |= !terms_known;
+            missing_dues |= !dues_known;
+        }
+        if missing_terms || missing_dues {
             for key in [
                 "economic_rent",
                 "economic_charges",
@@ -1745,7 +1803,7 @@ pub fn rental_report_with_settlements(
             ] {
                 totals.insert(key, None);
             }
-            warning(&mut warnings,if terms_known{"missing_rent_dues"}else{"missing_lease_terms"},&lease.id,"La période courue du bail n’est pas entièrement couverte par des conditions et échéances enregistrées ; le revenu et l’impayé complets restent inconnus.");
+            warning(&mut warnings,if missing_terms{"missing_lease_terms"}else{"missing_rent_dues"},&lease.id,"La période courue du bail exposée au périmètre n’est pas entièrement couverte par des conditions et échéances enregistrées ; le revenu et l’impayé complets restent inconnus.");
         }
     }
     let noi = match (

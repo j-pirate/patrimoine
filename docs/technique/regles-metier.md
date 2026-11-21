@@ -153,6 +153,8 @@ La convention de présentation V1 élimine la fraction réciproque `E = min(c,d)
 
 `impact_net = (c−d) × L`, inchangé par l'élimination.
 
+En cas de dépréciation, le nominal sert à apparier les deux faces, puis la valeur comptable commune est retirée **à l’identique de l’actif et du passif**. Exemple : nominal 100 000 EUR, créance dépréciée à 80 000 EUR, dette 100 000 EUR, deux parties entièrement familiales. L’élimination vaut 80 000 EUR sur chaque face ; il reste 0 EUR de créance et 20 000 EUR de dette. Le net familial est −20 000 EUR, égal aux nets individuels exacts (+80 000 et −100 000) sous la même couverture. Une dépréciation ne devient pas une remise de dette. Le cas sans dépréciation des formules précédentes est donc un cas particulier.
+
 Cette convention est une consolidation patrimoniale proportionnelle, pas une consolidation comptable par contrôle. Les poids des deux faces doivent être connus, le contrat doit être le même et les soldes et dates doivent se réconcilier. Si les deux faces n'ont pas la même mesure (dépréciation de créance, litige, intérêts non reconnus), éliminer uniquement la valeur appariée justifiée et isoler le résidu ; ne pas fabriquer une symétrie.
 
 | Cas, encours 100 000 EUR | Brut/dette avant élimination | Élimination | Solde après élimination |
@@ -218,7 +220,7 @@ Chaque observation stocke paire, taux strictement positif, date d'application, d
 3. Calculer exactement `R(B→A)=1/R(A→B)` et `R(A→C)=R(A→B)×R(B→C)`. Pour deux devises cotées en EUR : `R(A→B)=R(A→EUR)/R(B→EUR)`.
 4. Conserver tous les identifiants et dates du chemin ; l'ancienneté affichée d'un croisement est celle de son cours le plus ancien. Si plusieurs sources possibles divergent, appliquer cette priorité et montrer une alerte d'incohérence plutôt que moyenner des cours.
 
-L'absence d'un chemin autorisé rend la conversion impossible. Aucune parité supposée pour AED/USD, aucun taux égal à un, aucun taux futur. Les seuils d'alerte d'ancienneté sont paramétrables, avec une proposition initiale de 30 jours pour le change et 365 jours pour une estimation immobilière ; ils ne changent pas le montant et restent visibles dans le rapport. Pour de très vieux cours, l'utilisateur peut choisir un mode strict rendant la conversion non exploitable au lieu d'une estimation signalée.
+L'absence d'un chemin autorisé rend la conversion impossible. Aucune parité supposée pour AED/USD, aucun taux égal à un, aucun taux futur. Dans la V1 livrée, l’alerte de change apparaît au-delà de 30 jours et ne retire pas le montant sourcé. Les seuils paramétrables et le mode strict envisagés initialement ne sont pas livrés ; ils restent des extensions à décider. Voir ADR-010 et la correspondance du [schéma livré](schema-livre.md).
 
 ### 9.3 Dates selon la nature du calcul
 
@@ -267,7 +269,7 @@ Pour le bilan patrimonial V1, les loyers exigibles non encaissés sont une créa
 
 ## 12. Métaux précieux
 
-Les lots restent des actifs physiques identifiables, avec quantité de pièces, poids unitaire, unité et pureté. Les conversions sont définies exactement : `1 kg = 1 000 g` ; `1 once troy = 31.1034768 g`. Une once ordinaire n'est pas admise comme synonyme. La pureté est une fraction `[0,1]`, pas un pourcentage interprété au hasard.
+Les lots restent des actifs physiques identifiables, avec quantité de pièces, poids unitaire, unité et pureté. Les conversions sont définies exactement : `1 kg = 1 000 g` ; `1 once troy = 31.1034768 g`. Une once ordinaire n'est pas admise comme synonyme. La pureté est une fraction `]0,1]`, pas un pourcentage interprété au hasard. Cette borne exclut une pureté nulle, tout en autorisant une quantité restante nulle après une vente complète.
 
 `poids_fin_g = quantité_restante × poids_unitaire_g × pureté`.
 
@@ -282,6 +284,8 @@ Méthode V1 de coût des lots : lot identifié ; vente partielle d'un lot homog�
 ## 13. Indicateurs des sociétés et contrôles de cohérence
 
 Les indicateurs périodiques (chiffre d'affaires, résultat, trésorerie indicative, créances et dettes de pilotage) sont des observations analytiques. Ils ne créent ni banque, ni créance, ni dette supplémentaire dans le bilan. Une donnée utilisée comme remplacement d'un détail manquant nécessite une méthode de valorisation explicite, une couverture et une date ; un bouton de « synchronisation » implicite est proscrit.
+
+Deux observations de même société et fréquence ne peuvent pas se chevaucher, même si leur devise diffère. Des fréquences différentes peuvent coexister sans addition de leurs montants ; une tendance exige des périodes adjacentes, de même fréquence et devise.
 
 Chaque clôture de calcul vérifie : sommes de droits, dates, absence de cycle, couverture des sociétés, propriétaires connus, cours et estimations disponibles, signes et quantités, identité des contreparties, absence d'actifs/contrats dupliqués, encours non négatifs sauf trop-payé classé séparément. Le rapport expose les anomalies ; il ne corrige pas silencieusement les données sources.
 

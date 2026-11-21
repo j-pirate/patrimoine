@@ -16,7 +16,8 @@ use patrimoine_domain::{
 use patrimoine_infrastructure::Vault;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{Emitter, State};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_fs::FsExt;
 
 struct DesktopState(Arc<Mutex<Vault>>);
@@ -867,6 +868,7 @@ async fn export_document_revision(
 }
 #[tauri::command]
 async fn open_document_revision(
+    app: tauri::AppHandle,
     state: State<'_, DesktopState>,
     document_id: String,
     revision_id: String,
@@ -875,13 +877,43 @@ async fn open_document_revision(
         vault.prepare_document_open(&document_id, &revision_id)
     })
     .await?;
-    // The verified private copy is handed to the desktop without a shell.
-    let mut child = std::process::Command::new("xdg-open").arg(&prepared.path)
-        .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null())
-        .spawn().map_err(|_| AppError::new("document_open", "Le système Linux n’a pas pu recevoir la demande d’ouverture. Exportez une copie du document pour l’ouvrir dans votre application."))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
+    let mut child = launch_document_reader(std::ffi::OsStr::new("xdg-open"), &prepared.path)?;
+    // The external reader can remain alive until its document is closed. Return
+    // the launch acknowledgement and report later failures without holding the vault.
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = wait_document_reader(&mut child) {
+            eprintln!("Échec du lecteur documentaire : {error}");
+            if let Err(emit_error) = app.emit("document-open-failed", error) {
+                eprintln!("Le diagnostic du lecteur n’a pas pu être transmis : {emit_error}");
+            }
+        }
     });
+    Ok(())
+}
+
+fn launch_document_reader(
+    launcher: &std::ffi::OsStr,
+    path: &str,
+) -> Result<std::process::Child, AppError> {
+    // Pass the verified private path as one argument, without invoking a shell.
+    std::process::Command::new(launcher)
+        .arg(path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|error| AppError::new("document_open", format!("Linux n’a pas pu lancer le lecteur ({error}). Exportez une copie du document et choisissez l’application adaptée.")))
+}
+
+fn wait_document_reader(child: &mut std::process::Child) -> Result<(), AppError> {
+    let status = child.wait().map_err(|error| AppError::new("document_open", format!("Le suivi du lecteur Linux a échoué ({error}). Exportez une copie du document et choisissez l’application adaptée.")))?;
+    if !status.success() {
+        let reason = status
+            .code()
+            .map(|code| format!("code {code}"))
+            .unwrap_or_else(|| "processus interrompu".into());
+        return Err(AppError::new("document_open", format!("Le lecteur Linux a refusé l’ouverture ({reason}). Exportez une copie du document et choisissez l’application adaptée.")));
+    }
     Ok(())
 }
 
@@ -925,15 +957,57 @@ async fn inspect_csv_import(
 }
 
 fn main() {
-    if let Err(error) = run() {
-        eprintln!("Impossible de démarrer Patrimoine : {error}");
+    let vault = match open_vault() {
+        Ok(vault) => vault,
+        Err(error) => {
+            eprintln!("Impossible de démarrer Patrimoine : {error}");
+            if let Err(dialog_error) = show_startup_error(error.as_ref()) {
+                eprintln!("Le dialogue de démarrage est indisponible : {dialog_error}");
+            }
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = run(vault) {
+        eprintln!("Impossible de démarrer l’interface de Patrimoine : {error}");
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+fn startup_error_message(error: &(dyn std::error::Error + 'static)) -> String {
+    let action = match error.downcast_ref::<AppError>().map(|error| error.code.as_str()) {
+        Some("locked") => "Fermez l’autre instance de Patrimoine, puis relancez l’application.",
+        Some("recovery") | Some("invalid_archive") | Some("integrity") => "Conservez le dossier du coffre et ses générations. Utilisez le guide de récupération avant toute modification.",
+        _ => "Vérifiez le chemin absolu du coffre, les droits d’accès et la disponibilité du disque, puis relancez l’application.",
+    };
+    format!("Impossible de démarrer Patrimoine.\n\n{error}\n\n{action}\n\nLes données du coffre restent conservées.")
+}
+
+fn show_startup_error(error: &(dyn std::error::Error + 'static)) -> Result<(), tauri::Error> {
+    let message = startup_error_message(error);
+    let mut context = tauri::generate_context!();
+    context.config_mut().app.windows.clear();
+    // This runtime is only created when startup failed before the normal UI.
+    // Use the existing native dialog plugin, with a running main loop.
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .setup(move |app| {
+            let handle = app.handle().clone();
+            app.dialog()
+                .message(message)
+                .title("Démarrage de Patrimoine impossible")
+                .kind(MessageDialogKind::Error)
+                .show(move |_| handle.exit(1));
+            Ok(())
+        })
+        .run(context)
+}
+
+fn open_vault() -> Result<Vault, Box<dyn std::error::Error>> {
     let data_dir = data_directory().map_err(std::io::Error::other)?;
-    let vault = Vault::open(data_dir)?;
+    Ok(Vault::open(data_dir)?)
+}
+
+fn run(vault: Vault) -> Result<(), Box<dyn std::error::Error>> {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -1036,4 +1110,41 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .run(tauri::generate_context!())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+
+    #[test]
+    fn launcher_exit_status_is_reported_and_manual_export_remains_explained() {
+        let mut child =
+            launch_document_reader(std::ffi::OsStr::new("/bin/false"), "/private/copy.txt")
+                .unwrap();
+        let missing_reader = wait_document_reader(&mut child).unwrap_err();
+        assert_eq!(missing_reader.code, "document_open");
+        assert!(missing_reader.message.contains("code 1"));
+        assert!(missing_reader.message.contains("Exportez une copie"));
+        let mut child =
+            launch_document_reader(std::ffi::OsStr::new("/bin/true"), "/private/copy.txt").unwrap();
+        assert!(wait_document_reader(&mut child).is_ok());
+        let spawn_failure = launch_document_reader(
+            std::ffi::OsStr::new("/missing/patrimoine-reader"),
+            "/private/copy.txt",
+        )
+        .unwrap_err();
+        assert_eq!(spawn_failure.code, "document_open");
+    }
+
+    #[test]
+    fn startup_diagnostic_distinguishes_contention_and_recovery_actions() {
+        let locked = startup_error_message(&AppError::new("locked", "Verrou occupé"));
+        assert!(locked.contains("Verrou occupé"));
+        assert!(locked.contains("Fermez l’autre instance"));
+        let recovery = startup_error_message(&AppError::new("recovery", "CURRENT invalide"));
+        assert!(recovery.contains("CURRENT invalide"));
+        assert!(recovery.contains("guide de récupération"));
+        let io_error = startup_error_message(&std::io::Error::other("Chemin relatif"));
+        assert!(io_error.contains("chemin absolu"));
+    }
 }

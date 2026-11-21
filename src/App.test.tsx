@@ -14,7 +14,7 @@ vi.mock('./services/api', async importOriginal => {
 
 const status: VaultStatus = {
   generation_id: 'current', data_dir: '/test/coffre', schema_version: 1, app_version: '0.1.0',
-  document_count: 0, mutation_sequence: 1, country_count: 4, currency_count: 5,
+  document_count: 0, mutation_sequence: 1, country_count: 4, currency_count: 5, recovery_required: false, recovery_message: null,
   settings: { workspace_name: 'Famille de test', display_currency: 'EUR' },
 };
 const inspection: RestoreInspection = {
@@ -157,7 +157,7 @@ describe('Documents', () => {
     vi.mocked(api.chooseDocumentImport).mockResolvedValue('/test/source.pdf');
     vi.mocked(api.importDocument).mockResolvedValue(document);
     vi.mocked(api.listDocuments).mockResolvedValueOnce([]).mockResolvedValue([document]);
-    const record = { ...document, revision_id: 'doc-r1', description: '', status: 'active', recorded_at: document.added_at };
+    const record = { ...document, revision_id: 'doc-r1', description: '', status: 'active' as const, recorded_at: document.added_at };
     vi.mocked(api.listDocumentLibraryAt).mockResolvedValueOnce(emptyDocuments).mockResolvedValue({ ...emptyDocuments, documents: [record], versions: [record], knowledge_sequence: 1 });
     vi.mocked(api.chooseDocumentDestination).mockResolvedValue('/test/copie.pdf');
     vi.mocked(api.exportDocument).mockResolvedValue(undefined);

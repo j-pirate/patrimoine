@@ -1,7 +1,9 @@
 [package]
 name = "patrimoine-infrastructure"
 version.workspace = true
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 patrimoine-domain = { path = "../domain" }

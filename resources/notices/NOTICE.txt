@@ -2,12 +2,12 @@ PATRIMOINE — THIRD-PARTY NOTICES
 
 Cargo normal/build/procedural-macro release graph, npm production closure; excludes dev/test-only and does not claim every listed component is linked
 
-UNLICENSED; no additional licence grant is made by these third-party notices
+GPL-3.0-only
 
 Exact resolved versions, source URLs, evidence and file hashes: manifest.json.
 Complete collected licence/copyright texts: LICENSES/.
 MPL-covered crates are listed with versioned source archive URLs; local modifications are not made to their source in this application.
-Bundled Debian libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Debian Sources link.
+Bundled Debian/Ubuntu libraries are identified by GNU build-id or identical bytes; their source package and exact source version are recorded with a Debian Sources or Launchpad link.
 GTK/GLib/WebKit and other LGPL libraries remain dynamically linked. The AppImage can be extracted and those libraries replaced; their copyright and applicable LGPL texts are included below.
 The pinned Type-2 runtime includes static musl, libfuse, squashfuse, zstd, zlib and mimalloc code; launcher/runtime provenance and licence texts are included separately from the Debian .so inventory. Unknown static dependency versions are disclosed in manifest.json; a licence-text reference version is not proof of the linked binary version.
 Static libfuse relinking/source requirements also apply to the AppImage runtime; extraction alone does not satisfy those requirements.

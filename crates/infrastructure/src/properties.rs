@@ -55,14 +55,15 @@ fn normalize_optional(value: &mut Option<String>) -> Result<()> {
 }
 
 impl Vault {
-    fn write_property(
+    fn write_property<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(PropertySnapshot, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -74,8 +75,9 @@ impl Vault {
         crate::rentals::validate_current(&tx)?;
         crate::finance::validate_current(&tx)?;
         validate_identities(&tx)?;
+        let result = read(snapshot(&tx, None)?, &object)?;
         tx.commit().map_err(db::error)?;
-        Ok(object)
+        Ok(result)
     }
     fn correct_property_disposal(
         &mut self,
@@ -198,12 +200,13 @@ impl Vault {
         crate::rentals::validate_current(&tx)?;
         crate::finance::validate_current(&tx)?;
         validate_identities(&tx)?;
-        tx.commit().map_err(db::error)?;
-        self.list_properties_at(None)?
+        let result = snapshot(&tx, None)?
             .events
             .into_iter()
             .find(|e| e.id == object)
-            .ok_or_else(|| invalid("La cession corrigée est introuvable."))
+            .ok_or_else(|| invalid("La cession corrigée est introuvable."))?;
+        tx.commit().map_err(db::error)?;
+        Ok(result)
     }
 }
 
@@ -245,7 +248,7 @@ impl PropertyService for Vault {
     }
     fn save_property(&mut self, mut input: SavePropertyInput) -> Result<Property> {
         normalize_optional(&mut input.surface_m2)?;
-        let key = self.write_property(
+        self.write_property(
             "property",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -269,16 +272,18 @@ impl PropertyService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_properties_at(None)?
-            .properties
-            .into_iter()
-            .find(|p| p.id == key)
-            .ok_or_else(|| invalid("La fiche immobilière enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .properties
+                    .into_iter()
+                    .find(|p| p.id == key)
+                    .ok_or_else(|| invalid("La fiche immobilière enregistrée est introuvable."))
+            },
+        )
     }
     fn save_rental_unit(&mut self, mut input: SaveRentalUnitInput) -> Result<RentalUnit> {
         normalize_optional(&mut input.surface_m2)?;
-        let key = self.write_property(
+        self.write_property(
             "rental_unit",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -301,12 +306,14 @@ impl PropertyService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_properties_at(None)?
-            .units
-            .into_iter()
-            .find(|p| p.id == key)
-            .ok_or_else(|| invalid("L’unité enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .units
+                    .into_iter()
+                    .find(|p| p.id == key)
+                    .ok_or_else(|| invalid("L’unité enregistrée est introuvable."))
+            },
+        )
     }
     fn save_property_event(&mut self, mut input: SavePropertyEventInput) -> Result<PropertyEvent> {
         normalize_optional(&mut input.price)?;
@@ -314,19 +321,14 @@ impl PropertyService for Vault {
         if input.kind == "disposal" {
             return self.correct_property_disposal(input);
         }
-        let key=self.write_property("property_event",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,rev|{
+        self.write_property("property_event",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,rev|{
             if let Some(previous)=&input.expected_revision_id {
                 let previous_kind:String=tx.query_row("SELECT kind FROM property_events WHERE revision_id=?1",[previous],|r|r.get(0)).map_err(db::error)?;
                 if previous_kind=="disposal" { return Err(AppError::new("validation","Une cession ne peut pas être modifiée isolément de la clôture des droits. Enregistrez une régularisation explicite.")); }
             }
             tx.execute("INSERT INTO property_events VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",params![rev,input.asset_id,input.kind,input.effective_on,input.price,input.fees,input.currency,input.notes]).map_err(db::error)?;
             Ok(())
-        })?;
-        self.list_properties_at(None)?
-            .events
-            .into_iter()
-            .find(|p| p.id == key)
-            .ok_or_else(|| invalid("L’événement enregistré est introuvable."))
+        }, |saved, key| saved.events.into_iter().find(|p| p.id == key).ok_or_else(|| invalid("L’événement enregistré est introuvable.")))
     }
     fn get_property_report(&self, request: PropertyReportRequest) -> Result<PropertyReport> {
         self.ensure_active()?;
@@ -450,8 +452,9 @@ impl PropertyService for Vault {
         crate::rentals::validate_current(&tx)?;
         crate::finance::validate_current(&tx)?;
         validate_identities(&tx)?;
+        let result = snapshot(&tx, None)?;
         tx.commit().map_err(db::error)?;
-        self.list_properties_at(None)
+        Ok(result)
     }
 }
 
@@ -461,7 +464,7 @@ fn validate_identities(c: &Connection) -> Result<()> {
         ("rental_units", "property_asset_id"),
         ("property_events", "asset_id"),
     ] {
-        let changed:u64=c.query_row(&format!("SELECT count(*) FROM {table} a JOIN revisions ar ON ar.id=a.revision_id JOIN {table} b ON a.{key}<>b.{key} JOIN revisions br ON br.id=b.revision_id AND ar.object_id=br.object_id"),[],|r|r.get(0)).map_err(db::error)?;
+        let changed:u64=c.query_row(&format!("SELECT count(*) FROM (SELECT r.object_id FROM {table} v JOIN revisions r ON r.id=v.revision_id GROUP BY r.object_id HAVING count(DISTINCT v.{key})>1)"),[],|r|r.get(0)).map_err(db::error)?;
         if changed != 0 {
             return Err(invalid(
                 "Une identité immobilière ne peut pas changer de bien entre deux révisions.",
@@ -471,19 +474,15 @@ fn validate_identities(c: &Connection) -> Result<()> {
     Ok(())
 }
 
+pub(crate) const KINDS: &[&str] = &["property", "rental_unit", "property_event"];
+
 pub(crate) fn validate_history(c: &Connection) -> Result<()> {
     if !enabled(c)? {
         return Ok(());
     }
     validate_identities(c)?;
-    let mut query = c
-        .prepare("SELECT sequence FROM change_sets ORDER BY sequence")
-        .map_err(db::error)?;
-    for sequence in query
-        .query_map([], |r| r.get::<_, u64>(0))
-        .map_err(db::error)?
-    {
-        let k = sequence.map_err(db::error)?;
+    let kinds = [registry::KINDS, KINDS].concat();
+    for k in registry::history_sequences(c, &kinds)? {
         validate_properties(&registry::snapshot(c, Some(k))?, &snapshot(c, Some(k))?)?;
     }
     Ok(())

@@ -372,6 +372,92 @@ pub fn validate_finance(
     debts: &DebtSnapshot,
     finance: &FinanceSnapshot,
 ) -> Result<()> {
+    validate_finance_sources(registry, properties, rentals, treasury, debts, finance)?;
+    if !rent_representation_mismatches(registry, properties, rentals, treasury, debts, finance)?
+        .is_empty()
+    {
+        return Err(invalid(RENT_REPRESENTATION_ERROR));
+    }
+    Ok(())
+}
+
+pub const RENT_REPRESENTATION_ERROR: &str = "Le financement doit représenter exactement les mêmes créances locatives, débiteur, créanciers, fractions et valeurs à la date du transfert. Le suivi des règlements et dépréciations doit ensuite utiliser cette source unique.";
+
+/// Identify claim revisions whose financing cannot represent their receivable.
+/// Call after validating the financial sources.
+pub fn rent_representation_mismatches(
+    registry: &RegistrySnapshot,
+    properties: &PropertySnapshot,
+    rentals: &RentalSnapshot,
+    treasury: &TreasurySnapshot,
+    debts: &DebtSnapshot,
+    finance: &FinanceSnapshot,
+) -> Result<BTreeSet<String>> {
+    let claims: Vec<_> = finance
+        .rent_claims
+        .iter()
+        .filter(|claim| claim.represented_by_debt_id.is_some())
+        .collect();
+    if claims.is_empty() {
+        return Ok(BTreeSet::new());
+    }
+    let view = View {
+        registry,
+        properties,
+        rentals,
+        treasury,
+        debts,
+        finance,
+    };
+    let mut dates = BTreeSet::new();
+    for claim in &claims {
+        dates.insert(claim.valid_from.as_str());
+        dates.extend(claim.valid_to.as_deref());
+    }
+    for terms in &debts.terms {
+        dates.insert(terms.valid_from.as_str());
+        dates.extend(terms.valid_to.as_deref());
+    }
+    dates.extend(rentals.allocations.iter().map(|a| a.effective_on.as_str()));
+    dates.extend(
+        treasury
+            .deposits
+            .iter()
+            .filter(|m| m.kind == "applied_to_due")
+            .map(|m| m.effective_on.as_str()),
+    );
+    dates.extend(
+        finance
+            .rent_claim_adjustments
+            .iter()
+            .map(|a| a.effective_on.as_str()),
+    );
+    let mut mismatches = BTreeSet::new();
+    for claim in claims {
+        for at in dates
+            .range(claim.valid_from.as_str()..)
+            .copied()
+            .take_while(|at| claim.valid_to.as_deref().is_none_or(|end| *at < end))
+        {
+            if !rent_representation_matches(&view, claim, at)? {
+                mismatches.insert(claim.revision_id.clone());
+                break;
+            }
+        }
+    }
+    Ok(mismatches)
+}
+
+/// Validate the historical source structure independently of conflicting loan
+/// representations, which were accepted in vaults created by older releases.
+pub fn validate_finance_sources(
+    registry: &RegistrySnapshot,
+    properties: &PropertySnapshot,
+    rentals: &RentalSnapshot,
+    treasury: &TreasurySnapshot,
+    debts: &DebtSnapshot,
+    finance: &FinanceSnapshot,
+) -> Result<()> {
     validate_properties(registry, properties)?;
     validate_rentals(registry, properties, rentals)?;
     validate_debts(registry, debts)?;
@@ -607,6 +693,182 @@ pub fn validate_finance(
         }
     }
     Ok(())
+}
+
+fn rent_representation_matches(view: &View<'_>, claim: &RentClaim, at: &str) -> Result<bool> {
+    let Some(debt_id) = &claim.represented_by_debt_id else {
+        return Ok(true);
+    };
+    let Some(contract) = view.debts.contracts.iter().find(|d| d.id == *debt_id) else {
+        return Ok(false);
+    };
+    // Several dues may share one contract, but they must consume its capacity
+    // together; checking each due against the whole principal would reuse it.
+    let claims: Vec<_> = view
+        .finance
+        .rent_claims
+        .iter()
+        .filter(|c| {
+            c.represented_by_debt_id.as_ref() == Some(debt_id)
+                && applies(&c.valid_from, c.valid_to.as_deref(), at)
+        })
+        .collect();
+    let transfer = claims
+        .iter()
+        .map(|c| c.valid_from.as_str())
+        .max()
+        .unwrap_or(at);
+    if contract.tracking_start.as_str() > transfer {
+        return Ok(false);
+    }
+    let mut total = BigRational::zero();
+    let mut creditors = BTreeMap::<String, BigRational>::new();
+    let mut impairments = BTreeMap::<String, BigRational>::new();
+    let mut tenant = None;
+    for c in &claims {
+        let due = view
+            .rentals
+            .dues
+            .iter()
+            .find(|d| d.id == c.due_id)
+            .ok_or_else(|| invalid("Le droit locatif concerne une échéance inconnue."))?;
+        if due.currency != contract.currency {
+            return Ok(false);
+        }
+        let lease = view
+            .rentals
+            .leases
+            .iter()
+            .find(|l| l.id == due.lease_id)
+            .ok_or_else(|| invalid("L’échéance de la créance concerne un bail inconnu."))?;
+        if tenant.is_some_and(|id| id != lease.tenant_entity_id.as_str()) {
+            return Ok(false);
+        }
+        tenant = Some(lease.tenant_entity_id.as_str());
+        let remaining =
+            view.remaining(due, "rent", transfer)? + view.remaining(due, "charges", transfer)?;
+        total += &remaining;
+        let mut shares = BigRational::zero();
+        for party in &c.parties {
+            let Some(share) = &party.economic_share else {
+                return Ok(false);
+            };
+            shares += parse_fraction(share)?;
+            let Some(balance) = view.party_remaining(due, c, &party.entity_id, transfer)? else {
+                return Ok(false);
+            };
+            *creditors.entry(party.entity_id.clone()).or_default() += balance;
+            *impairments.entry(party.entity_id.clone()).or_default() +=
+                view.claim_adjustment(&due.id, &party.entity_id, transfer)?;
+        }
+        if shares != BigRational::one() {
+            return Ok(false);
+        }
+        // After substitution the contract is the single settlement source.
+        // A rental allocation/depreciation would silently affect the excluded
+        // source while leaving the financing balance unchanged.
+        if view.rentals.allocations.iter().any(|a| {
+            a.due_id == due.id
+                && a.effective_on.as_str() > c.valid_from.as_str()
+                && a.effective_on.as_str() <= at
+        }) || view.finance.rent_claim_adjustments.iter().any(|a| {
+            a.due_id == due.id
+                && a.effective_on.as_str() > c.valid_from.as_str()
+                && a.effective_on.as_str() <= at
+        }) || view.treasury.deposits.iter().any(|m| {
+            m.kind == "applied_to_due"
+                && m.due_id.as_deref() == Some(due.id.as_str())
+                && m.effective_on.as_str() > c.valid_from.as_str()
+                && m.effective_on.as_str() <= at
+        }) {
+            return Ok(false);
+        }
+    }
+    let balance = debt_balance(view.registry, view.debts, debt_id, transfer)?;
+    if balance
+        .exact_principal
+        .as_ref()
+        .map(exact)
+        .transpose()?
+        .as_ref()
+        != Some(&total)
+    {
+        return Ok(false);
+    }
+    // Both transfer and subsequent dated terms must preserve the parties. A
+    // gap in terms cannot silently turn a known tenant debt into unknown rights.
+    let mut term_dates = BTreeSet::from([transfer, at]);
+    for terms in view.debts.terms.iter().filter(|t| t.debt_id == *debt_id) {
+        term_dates.extend(
+            std::iter::once(terms.valid_from.as_str())
+                .chain(terms.valid_to.as_deref())
+                .filter(|date| *date >= transfer && *date <= at),
+        );
+    }
+    for date in term_dates {
+        let Some(terms) =
+            view.debts.terms.iter().find(|t| {
+                t.debt_id == *debt_id && applies(&t.valid_from, t.valid_to.as_deref(), date)
+            })
+        else {
+            return Ok(false);
+        };
+        if terms.principal_status != "complete" {
+            return Ok(false);
+        }
+        let mut actual_creditors = BTreeMap::new();
+        let mut debtor_share = BigRational::zero();
+        for party in &terms.parties {
+            let Some(share) = &party.economic_share else {
+                return Ok(false);
+            };
+            let share = parse_fraction(share)?;
+            if party.side == "debtor" {
+                if Some(party.entity_id.as_str()) != tenant {
+                    return Ok(false);
+                }
+                debtor_share += share;
+            } else {
+                actual_creditors.insert(party.entity_id.clone(), share);
+            }
+        }
+        if debtor_share != BigRational::one()
+            || actual_creditors.values().cloned().sum::<BigRational>() != BigRational::one()
+            || actual_creditors.len() != creditors.len()
+        {
+            return Ok(false);
+        }
+        for (entity, amount) in &creditors {
+            // A zero transfer still requires explicit matching creditor IDs;
+            // there is no positive principal whose ownership can be inferred.
+            let Some(share) = actual_creditors.get(entity) else {
+                return Ok(false);
+            };
+            if (!total.is_zero() && share * &total != *amount)
+                || (total.is_zero() && !amount.is_zero())
+            {
+                return Ok(false);
+            }
+        }
+    }
+    for (entity, impairment) in impairments {
+        let debt_impairment = view
+            .debts
+            .receivable_adjustments
+            .iter()
+            .filter(|a| {
+                a.debt_id == *debt_id
+                    && a.creditor_entity_id == entity
+                    && a.effective_on.as_str() <= transfer
+            })
+            .try_fold(BigRational::zero(), |sum, a| -> Result<_> {
+                Ok(sum + parse_decimal(&a.valuation_delta)?)
+            })?;
+        if impairment != debt_impairment {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 #[derive(Clone, Default)]
@@ -1224,6 +1486,28 @@ fn add_rent_claims(
     book: &mut Book,
 ) -> Result<()> {
     for due in view.rentals.dues.iter().filter(|d| d.due_on <= q.date) {
+        if let Some(claim) = view
+            .active_claim(&due.id, &q.date)
+            .filter(|c| c.represented_by_debt_id.is_some())
+        {
+            let debt_id = claim
+                .represented_by_debt_id
+                .as_ref()
+                .expect("represented claim");
+            if !rent_representation_matches(view, claim, &q.date)? {
+                book.assets_known = false;
+                book.liabilities_known = false;
+                book.warn("rent_loan_representation_mismatch", &due.id, "Le financement ne concorde pas avec les parties, les fractions, la capacité ou le suivi de la créance transférée. Son incidence reste incertaine ; la créance n’a pas été ajoutée une seconde fois.");
+            }
+            book.sources.extend([
+                claim.id.clone(),
+                claim.revision_id.clone(),
+                debt_id.clone(),
+                due.id.clone(),
+                due.revision_id.clone(),
+            ]);
+            continue;
+        }
         let total =
             view.remaining(due, "rent", &q.date)? + view.remaining(due, "charges", &q.date)?;
         if total.is_zero() {
@@ -1268,31 +1552,6 @@ fn add_rent_claims(
             book.add(view, &q.date, p)?;
             continue;
         };
-        if let Some(debt_id) = &claim.represented_by_debt_id {
-            let opening = debt_balance(view.registry, view.debts, debt_id, &claim.valid_from)?;
-            let at_transfer = view.remaining(due, "rent", &claim.valid_from)?
-                + view.remaining(due, "charges", &claim.valid_from)?;
-            if opening
-                .exact_principal
-                .as_ref()
-                .map(exact)
-                .transpose()?
-                .as_ref()
-                != Some(&at_transfer)
-            {
-                book.assets_known = false;
-                book.liabilities_known = false;
-                book.warn("rent_loan_representation_mismatch",&due.id,"Le contrat représentant la créance ne concorde pas avec le reliquat à la date du transfert. La créance n’a pas été ajoutée une seconde fois.");
-            }
-            book.sources.extend([
-                claim.id.clone(),
-                claim.revision_id.clone(),
-                debt_id.clone(),
-                due.id.clone(),
-                due.revision_id.clone(),
-            ]);
-            continue;
-        }
         let mut nominal = BigRational::zero();
         let mut carrying = BigRational::zero();
         let mut shares = BigRational::zero();
@@ -1909,7 +2168,7 @@ fn financial_report_inner(
     companies: Option<&CompanySnapshot>,
     q: &FinancialReportRequest,
 ) -> Result<FinancialReport> {
-    validate_finance(registry, properties, rentals, treasury, debts, finance)?;
+    validate_finance_sources(registry, properties, rentals, treasury, debts, finance)?;
     validate_date(&q.date)?;
     if q.knowledge_sequence
         .is_some_and(|k| k != finance.knowledge_sequence)

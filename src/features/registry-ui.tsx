@@ -40,6 +40,18 @@ export function RegistryNotice({ children, error = false }: { children: ReactNod
   return <div className={`notice ${error ? 'notice-error' : 'notice-info'}`} role={error ? 'alert' : 'status'}>{children}</div>;
 }
 
+/** Focus a newly opened confirmation and restore its trigger when it closes. */
+export function useFocusedRegion(open: boolean) {
+  const region = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    region.current?.focus();
+    return () => { requestAnimationFrame(() => { if (previous?.isConnected && !previous.matches(':disabled')) previous.focus(); }); };
+  }, [open]);
+  return region;
+}
+
 export function EditorFrame({ title, children, onCancel, pending }: { title: string; children: ReactNode; onCancel: () => void; pending: boolean }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {

@@ -1,6 +1,54 @@
 //! Logical document versions and many-to-many associations retain their originals.
 use serde::{Deserialize, Serialize};
 
+/// Stable wire values; invalid persisted statuses never become arbitrary UI states.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentStatus {
+    Active,
+    Archived,
+    Deleted,
+}
+impl DocumentStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Archived => "archived",
+            Self::Deleted => "deleted",
+        }
+    }
+}
+impl TryFrom<&str> for DocumentStatus {
+    type Error = crate::AppError;
+    fn try_from(value: &str) -> crate::Result<Self> {
+        match value {
+            "active" => Ok(Self::Active),
+            "archived" => Ok(Self::Archived),
+            "deleted" => Ok(Self::Deleted),
+            _ => Err(crate::AppError::new(
+                "validation",
+                "Le statut documentaire est inconnu.",
+            )),
+        }
+    }
+}
+impl std::ops::Deref for DocumentStatus {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+impl PartialEq<&str> for DocumentStatus {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+impl std::fmt::Display for DocumentStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct DocumentRecord {
@@ -9,7 +57,7 @@ pub struct DocumentRecord {
     pub original_name: String,
     pub mime_type: String,
     pub description: String,
-    pub status: String,
+    pub status: DocumentStatus,
     pub sha256: String,
     pub size_bytes: u64,
     pub added_at: String,

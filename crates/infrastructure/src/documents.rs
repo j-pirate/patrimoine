@@ -3,7 +3,64 @@ use crate::{archives, db, files::*, finance, registry, Vault};
 use patrimoine_application::DocumentService;
 use patrimoine_domain::*;
 use rusqlite::{params, Connection, TransactionBehavior};
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::Path,
+    time::{Duration, SystemTime},
+};
+
+// Consultation copies may still be held by an external reader. Keep a full week
+// after their last modification; unlinking an older copy on Linux does not close
+// a reader's existing file descriptor. Original blobs are never part of this cache.
+const VIEW_RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+pub(crate) fn cleanup_document_views(root: &Path) -> Result<()> {
+    cleanup_document_views_at(root, SystemTime::now())
+}
+
+fn cleanup_document_views_at(root: &Path, current: SystemTime) -> Result<()> {
+    let directory = root.join("recovery/document-views");
+    no_symlinks(&directory)?;
+    if !directory.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(&directory).map_err(io)? {
+        let entry = entry.map_err(io)?;
+        // Unknown entries are not our disposable consultation copies.
+        if !entry.file_name().to_str().is_some_and(valid_id) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(entry.path()).map_err(io)?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            continue;
+        }
+        let mut latest = metadata.modified().map_err(io)?;
+        let mut files = Vec::new();
+        let mut owned_copy = true;
+        for file in fs::read_dir(entry.path()).map_err(io)? {
+            let file = file.map_err(io)?;
+            let metadata = fs::symlink_metadata(file.path()).map_err(io)?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                owned_copy = false;
+                break;
+            }
+            latest = latest.max(metadata.modified().map_err(io)?);
+            files.push(file.path());
+        }
+        if owned_copy
+            && current
+                .duration_since(latest)
+                .is_ok_and(|age| age >= VIEW_RETENTION)
+        {
+            for file in files {
+                fs::remove_file(file).map_err(io)?;
+            }
+            fs::remove_dir(entry.path()).map_err(io)?;
+        }
+    }
+    Ok(())
+}
 
 fn metadata(description: &str, status: &str) -> Result<()> {
     if description.len() > 10000 || !["active", "archived", "deleted"].contains(&status) {
@@ -56,7 +113,13 @@ fn records(c: &Connection, k: u64, history: bool) -> Result<Vec<DocumentRecord>>
             original_name: r.get(2)?,
             mime_type: r.get(3)?,
             description: r.get(4)?,
-            status: r.get(5)?,
+            status: DocumentStatus::try_from(r.get::<_, String>(5)?.as_str()).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?,
             sha256: r.get(6)?,
             size_bytes: r.get(7)?,
             added_at: r.get(8)?,
@@ -113,13 +176,18 @@ pub(crate) fn snapshot(c: &Connection, requested: Option<u64>) -> Result<Documen
     if version >= 2 {
         let registry = registry::snapshot(c, Some(k))?;
         let mut labels: BTreeMap<_, _> = registry
-            .entities
+            .profile_revisions
             .into_iter()
             .map(|e| (e.id, e.display_name))
             .collect();
-        labels.extend(registry.assets.into_iter().map(|a| (a.id, a.name)));
+        labels.extend(
+            registry
+                .asset_profile_revisions
+                .into_iter()
+                .map(|a| (a.id, a.name)),
+        );
         if version >= 4 {
-            for (id, asset, reference, name) in registry::load(
+            for (id, asset, reference, name) in registry::profile_history(
                 c,
                 "rental_units",
                 "v.property_asset_id,v.reference,v.name",
@@ -138,7 +206,7 @@ pub(crate) fn snapshot(c: &Connection, requested: Option<u64>) -> Result<Documen
                 labels.insert(id, format!("{property} · {reference} · {name}"));
             }
             for (id, unit, from) in
-                registry::load(c, "leases", "v.unit_id,v.valid_from", "", k, |r| {
+                registry::profile_history(c, "leases", "v.unit_id,v.valid_from", "", k, |r| {
                     Ok((
                         r.get::<_, String>(0)?,
                         r.get::<_, String>(2)?,
@@ -151,10 +219,15 @@ pub(crate) fn snapshot(c: &Connection, requested: Option<u64>) -> Result<Documen
             }
         }
         if version >= 5 {
-            labels.extend(registry::load(c, "debt_contracts", "v.name", "", k, |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(2)?))
-            })?);
-            labels.extend(registry::load(
+            labels.extend(registry::profile_history(
+                c,
+                "debt_contracts",
+                "v.name",
+                "",
+                k,
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(2)?)),
+            )?);
+            labels.extend(registry::profile_history(
                 c,
                 "treasury_transactions",
                 "v.effective_on,v.label",
@@ -169,7 +242,7 @@ pub(crate) fn snapshot(c: &Connection, requested: Option<u64>) -> Result<Documen
             )?);
         }
         if version >= 6 {
-            labels.extend(registry::load(
+            labels.extend(registry::profile_history(
                 c,
                 "metal_lots",
                 "v.designation",
@@ -252,7 +325,7 @@ fn source_name(path: &Path) -> Result<String> {
         .map(str::to_owned)
         .ok_or_else(|| AppError::new("validation", "Le nom original est invalide."))
 }
-fn mime(path: &Path) -> String {
+pub(crate) fn mime(path: &Path) -> String {
     match path
         .extension()
         .and_then(|v| v.to_str())
@@ -414,8 +487,11 @@ impl DocumentService for Vault {
                 }
             } else {
                 fs::rename(&temp, &destination).map_err(io)?;
-                sync_dir(destination.parent().expect("blob parent"))?;
             }
+            sync_blob_directory(
+                &self.generation_path(),
+                destination.parent().expect("blob parent"),
+            )?;
             let mut c = db::connect(&self.db_path())?;
             let tx = c
                 .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -601,6 +677,7 @@ impl DocumentService for Vault {
         {
             return Err(AppError::new("unsupported_document_open","Ce format reste conservé et exportable. Exportez une copie puis choisissez l’application adaptée pour le consulter."));
         }
+        cleanup_document_views(&self.root)?;
         let directory_path = self.root.join("recovery").join("document-views").join(id());
         directory(&directory_path)?;
         let target = directory_path.join(&doc.original_name);
@@ -628,5 +705,59 @@ impl DocumentService for Vault {
             archives::cleanup(&directory_path);
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod retention_tests {
+    use super::*;
+    use std::io::Read;
+
+    #[test]
+    fn removes_only_expired_consultation_copies_and_preserves_open_readers() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        let views = root.join("recovery/document-views");
+        let old = views.join(id());
+        let recent = views.join(id());
+        let edited = views.join(id());
+        let unknown = views.join("manual-recovery");
+        let original = root.join("generations/original");
+        for path in [&old, &recent, &edited, &unknown, &original] {
+            fs::create_dir_all(path).unwrap();
+            fs::write(path.join("document.txt"), b"retained bytes").unwrap();
+        }
+        let current = SystemTime::now();
+        let expired = current - VIEW_RETENTION - Duration::from_secs(60);
+        for path in [&old, &edited, &unknown, &original] {
+            for entry in fs::read_dir(path).unwrap() {
+                fs::File::open(entry.unwrap().path())
+                    .unwrap()
+                    .set_times(fs::FileTimes::new().set_modified(expired))
+                    .unwrap();
+            }
+            fs::File::open(path)
+                .unwrap()
+                .set_times(fs::FileTimes::new().set_modified(expired))
+                .unwrap();
+        }
+        // Editing an older consultation copy renews its grace period.
+        fs::File::open(edited.join("document.txt"))
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(current))
+            .unwrap();
+        let linked = views.join(id());
+        std::os::unix::fs::symlink(&original, &linked).unwrap();
+        let mut open_reader = fs::File::open(old.join("document.txt")).unwrap();
+        cleanup_document_views_at(root, current).unwrap();
+        assert!(!old.exists());
+        assert!(recent.join("document.txt").exists());
+        assert!(edited.join("document.txt").exists());
+        assert!(unknown.join("document.txt").exists());
+        assert!(original.join("document.txt").exists());
+        assert!(linked.is_symlink());
+        let mut bytes = String::new();
+        open_reader.read_to_string(&mut bytes).unwrap();
+        assert_eq!(bytes, "retained bytes");
     }
 }

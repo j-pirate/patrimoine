@@ -7,5 +7,8 @@ export default defineConfig({
   server: { host: '127.0.0.1', port: 1420, strictPort: true },
   envPrefix: ['VITE_'],
   build: { target: 'es2022' },
-  test: { environment: 'jsdom', globals: true, setupFiles: ['./src/test/setup.ts'], restoreMocks: true },
+  test: {
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    environment: 'jsdom', globals: true, setupFiles: ['./src/test/setup.ts'], restoreMocks: true,
+  },
 });

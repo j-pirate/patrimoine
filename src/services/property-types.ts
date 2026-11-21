@@ -32,6 +32,6 @@ export interface PropertyReport {
   unrealized_gain_original: string | null; exact_unrealized_gain_original: Fraction | null;
   unrealized_gain_currency: string | null; unrealized_gain_eur: string | null; exact_unrealized_gain_eur: Fraction | null;
   debt_remaining_eur: string | null; net_before_disposal_eur: string | null; source_ids: string[];
-  financing_conversions?: FxResult[]; exact_debt_remaining_eur?: Fraction | null; exact_net_before_disposal_eur?: Fraction | null;
+  financing_conversions: FxResult[]; exact_debt_remaining_eur: Fraction | null; exact_net_before_disposal_eur: Fraction | null;
   warnings: PropertyWarning[];
 }

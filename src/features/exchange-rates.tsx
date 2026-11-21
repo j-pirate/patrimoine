@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { refreshAfterCommit } from '../services/mutations';
 import { api, displayCurrencies, errorMessage } from '../services/api';
 import type { ExchangeRate, FxResult } from '../services/phase4-types';
 import type { RegistrySnapshot } from '../services/registry-types';
-import { EditorFrame, Field, RegistryNotice } from './registry-ui';
+import { EditorFrame, Field, RegistryNotice, useFocusedRegion } from './registry-ui';
 import type { ViewContext } from './registry-ui';
 
 const methods: Record<FxResult['method'], string> = { identity: 'Même devise', direct: 'Cours direct', inverse: 'Cours inversé', cross: 'Conversion croisée', missing: 'Cours indisponible' };
@@ -29,6 +30,7 @@ export default function ExchangeRatesPage({ registry, context, onChanged, onBusy
   const [editor, setEditor] = useState<RateEditor | null>(null);
   const [removal, setRemoval] = useState<ExchangeRate | null>(null);
   const [removalReason, setRemovalReason] = useState('');
+  const removalFocus = useFocusedRegion(!!removal);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -37,6 +39,7 @@ export default function ExchangeRatesPage({ registry, context, onChanged, onBusy
   const [toCurrency, setToCurrency] = useState('EUR');
   const [result, setResult] = useState<FxResult | null>(null);
   const requestId = useRef(0);
+  useEffect(() => { requestId.current += 1; setResult(null); }, [amount, fromCurrency, toCurrency]);
   const readOnly = context.knowledgeSequence != null;
   useEffect(() => { onBusyChange(pending); return () => onBusyChange(false); }, [pending, onBusyChange]);
   useEffect(() => { requestId.current += 1; setResult(null); setEditor(null); setRemoval(null); setError(''); }, [context.date, context.knowledgeSequence, registry.knowledge_sequence]);
@@ -50,14 +53,14 @@ export default function ExchangeRatesPage({ registry, context, onChanged, onBusy
     setPending(true); setError(''); setMessage('');
     try {
       await api.saveExchangeRate({ id: editor.record?.id || null, expected_revision_id: editor.record?.revision_id || null, reason: editor.reason.trim(), base_currency: editor.base, quote_currency: editor.quote, rate: editor.rate.trim(), effective_on: editor.date, source: editor.source.trim() || null, notes: editor.notes });
-      setEditor(null); await onChanged(); setMessage('Le taux a été enregistré. Les anciennes révisions restent conservées.');
+      setEditor(null); await refreshAfterCommit(onChanged, 'Le taux a été enregistré. Les anciennes révisions restent conservées.', setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
   async function remove(event: FormEvent) {
     event.preventDefault(); if (!removal || readOnly) return;
     setPending(true); setError(''); setMessage('');
-    try { await api.voidRegistryRecord(removal.id, removal.revision_id, removalReason.trim()); setRemoval(null); await onChanged(); setMessage('Le taux a été annulé avec conservation de son historique.'); }
+    try { await api.voidRegistryRecord(removal.id, removal.revision_id, removalReason.trim()); setRemoval(null); await refreshAfterCommit(onChanged, 'Le taux a été annulé avec conservation de son historique.', setMessage); }
     catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -89,7 +92,7 @@ export default function ExchangeRatesPage({ registry, context, onChanged, onBusy
       <Field id="rate-reason" label="Motif de l’enregistrement ou de la correction"><textarea id="rate-reason" required value={editor.reason} maxLength={1000} onChange={event => change('reason', event.currentTarget.value)} /></Field>
       <p className="field-hint">Une nouvelle date crée une observation. Corriger ce taux remplace uniquement sa révision dans les connaissances actuelles, sans effacer son ancienne valeur.</p><button type="submit" className="button" disabled={!editor.reason.trim()}>{editor.record ? 'Enregistrer la correction' : 'Enregistrer le taux'}</button>
     </fieldset></form></EditorFrame>}
-    {removal && !readOnly && <section className="card restore-review"><h2>Confirmer l’annulation du taux</h2><p>Le taux du {removal.effective_on} ({removal.base_currency}/{removal.quote_currency}) ne sera plus retenu dans les connaissances actuelles. Son ancienne révision restera consultable.</p><form onSubmit={event => { void remove(event); }}><fieldset disabled={pending}><Field id="rate-removal-reason" label="Motif de l’annulation"><textarea id="rate-removal-reason" required value={removalReason} onChange={event => setRemovalReason(event.currentTarget.value)} /></Field><div className="button-row"><button type="submit" className="button danger" disabled={!removalReason.trim()}>Confirmer l’annulation du taux</button><button type="button" className="button secondary" onClick={() => setRemoval(null)}>Conserver le taux</button></div></fieldset></form></section>}
+    {removal && !readOnly && <section ref={removalFocus} tabIndex={-1} aria-label="Annuler un taux manuel" className="card restore-review"><h2>Confirmer l’annulation du taux</h2><p>Le taux du {removal.effective_on} ({removal.base_currency}/{removal.quote_currency}) ne sera plus retenu dans les connaissances actuelles. Son ancienne révision restera consultable.</p><form onSubmit={event => { void remove(event); }}><fieldset disabled={pending}><Field id="rate-removal-reason" label="Motif de l’annulation"><textarea id="rate-removal-reason" required value={removalReason} onChange={event => setRemovalReason(event.currentTarget.value)} /></Field><div className="button-row"><button type="submit" className="button danger" disabled={!removalReason.trim()}>Confirmer l’annulation du taux</button><button type="button" className="button secondary" onClick={() => setRemoval(null)}>Conserver le taux</button></div></fieldset></form></section>}
     <section className="card"><h2>Vérifier une conversion</h2><p>Date économique : {context.date}. Le moteur retient les cours applicables à cette date et connus dans le contexte sélectionné.</p><form onSubmit={event => { void convert(event); }}><fieldset disabled={pending}><div className="form-grid"><Field id="fx-amount" label="Montant à convertir"><input id="fx-amount" required inputMode="decimal" value={amount} onChange={event => setAmount(event.currentTarget.value)} /></Field><Field id="fx-from" label="Devise du montant">{currencySelect('fx-from', fromCurrency, setFromCurrency)}</Field><Field id="fx-to" label="Devise de destination">{currencySelect('fx-to', toCurrency, setToCurrency)}</Field></div><button type="submit" className="button" disabled={pending || !amount.trim()}>Vérifier la conversion</button></fieldset></form>
       {result && <div className="fx-result"><div className="control-result"><span>{result.amount_original} {result.from_currency}</span><strong>{result.amount_converted === null ? 'Conversion impossible' : `${result.amount_converted} ${result.to_currency}`}</strong></div><FxTrace result={result} /></div>}
     </section>

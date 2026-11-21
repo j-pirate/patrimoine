@@ -10,7 +10,7 @@ vi.mock('../services/api', async importOriginal => {
   const actual = await importOriginal<typeof import('../services/api')>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map(key => [key, vi.fn()])) };
 });
-const current: DocumentRecord = { id: 'document', revision_id: 'document-r2', original_name: 'Contrat.pdf', mime_type: 'application/pdf', description: 'Pièce signée du bail', status: 'active', sha256: 'current-sha', size_bytes: 1250, added_at: '2026-01-02T10:00:00Z', recorded_at: '2026-02-02T10:00:00Z' };
+const current: DocumentRecord = { id: 'document', revision_id: 'document-r2', original_name: 'Contrat.pdf', mime_type: 'application/pdf', description: 'Pièce signée du bail', status: 'active' as const, sha256: 'current-sha', size_bytes: 1250, added_at: '2026-01-02T10:00:00Z', recorded_at: '2026-02-02T10:00:00Z' };
 const old: DocumentRecord = { ...current, revision_id: 'document-r1', original_name: 'Ancien.pdf', description: 'Ancien original conservé', sha256: 'old-sha', recorded_at: '2026-01-02T10:00:00Z' };
 const library: DocumentLibrarySnapshot = {
   documents: [current], versions: [old, current], knowledge_sequence: 42,
@@ -101,6 +101,99 @@ describe('Bibliothèque documentaire et versions', () => {
     expect(api.saveDocumentMetadata).not.toHaveBeenCalled();
   });
 
+  it('DOCU-04 compare les versions puis actualise volontairement la source sans perdre la saisie', async () => {
+    const updated = { ...current, revision_id: 'document-r3', description: 'Description corrigée ailleurs', status: 'archived' as const };
+    vi.mocked(api.saveDocumentMetadata).mockRejectedValueOnce({ code: 'conflict', message: 'Révision périmée.' }).mockResolvedValue(updated);
+    const { user } = await open();
+    await user.click(screen.getByRole('button', { name: 'Modifier la description ou le statut' }));
+    await user.clear(screen.getByLabelText('Description du document'));
+    await user.type(screen.getByLabelText('Description du document'), 'Mon brouillon conservé');
+    await user.type(reason(), 'Correction après comparaison');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la description et le statut' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Révision périmée.');
+    vi.mocked(api.listDocumentLibraryAt).mockResolvedValue({ ...library, documents: [updated] });
+    await user.click(screen.getByRole('button', { name: 'Recharger la bibliothèque' }));
+    const comparison = await screen.findByRole('region', { name: 'Comparer les versions documentaires' });
+    expect(within(comparison).getByText('document-r2')).toBeVisible();
+    expect(within(comparison).getByText('document-r3')).toBeVisible();
+    expect(within(comparison).getByText('Description corrigée ailleurs')).toBeVisible();
+    expect(within(comparison).getByText('Mon brouillon conservé')).toBeVisible();
+    expect(screen.getByLabelText('Description du document')).toHaveValue('Mon brouillon conservé');
+    expect(reason()).toHaveValue('Correction après comparaison');
+    expect(screen.getByRole('button', { name: 'Enregistrer la description et le statut' })).toBeDisabled();
+    expect(api.saveDocumentMetadata).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Reprendre sur cette version en conservant ma saisie' }));
+    expect(screen.queryByRole('region', { name: 'Comparer les versions documentaires' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la description et le statut' }));
+    await waitFor(() => expect(api.saveDocumentMetadata).toHaveBeenLastCalledWith({ id: current.id, expected_revision_id: 'document-r3', description: 'Mon brouillon conservé', status: 'active' as const, reason: 'Correction après comparaison', confirmed: false }));
+  });
+
+  it('DOCU-04 compare l’empreinte remplacée et adopte sa révision seulement après choix explicite', async () => {
+    const updated = { ...current, revision_id: 'document-r3', original_name: 'Original-actualisé.pdf', sha256: 'new-sha' };
+    vi.mocked(api.chooseDocumentReplacement).mockResolvedValue('/test/remplacement.pdf');
+    vi.mocked(api.replaceDocument).mockRejectedValueOnce({ code: 'conflict', message: 'Original périmé.' }).mockResolvedValue(updated);
+    const { user } = await open();
+    await user.click(screen.getByRole('button', { name: 'Remplacer l’original' }));
+    await user.type(reason(), 'Remplacement motivé');
+    await user.click(screen.getByRole('button', { name: 'Choisir et enregistrer le nouvel original' }));
+    await screen.findByRole('alert');
+    vi.mocked(api.listDocumentLibraryAt).mockResolvedValue({ ...library, documents: [updated] });
+    await user.click(screen.getByRole('button', { name: 'Recharger la bibliothèque' }));
+    const comparison = await screen.findByRole('region', { name: 'Comparer les versions documentaires' });
+    expect(within(comparison).getByText('current-sha')).toBeVisible();
+    expect(within(comparison).getByText('new-sha')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Choisir et enregistrer le nouvel original' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Reprendre sur cette version en conservant ma saisie' }));
+    await user.click(screen.getByRole('button', { name: 'Choisir et enregistrer le nouvel original' }));
+    await waitFor(() => expect(api.replaceDocument).toHaveBeenLastCalledWith({ id: current.id, expected_revision_id: 'document-r3', description: current.description, reason: 'Remplacement motivé' }, '/test/remplacement.pdf'));
+  });
+
+  it('DOCU-04 compare aussi la source d’une association et conserve rôle, dates et motif', async () => {
+    const updated = { ...library.links[0], revision_id: 'link-r2', role: 'Rôle corrigé ailleurs', valid_to: '2027-01-01' };
+    vi.mocked(api.saveDocumentLink).mockRejectedValueOnce({ code: 'conflict', message: 'Association périmée.' }).mockResolvedValue(updated);
+    const { user } = await open();
+    await user.click(within(screen.getByRole('row', { name: /Bail des Lilas/ })).getByRole('button', { name: 'Modifier l’association' }));
+    await user.clear(screen.getByLabelText('Rôle de l’association (facultatif)'));
+    await user.type(screen.getByLabelText('Rôle de l’association (facultatif)'), 'Mon rôle conservé');
+    await user.type(reason(), 'Qualification contrôlée');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer l’association documentaire' }));
+    await screen.findByRole('alert');
+    vi.mocked(api.listDocumentLibraryAt).mockResolvedValue({ ...library, links: [updated] });
+    await user.click(screen.getByRole('button', { name: 'Recharger la bibliothèque' }));
+    const comparison = await screen.findByRole('region', { name: 'Comparer les versions documentaires' });
+    expect(within(comparison).getByText('link-lease-r')).toBeVisible();
+    expect(within(comparison).getByText('link-r2')).toBeVisible();
+    expect(within(comparison).getByText('Rôle corrigé ailleurs')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Enregistrer l’association documentaire' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Reprendre sur cette version en conservant ma saisie' }));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer l’association documentaire' }));
+    await waitFor(() => expect(api.saveDocumentLink).toHaveBeenLastCalledWith({ id: updated.id, expected_revision_id: 'link-r2', document_id: current.id, target_object_id: updated.target_object_id, role: 'Mon rôle conservé', valid_from: '2026-01-01', valid_to: null, reason: 'Qualification contrôlée' }));
+  });
+
+  it('annonce un échec différé du lecteur externe et désabonne l’écoute à la fermeture', async () => {
+    let fail!: Parameters<typeof api.onDocumentOpenFailed>[0];
+    const unlisten = vi.fn();
+    vi.mocked(api.onDocumentOpenFailed).mockImplementation(async listener => { fail = listener; return unlisten; });
+    const { user, unmount } = await open();
+    await user.click(screen.getByRole('button', { name: 'Ouvrir le document' }));
+    await screen.findByText('L’ouverture a été demandée à l’application par défaut.');
+    act(() => fail({ code: 'external_app', message: 'Le lecteur a refusé le fichier.' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Le lecteur a refusé le fichier.');
+    unmount();
+    expect(unlisten).toHaveBeenCalledOnce();
+  });
+
+  it('REG-03 conserve l’import confirmé si la relecture échoue', async () => {
+    vi.mocked(api.chooseDocumentImport).mockResolvedValue('/test/source.pdf');
+    const { user, p } = await open();
+    p.onChanged.mockRejectedValue(new Error('Lecture indisponible après écriture'));
+    await user.click(screen.getByRole('button', { name: 'Importer un document' }));
+    await screen.findByText(/Le document a été importé dans le coffre.*L’affichage n’a pas pu être actualisé/i);
+    expect(api.importDocument).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Importer un document' })).toBeEnabled();
+  });
+
   it('exige une confirmation pour retirer le document sans retirer ses autres associations', async () => {
     vi.mocked(api.listDocumentLibraryAt).mockResolvedValueOnce(library).mockResolvedValue({ ...library, documents: [{ ...current, revision_id: 'document-r3', status: 'deleted' }] });
     const { user } = await open();
@@ -157,12 +250,27 @@ describe('Bibliothèque documentaire et versions', () => {
 
   it('retire seulement l’association choisie avec son motif et sa révision', async () => {
     const { user } = await open();
-    await user.click(within(screen.getByRole('row', { name: /Bail des Lilas/ })).getByRole('button', { name: 'Retirer l’association' }));
+    const trigger = within(screen.getByRole('row', { name: /Bail des Lilas/ })).getByRole('button', { name: 'Retirer l’association' });
+    await user.click(trigger);
+    expect(screen.getByRole('region', { name: 'Retirer une association documentaire' })).toHaveFocus();
     await user.type(screen.getByLabelText('Motif du retrait de l’association'), 'Association devenue inutile');
     await user.click(screen.getByRole('button', { name: 'Confirmer le retrait de l’association' }));
     await screen.findByText('L’association a été retirée ; le document et ses autres associations sont conservés.');
     expect(api.removeDocumentLink).toHaveBeenCalledExactlyOnceWith('link-lease', 'link-lease-r', 'Association devenue inutile');
     expect(api.saveDocumentMetadata).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Importer un document' })).toBeEnabled());
+  });
+
+  it('REG-05 restaure le focus après annulation et identifie une cible retirée', async () => {
+    vi.mocked(api.listDocumentLibraryAt).mockResolvedValue({ ...library, targets: library.targets.map(target => target.id === 'lease' ? { ...target, retired: true } : target) });
+    const { user } = await open();
+    const row = screen.getByRole('row', { name: /Bail des Lilas · retiré/ });
+    const trigger = within(row).getByRole('button', { name: 'Retirer l’association' });
+    await user.click(trigger);
+    expect(screen.getByRole('region', { name: 'Retirer une association documentaire' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Conserver l’association' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(api.removeDocumentLink).not.toHaveBeenCalled();
   });
 
   it('filtre les associations sur leur période civile sans masquer leur source dans la bibliothèque', async () => {

@@ -2,13 +2,16 @@
 use crate::{archives, csv, db, files::*, Candidate, Vault};
 use patrimoine_application::{PortabilityService, VaultService};
 use patrimoine_domain::{ExportSummary, RestoreInspection, Result};
-use rusqlite::{types::Value, Connection};
+use rusqlite::{
+    types::{ToSqlOutput, ValueRef},
+    Connection,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashSet},
     fs::{self, File},
-    io::{Read, Write},
+    io::{BufReader, Read, Write},
     path::{Path, PathBuf},
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
@@ -453,27 +456,20 @@ fn import_tables(
             .map_err(db::error)?;
     }
     for table in ordered {
-        let mut bytes = Vec::new();
-        read_file(&raw.join(format!("tables/{}.csv", table.name)))?
-            .take(archives::MAX_FILE + 1)
-            .read_to_end(&mut bytes)
-            .map_err(io)?;
-        let rows =
-            csv::parse(&bytes).map_err(|e| csv::context(&table.name, 1, "CSV", &e.message))?;
-        if rows.first() != Some(&table.headers()) {
+        let headers = table.headers();
+        let mut reader = csv::Reader::new(
+            BufReader::new(read_file(&raw.join(format!("tables/{}.csv", table.name)))?),
+            Some(headers.len()),
+        );
+        let header = reader
+            .next_row()
+            .map_err(|e| csv::context(&table.name, 1, "CSV", &e.message))?;
+        if header.as_ref() != Some(&headers) {
             return Err(csv::context(
                 &table.name,
                 1,
                 "en-tête",
                 "Colonnes manquantes, inconnues ou dans un ordre différent du format 1.",
-            ));
-        }
-        if manifest.table_counts.get(&table.name) != Some(&((rows.len() - 1) as u64)) {
-            return Err(csv::context(
-                &table.name,
-                1,
-                "nombre de lignes",
-                "Le nombre de lignes diffère du manifeste.",
             ));
         }
         let sql = format!(
@@ -488,17 +484,25 @@ fn import_tables(
             vec!["?"; table.columns.len()].join(",")
         );
         let mut insert = tx.prepare(&sql).map_err(db::error)?;
-        for (row_index, row) in rows.iter().enumerate().skip(1) {
-            if row.len() != table.headers().len() {
+        let mut row_count = 0u64;
+        loop {
+            let line = reader.line();
+            let Some(row) = reader
+                .next_row()
+                .map_err(|e| csv::context(&table.name, line, "CSV", &e.message))?
+            else {
+                break;
+            };
+            if row.len() != headers.len() {
                 return Err(csv::context(
                     &table.name,
-                    row_index + 1,
+                    line,
                     "CSV",
                     "Le nombre de cellules diffère de l’en-tête.",
                 ));
             }
             let mut nullable = table.columns.len();
-            let mut values = Vec::new();
+            let mut values = Vec::with_capacity(table.columns.len());
             for (index, column) in table.columns.iter().enumerate() {
                 let null = if column.nullable {
                     let flag = &row[nullable];
@@ -509,7 +513,7 @@ fn import_tables(
                         _ => {
                             return Err(csv::context(
                                 &table.name,
-                                row_index + 1,
+                                line,
                                 &format!("{}__is_null", column.name),
                                 "Le marqueur doit valoir 0 ou 1.",
                             ))
@@ -522,17 +526,17 @@ fn import_tables(
                     if !row[index].is_empty() {
                         return Err(csv::context(
                             &table.name,
-                            row_index + 1,
+                            line,
                             &column.name,
                             "Une valeur NULL doit porter une cellule métier vide.",
                         ));
                     }
-                    values.push(Value::Null);
+                    values.push(ValueRef::Null);
                 } else if column.declared_type == "INTEGER" {
                     let parsed = row[index].parse::<i64>().map_err(|_| {
                         csv::context(
                             &table.name,
-                            row_index + 1,
+                            line,
                             &column.name,
                             "Un entier décimal canonique signé sur 64 bits est nécessaire.",
                         )
@@ -540,26 +544,30 @@ fn import_tables(
                     if parsed.to_string() != row[index] {
                         return Err(csv::context(
                             &table.name,
-                            row_index + 1,
+                            line,
                             &column.name,
                             "L’entier n’est pas canonique.",
                         ));
                     }
-                    values.push(Value::Integer(parsed));
+                    values.push(ValueRef::Integer(parsed));
                 } else {
-                    values.push(Value::Text(row[index].clone()));
+                    values.push(ValueRef::Text(row[index].as_bytes()));
                 }
             }
             insert
-                .execute(rusqlite::params_from_iter(values))
-                .map_err(|e| {
-                    csv::context(
-                        &table.name,
-                        row_index + 1,
-                        "contraintes SQL",
-                        &e.to_string(),
-                    )
-                })?;
+                .execute(rusqlite::params_from_iter(
+                    values.into_iter().map(ToSqlOutput::Borrowed),
+                ))
+                .map_err(|e| csv::context(&table.name, line, "contraintes SQL", &e.to_string()))?;
+            row_count += 1;
+        }
+        if manifest.table_counts.get(&table.name) != Some(&row_count) {
+            return Err(csv::context(
+                &table.name,
+                1,
+                "nombre de lignes",
+                "Le nombre de lignes diffère du manifeste.",
+            ));
         }
     }
     let fk: bool = tx
@@ -811,5 +819,105 @@ mod tests {
             .unwrap();
         let error = import_order(&c, &csv::tables(&c).unwrap()).unwrap_err();
         assert!(error.message.contains("cycle"));
+    }
+
+    #[test]
+    fn streaming_import_rolls_back_partial_tables_and_can_retry_after_late_failures() {
+        let temp = tempfile::tempdir().unwrap();
+        let raw = temp.path();
+        directory(&raw.join("tables")).unwrap();
+        let mut c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "PRAGMA foreign_keys=ON;
+             CREATE TABLE a(id INTEGER PRIMARY KEY, value TEXT NOT NULL);
+             CREATE TABLE b(id INTEGER PRIMARY KEY, parent INTEGER NOT NULL REFERENCES a(id), note TEXT);
+             INSERT INTO a VALUES(9,'original');
+             INSERT INTO b VALUES(9,9,'original');",
+        ).unwrap();
+        let tables = csv::tables(&c).unwrap();
+        let mut manifest = CsvManifest {
+            archive_kind: "structured_csv".into(),
+            format_version: 1,
+            schema_version: db::SCHEMA,
+            app_version: db::APP.into(),
+            calculation_policy_version: POLICY.into(),
+            export_id: id(),
+            created_at: now(),
+            generation_id: id(),
+            mutation_sequence: 0,
+            document_count: 0,
+            blob_count: 0,
+            table_counts: BTreeMap::from([("a".into(), 1), ("b".into(), 2)]),
+            tables: tables.clone(),
+            dialect: dialect(),
+            files: Vec::new(),
+        };
+        let exact = format!("{}\r\n\"citation\"\nfin\0", "é".repeat(5000));
+        let mut a = Vec::new();
+        csv::record(&mut a, &tables[0].headers()).unwrap();
+        csv::record(&mut a, &["1".into(), exact.clone()]).unwrap();
+        fs::write(raw.join("tables/a.csv"), a).unwrap();
+        let b = b"id,parent,note,note__is_null\r\n1,1,,0\r\n2,1,,1\r\n";
+        for failure in ["syntax", "row-count", "unique"] {
+            let bad = match failure {
+                "syntax" => {
+                    b"id,parent,note,note__is_null\r\n1,1,,0\r\n2,1,\"unclosed\r\n".as_slice()
+                }
+                "unique" => b"id,parent,note,note__is_null\r\n1,1,,0\r\n1,1,,1\r\n".as_slice(),
+                _ => b.as_slice(),
+            };
+            manifest
+                .table_counts
+                .insert("b".into(), if failure == "row-count" { 3 } else { 2 });
+            fs::write(raw.join("tables/b.csv"), bad).unwrap();
+            let error = import_tables(&mut c, raw, &tables, &manifest).unwrap_err();
+            if failure == "row-count" {
+                assert!(error.message.contains("nombre de lignes"));
+            } else {
+                assert!(
+                    error.message.contains("Table b, ligne 3"),
+                    "{}",
+                    error.message
+                );
+            }
+            assert_eq!(
+                c.query_row("SELECT id,value FROM a", [], |row| Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?
+                )))
+                .unwrap(),
+                (9, "original".into())
+            );
+            assert_eq!(
+                c.query_row("SELECT id,parent,note FROM b", [], |row| Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, String>(2)?
+                )))
+                .unwrap(),
+                (9, 9, "original".into())
+            );
+        }
+        manifest.table_counts.insert("b".into(), 2);
+        fs::write(raw.join("tables/b.csv"), b).unwrap();
+        import_tables(&mut c, raw, &tables, &manifest).unwrap();
+        assert_eq!(
+            c.query_row("SELECT value FROM a WHERE id=1", [], |row| row
+                .get::<_, String>(0))
+                .unwrap(),
+            exact
+        );
+        assert_eq!(
+            c.query_row("SELECT note FROM b WHERE id=1", [], |row| row
+                .get::<_, Option<String>>(0))
+                .unwrap(),
+            Some(String::new())
+        );
+        assert_eq!(
+            c.query_row("SELECT note FROM b WHERE id=2", [], |row| row
+                .get::<_, Option<String>>(0))
+                .unwrap(),
+            None
+        );
     }
 }

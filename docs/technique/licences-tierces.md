@@ -1,6 +1,6 @@
 # Licences et notices tierces
 
-Revue locale du **13 novembre 2026**, pour Patrimoine **0.1.1**, Linux x86_64 Debian 13. Les notices sont embarquées via la configuration de ressources Tauri : [NOTICE.txt](../../resources/notices/NOTICE.txt), [manifest.json](../../resources/notices/manifest.json) et les textes sous `resources/notices/LICENSES/`. Elles accordent les droits des composants concernés ; elles ne changent pas le statut `UNLICENSED` du code propre à l’application.
+Revue locale du **13 novembre 2026**, pour Patrimoine **0.1.1**, Linux x86_64 Debian 13. Les notices sont embarquées via la configuration de ressources Tauri : [NOTICE.txt](../../resources/notices/NOTICE.txt), [manifest.json](../../resources/notices/manifest.json) et les textes sous `resources/notices/LICENSES/`. Elles accordent les droits des composants concernés. Le code propre à l’application est désormais sous [GPL version 3](../../LICENSE) ; les anciennes notices `UNLICENSED` conservées dans les paquets qualifiés décrivent leur état de construction, sans attester une reconstruction depuis ce changement. Les constructions futures et leur collecte doivent reprendre la licence actuelle et contrôler la fraîcheur des notices.
 
 ## Périmètre collecté
 
@@ -11,13 +11,13 @@ Revue locale du **13 novembre 2026**, pour Patrimoine **0.1.1**, Linux x86_64 De
 | Debian | 127 | Paquets identifiés pour les bibliothèques partagées réellement copiées dans l’AppDir ; correspondance par GNU build-id ou octets identiques, jamais par le seul nom du fichier. |
 | Runtime et lanceur AppImage | 8 | Type-2 runtime, musl, libfuse, squashfuse, zstd, zlib, mimalloc et AppRun ; ils complètent l’inventaire des `.so`, notamment pour le code lié statiquement. |
 
-Le manifeste contient **482 composants**, sans texte de licence manquant dans ce périmètre et sans bibliothèque partagée non identifiée dans l’AppDir examiné. Un composant de compilation ou de types répertorié n’est pas nécessairement présent dans le binaire final. Le manifeste enregistre les empreintes des deux lockfiles et des textes copiés. L’AppDir de référence utilisé pour identifier les bibliothèques est celui du prototype local 0.1.0. Le [contrôle d’extraction final](../../.local/releases/0.1.1/extraction-check.json) vérifie les 747 fichiers des notices dans l’AppImage 0.1.1 identifiée par son empreinte, avec ces 482 composants.
+Le manifeste contient **482 composants**, sans texte de licence manquant dans ce périmètre et sans bibliothèque partagée non identifiée dans l’AppDir examiné. Un composant de compilation ou de types répertorié n’est pas nécessairement présent dans le binaire final. Le manifeste enregistre les empreintes des deux lockfiles et des textes copiés. L’AppDir de référence utilisé pour identifier les bibliothèques est celui du prototype local 0.1.0. Le [contrôle d’extraction final](../historique/preuves.md#preuve-060) vérifie les 747 fichiers des notices dans l’AppImage 0.1.1 identifiée par son empreinte, avec ces 482 composants.
 
 Les licences principales comprennent notamment MIT et Apache-2.0, BSD, Zlib, MPL-2.0 et les familles LGPL/GPL décrites dans les copyrights Debian. Les expressions exactes et éventuels choix de licences restent ceux des textes de chaque composant ; cette liste de familles ne les remplace pas.
 
 ## Sources et limites de provenance
 
-Chaque crate dispose de son URL d’archive versionnée. Les quelques textes absents des archives publiées sont conservés sous [resources/licence-sources](../../resources/licence-sources), avec URL amont et SHA-256. Le texte générique MPL-2.0 manquant de `selectors` est copié sans modification depuis le fichier de licence de `cssparser` ; cette origine est indiquée. Aucun correctif local n’est appliqué au code de ces crates.
+Chaque crate dispose de son URL d’archive versionnée. Les quelques textes absents des archives publiées sont conservés sous `resources/licence-sources/` ; le [manifeste des sources de licence](../../resources/licence-sources/manifest.json) enregistre leur URL amont et leur SHA-256. Le texte générique MPL-2.0 manquant de `selectors` est copié sans modification depuis le fichier de licence de `cssparser` ; cette origine est indiquée. Aucun correctif local n’est appliqué au code de ces crates.
 
 Pour les paquets Debian, le manifeste conserve le nom et la version **du paquet source**, distincts de la version binaire après une reconstruction `+bN`, ainsi qu’un lien Debian Sources. Les copyrights complets des paquets et les textes communs Debian sont copiés. Ces liens et textes facilitent la recherche des sources ; ils ne constituent pas une archive de sources correspondantes préparée par le distributeur.
 

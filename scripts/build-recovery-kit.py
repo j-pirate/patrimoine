@@ -17,7 +17,10 @@ def main():
     archive = args.output / f'Patrimoine_{version}_recuperation.zip'
     if archive.exists():
         parser.error('La destination existe déjà ; conserver le kit précédent ou choisir un autre dossier.')
-    files = {'scripts/recover-csv.py': (root / 'scripts/recover-csv.py').read_bytes()}
+    files = {
+        'scripts/recover-csv.py': (root / 'scripts/recover-csv.py').read_bytes(),
+        'LICENSE': (root / 'LICENSE').read_bytes(),
+    }
     migrations = sorted((root / 'crates/infrastructure/migrations').glob('*.sql'))
     if len(migrations) != 6:
         parser.error('Vérifier le format du kit : six migrations du schéma 6 attendues.')
@@ -46,7 +49,7 @@ originaux dans documents/. Ne pas copier seulement une base active en WAL.
 Les SHA-256 et CRC détectent une différence avec une valeur connue ; ce ne
 sont pas des signatures de l'auteur. Conserver les archives sur un support
 protégé : elles sont en clair. Aucun original n'est inclus dans ce kit.
-Les sources de l'application ne reçoivent aucune licence supplémentaire.
+Le code du kit est distribué selon la licence GPLv3 fournie dans LICENSE.
 '''.encode('utf-8')
     manifest = {'kit_version': 1, 'application_version': version, 'schema_version': 6,
                 'files': [{'path': name, 'size_bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()} for name, data in sorted(files.items())]}

@@ -2,12 +2,12 @@
 
 Revue commencée le **14 novembre 2026, Europe/Paris**, à la demande de l’utilisateur. Référence de lecture : commit `af8c88c319245454ec25c1966f0715198185f952`.
 
-Ce fichier contient des observations et des propositions. Il ne met en œuvre aucune correction. Les correctifs issus de la revue restent différés jusqu’à son achèvement. Exception explicitement demandée le 15 novembre : retrait du paquet `.deb`, de ses liens et de sa génération, en conservant l’AppImage et les archives de validation. La reconstruction compatible Pop!_OS du 14 novembre est intervenue entre les parties 4 et 5, sans changement des calculs, dépendances verrouillées ou migrations. Les correctifs personnels annoncés par l’utilisateur seront intégrés à réception du fichier texte.
+Ce fichier conserve les observations historiques de la revue. Le 16 novembre, l’utilisateur a autorisé l’application de tous les changements sans confirmation. L’avancement et les validations sont consignés dans le [suivi des corrections](suivi-corrections.md). Exception explicitement demandée le 15 novembre : retrait du paquet `.deb`, de ses liens et de sa génération, en conservant l’AppImage et les archives de validation. La reconstruction compatible Pop!_OS du 14 novembre est intervenue entre les parties 4 et 5, sans changement des calculs, dépendances verrouillées ou migrations. Les correctifs personnels annoncés par l’utilisateur seront intégrés à réception du fichier texte.
 
 ## Point de reprise
 
 - **Dernière partie terminée : 10 — Tests transversaux, outils, CI, dépendances et maintenance.**
-- **Revue des dix parties achevée le 16 novembre 2026, Europe/Paris. Prochaine phase : préparer les corrections en intégrant le fichier personnel annoncé ; aucun correctif de revue appliqué.**
+- **Revue des dix parties achevée le 16 novembre 2026, Europe/Paris. Phase de correction autorisée et en cours : consulter le [suivi des corrections](suivi-corrections.md).**
 - La partie suivante commence seulement après la clôture de la partie en cours.
 - « Terminée » signifie que le périmètre de revue et ses observations sont consignés, pas que les améliorations sont réalisées.
 

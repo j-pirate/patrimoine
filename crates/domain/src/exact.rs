@@ -245,6 +245,31 @@ mod tests {
     }
 
     #[test]
+    fn form_normalization_handles_negative_zero_and_is_idempotent() {
+        for (input, expected) in [("-0", "0"), ("-0,000", "0"), (" 12,2500 ", "12.25")] {
+            let normalized = normalize_decimal_input(input).unwrap();
+            assert_eq!(normalized, expected);
+            assert_eq!(normalize_decimal_input(&normalized).unwrap(), normalized);
+        }
+        for input in [
+            " 1,2500 ",
+            "0.000000000000000001",
+            "123456789012345678901234567890123456",
+        ] {
+            let normalized = normalize_rate_input(input).unwrap();
+            assert_eq!(normalize_rate_input(&normalized).unwrap(), normalized);
+        }
+        for normalize in [normalize_decimal_input, normalize_rate_input] {
+            let boundary = format!("{}1", " ".repeat(63));
+            assert_eq!(boundary.len(), 64);
+            assert_eq!(normalize(&boundary).unwrap(), "1");
+            assert!(normalize(&format!(" {boundary}")).is_err());
+        }
+        assert!(normalize_rate_input("-0").is_err());
+        assert!(normalize_rate_input("-0,000").is_err());
+    }
+
+    #[test]
     fn decimal_sources_keep_exact_precision_at_the_bounds() {
         assert_eq!(parse_decimal("0").unwrap(), BigRational::zero());
         assert_eq!(

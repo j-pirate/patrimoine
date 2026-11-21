@@ -355,6 +355,87 @@ fn reconciliation_keeps_the_difference_and_never_changes_the_journal() {
 }
 
 #[test]
+fn report_orders_reconciliations_and_executed_fx_by_date_then_identity() {
+    let (r, p, l, mut s) = fixture();
+    s.transactions.push(tx(
+        "open",
+        "opening",
+        "2024-01-01",
+        &[("eur", "100", "opening")],
+    ));
+    for (id, day) in [
+        ("a-later", "2024-01-03"),
+        ("z-same", "2024-01-02"),
+        ("a-same", "2024-01-02"),
+        ("future", "2024-01-04"),
+    ] {
+        s.transactions.push(tx(
+            id,
+            "fx",
+            day,
+            &[("eur", "-10", "principal"), ("tnd", "30", "principal")],
+        ));
+        s.reconciliations.push(AccountReconciliation {
+            id: format!("statement-{id}"),
+            revision_id: format!("statement-{id}-r"),
+            account_id: "eur".into(),
+            effective_on: day.into(),
+            statement_balance: "0".into(),
+            statement_reference: id.into(),
+            document_id: None,
+            notes: String::new(),
+        });
+    }
+    let result = report(&r, &p, &l, &s, "eur", "2024-01-03");
+    assert_eq!(
+        result
+            .executed_fx
+            .iter()
+            .map(|execution| execution.transaction_id.as_str())
+            .collect::<Vec<_>>(),
+        ["a-same", "z-same", "a-later"]
+    );
+    assert_eq!(
+        result
+            .reconciliations
+            .iter()
+            .map(|statement| statement.reconciliation_id.as_str())
+            .collect::<Vec<_>>(),
+        ["statement-a-same", "statement-z-same", "statement-a-later"]
+    );
+    assert_eq!(result.balance_original.as_deref(), Some("70.00"));
+    // Reordering the input must preserve both displayed ordering and amounts.
+    s.transactions.reverse();
+    s.reconciliations.reverse();
+    let reordered = report(&r, &p, &l, &s, "eur", "2024-01-03");
+    assert_eq!(
+        reordered
+            .executed_fx
+            .iter()
+            .map(|execution| (&execution.transaction_id, &execution.exact_rate))
+            .collect::<Vec<_>>(),
+        result
+            .executed_fx
+            .iter()
+            .map(|execution| (&execution.transaction_id, &execution.exact_rate))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        reordered
+            .reconciliations
+            .iter()
+            .map(|statement| (&statement.reconciliation_id, &statement.exact_difference))
+            .collect::<Vec<_>>(),
+        result
+            .reconciliations
+            .iter()
+            .map(|statement| (&statement.reconciliation_id, &statement.exact_difference))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(reordered.balance_original, result.balance_original);
+}
+
+#[test]
 fn duplicate_openings_invalid_transfers_and_hidden_fees_are_rejected() {
     let (r, p, l, mut s) = fixture();
     s.transactions = vec![

@@ -395,31 +395,10 @@ fn annotate(
                 .map(|p| p.owner_entity_id.clone()),
         );
     }
-    let country = position
-        .country
-        .clone()
-        .or_else(|| {
-            sources
-                .treasury
-                .accounts
-                .iter()
-                .find(|a| a.id == position.object_id)
-                .map(|a| a.country.clone())
-        })
-        .or_else(|| {
-            registry
-                .assets
-                .iter()
-                .find(|a| a.id == asset_id)
-                .map(|a| a.country.clone())
-        })
-        .or_else(|| {
-            position
-                .entity_id
-                .as_ref()
-                .and_then(|id| registry.entities.iter().find(|e| e.id == *id))
-                .and_then(|e| e.residence_country.clone())
-        });
+    // The source engine resolves dated asset/entity profiles at D and K.
+    // None is meaningful historical information, never permission to infer
+    // a country from today's descriptive profile or another position face.
+    let country = position.country.clone();
     let exact = position.exact_eur.as_ref().map(ratio).transpose()?;
     Ok(DashboardPosition {
         position: position.clone(),
@@ -748,7 +727,7 @@ pub fn build_dashboard(
     history: Vec<FinancialReport>,
     variation: Option<VariationReport>,
 ) -> Result<DashboardReport> {
-    let dates = dashboard_dates(&request)?;
+    validate_dashboard_request(&request)?;
     let k = sources.registry.knowledge_sequence;
     if [
         sources.properties.knowledge_sequence,
@@ -816,6 +795,7 @@ pub fn build_dashboard(
             message: w.message.clone(),
         }));
     } else {
+        let dates = dashboard_dates(&request)?;
         if company.is_some() {
             return Err(integrity(
                 "Un rapport de société ne correspond pas au contexte famille ou membre.",

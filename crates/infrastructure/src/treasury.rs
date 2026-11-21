@@ -152,14 +152,15 @@ fn unchanged(
 }
 
 impl Vault {
-    fn write_treasury(
+    fn write_treasury<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(&Connection, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -168,8 +169,9 @@ impl Vault {
         let (id, rev) = registry::begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &id, &rev)?;
         finance::validate_current(&tx)?;
+        let result = read(&tx, &id)?;
         tx.commit().map_err(db::error)?;
-        Ok(id)
+        Ok(result)
     }
 }
 
@@ -184,7 +186,7 @@ impl TreasuryService for Vault {
         &mut self,
         input: SaveTreasuryAccountInput,
     ) -> Result<TreasuryAccount> {
-        let id = self.write_treasury(
+        self.write_treasury(
             "treasury_account",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -217,37 +219,41 @@ impl TreasuryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_treasury_at(None)?
-            .accounts
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le compte enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .accounts
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le compte enregistré est introuvable."))
+            },
+        )
     }
     fn save_treasury_transaction(
         &mut self,
         mut input: SaveTreasuryTransactionInput,
     ) -> Result<TreasuryTransaction> {
         normalize_transaction(&mut input)?;
-        let id = self.write_treasury(
+        self.write_treasury(
             "treasury_transaction",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
             &input.reason,
             |tx, _, rev| insert_transaction(tx, rev, &input),
-        )?;
-        self.list_treasury_at(None)?
-            .transactions
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("L’écriture enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .transactions
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("L’écriture enregistrée est introuvable."))
+            },
+        )
     }
     fn save_account_reconciliation(
         &mut self,
         mut input: SaveAccountReconciliationInput,
     ) -> Result<AccountReconciliation> {
         input.statement_balance = exact::normalize_decimal_input(&input.statement_balance)?;
-        let id = self.write_treasury(
+        self.write_treasury(
             "account_reconciliation",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -275,34 +281,38 @@ impl TreasuryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_treasury_at(None)?
-            .reconciliations
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le rapprochement enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .reconciliations
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le rapprochement enregistré est introuvable."))
+            },
+        )
     }
     fn save_cash_link(&mut self, mut input: SaveCashLinkInput) -> Result<CashLink> {
         normalize_link(&mut input)?;
-        let id = self.write_treasury(
+        self.write_treasury(
             "cash_link",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
             &input.reason,
             |tx, _, rev| insert_link(tx, rev, &input),
-        )?;
-        self.list_treasury_at(None)?
-            .cash_links
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le rapprochement de flux est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .cash_links
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le rapprochement de flux est introuvable."))
+            },
+        )
     }
     fn save_deposit_movement(
         &mut self,
         mut input: SaveDepositMovementInput,
     ) -> Result<DepositMovement> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id = self.write_treasury(
+        self.write_treasury(
             "deposit_movement",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -317,12 +327,14 @@ impl TreasuryService for Vault {
                 )?;
                 insert_deposit(tx, rev, &input)
             },
-        )?;
-        self.list_treasury_at(None)?
-            .deposits
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("Le dépôt enregistré est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .deposits
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("Le dépôt enregistré est introuvable."))
+            },
+        )
     }
     fn post_rent_payment(&mut self, mut input: PostRentPaymentInput) -> Result<RentPayment> {
         self.ensure_active()?;

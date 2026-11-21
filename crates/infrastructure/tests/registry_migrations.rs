@@ -697,6 +697,15 @@ fn schema_three_open_migrates_a_copy_and_preserves_fx_and_exact_profile_sources(
     assert_eq!(vault.status().unwrap().schema_version, 6);
     assert_ne!(vault.status().unwrap().generation_id, old.vault.generation);
     assert_eq!(fs::read(old.vault.db()).unwrap(), original);
+    let sequence_before_zero = vault.status().unwrap().mutation_sequence;
+    assert_eq!(
+        serde_json::to_value(vault.list_registry_at(Some(0)).unwrap()).unwrap(),
+        serde_json::to_value(patrimoine_domain::RegistrySnapshot::default()).unwrap()
+    );
+    assert_eq!(
+        vault.status().unwrap().mutation_sequence,
+        sequence_before_zero
+    );
     let state = vault.list_registry().unwrap();
     assert_eq!(state.knowledge_sequence, 9);
     assert_eq!(state.exchange_rates[0].rate, "0.3");

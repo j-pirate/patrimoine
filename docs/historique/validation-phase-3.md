@@ -94,6 +94,8 @@ Résultat final : **14 étapes réussies**, code de sortie 0 :
 
 Artefacts de cette campagne : `.local/desktop-smoke.Gbwwmc9C/desktop-result.json`, `registry.png`, `desktop.png` et archives synthétiques. Ces fichiers sont ignorés par Git ; chaque nouvelle exécution crée un dossier distinct.
 
+Disponibilité actualisée : ces originaux sont [conservés seulement dans l’environnement](preuves.md#disponibilité-par-campagne), hors ZIP distribué ; le présent compte rendu est la pièce versionnée de cette campagne.
+
 La séquence à comparer est celle du snapshot effectivement sauvegardé : l’import documentaire est lui-même une mutation postérieure à la création des données patrimoniales. Le scénario vérifie que cette mutation ne change aucun enregistrement du registre, puis compare la restauration à l’état exact d’avant sauvegarde, séquence comprise. Le pilote attend également la stabilisation du rendu React entre touches WebKit, sans remplacer les valeurs par une injection d’état.
 
 ### Récupération indépendante vérifiée

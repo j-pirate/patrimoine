@@ -123,7 +123,7 @@ pub(crate) fn snapshot(c: &Connection, cutoff: Option<u64>) -> Result<FinanceSna
     })
 }
 
-pub(crate) fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
+fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
     if !enabled(c)? {
         return Ok(());
     }
@@ -140,7 +140,7 @@ pub(crate) fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
         validate_debts(&registry, &debts)?;
     }
     validate_treasury_debt_links(&registry, &treasury, &debts)?;
-    validate_finance(
+    validate_finance_sources(
         &registry,
         &properties,
         &rentals,
@@ -148,9 +148,40 @@ pub(crate) fn validate_at(c: &Connection, cutoff: Option<u64>) -> Result<()> {
         &debts,
         &finance,
     )?;
+    if cutoff.is_none() {
+        let mismatches = rent_representation_mismatches(
+            &registry,
+            &properties,
+            &rentals,
+            &treasury,
+            &debts,
+            &finance,
+        )?;
+        if !mismatches.is_empty() {
+            // Older releases accepted some mismatches. Preserve their unchanged
+            // revisions while allowing independent writes and staged repairs.
+            let k = finance
+                .knowledge_sequence
+                .checked_sub(1)
+                .ok_or_else(|| invalid(RENT_REPRESENTATION_ERROR))?;
+            let previous_mismatches = rent_representation_mismatches(
+                &registry::snapshot(c, Some(k))?,
+                &properties::snapshot(c, Some(k))?,
+                &rentals::snapshot(c, Some(k))?,
+                &treasury::snapshot(c, Some(k))?,
+                &debts::snapshot(c, Some(k))?,
+                &snapshot(c, Some(k))?,
+            )?;
+            if !mismatches.is_subset(&previous_mismatches) {
+                return Err(invalid(RENT_REPRESENTATION_ERROR));
+            }
+        }
+    }
     if phase7::enabled(c)? {
-        metals::validate_targets(c)?;
-        companies::validate_targets(c)?;
+        if cutoff.is_none() {
+            metals::validate_targets(c)?;
+            companies::validate_targets(c)?;
+        }
         let metals = metals::snapshot(c, cutoff)?;
         let companies = companies::snapshot(c, cutoff)?;
         validate_metals(&registry, &properties, &treasury, &metals)?;
@@ -228,14 +259,18 @@ pub(crate) fn validate_history(c: &Connection) -> Result<()> {
             "Une identité de créance conserve son échéance source.",
         ));
     }
-    let mut query = c
-        .prepare("SELECT sequence FROM change_sets ORDER BY sequence")
-        .map_err(db::error)?;
-    let sequences = query
-        .query_map([], |r| r.get::<_, u64>(0))
-        .map_err(db::error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(db::error)?;
+    let mut kinds = [registry::KINDS, properties::KINDS].concat();
+    for tables in [
+        rentals::TABLES.as_slice(),
+        treasury::TABLES.as_slice(),
+        debts::TABLES.as_slice(),
+        TABLES.as_slice(),
+        metals::TABLES.as_slice(),
+        companies::TABLES.as_slice(),
+    ] {
+        kinds.extend(tables.iter().map(|(kind, _)| *kind));
+    }
+    let sequences = registry::history_sequences(c, &kinds)?;
     for k in sequences {
         validate_at(c, Some(k))?;
     }
@@ -243,14 +278,15 @@ pub(crate) fn validate_history(c: &Connection) -> Result<()> {
 }
 
 impl Vault {
-    fn write_finance(
+    fn write_finance<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(&Connection, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -259,8 +295,9 @@ impl Vault {
         let (id, revision) = registry::begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &id, &revision)?;
         validate_current(&tx)?;
+        let result = read(&tx, &id)?;
         tx.commit().map_err(db::error)?;
-        Ok(id)
+        Ok(result)
     }
 }
 
@@ -275,7 +312,7 @@ impl FinancialService for Vault {
         &mut self,
         input: SaveFinanceCoverageInput,
     ) -> Result<FinanceCoverage> {
-        let id = self.write_finance(
+        self.write_finance(
             "finance_coverage",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -296,12 +333,14 @@ impl FinancialService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_finance_at(None)?
-            .coverages
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("La couverture enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .coverages
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("La couverture enregistrée est introuvable."))
+            },
+        )
     }
     fn save_rent_claim(&mut self, mut input: SaveRentClaimInput) -> Result<RentClaim> {
         for party in &mut input.parties {
@@ -309,7 +348,7 @@ impl FinancialService for Vault {
                 *share = exact::normalize_fraction(share)?;
             }
         }
-        let id=self.write_finance("rent_claim",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision|{
+        self.write_finance("rent_claim",input.id.as_deref(),input.expected_revision_id.as_deref(),&input.reason,|tx,_,revision|{
             if let Some(object)=&input.id {
                 let old:String=tx.query_row("SELECT due_id FROM rent_claims WHERE revision_id=(SELECT supersedes_revision_id FROM revisions WHERE id=?1)",[revision],|r|r.get(0)).map_err(db::error)?;
                 if old!=input.due_id {return Err(AppError::new("validation",format!("La créance {object} conserve son échéance d’origine.")));}
@@ -319,19 +358,20 @@ impl FinancialService for Vault {
                 tx.execute("INSERT INTO rent_claim_parties VALUES(?1,?2,?3,?4)",params![revision,party.entity_id,party.economic_share.as_ref().map(|s|s.num.as_str()),party.economic_share.as_ref().map(|s|s.den.as_str())]).map_err(db::error)?;
             }
             Ok(())
-        })?;
-        self.list_finance_at(None)?
+        },
+            |tx, key| snapshot(tx, None)?
             .rent_claims
             .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("La créance enregistrée est introuvable."))
+            .find(|r| r.id == key)
+            .ok_or_else(|| invalid("La créance enregistrée est introuvable.")),
+        )
     }
     fn save_rent_claim_adjustment(
         &mut self,
         mut input: SaveRentClaimAdjustmentInput,
     ) -> Result<RentClaimAdjustment> {
         input.amount = exact::normalize_decimal_input(&input.amount)?;
-        let id = self.write_finance(
+        self.write_finance(
             "rent_claim_adjustment",
             input.id.as_deref(),
             input.expected_revision_id.as_deref(),
@@ -353,12 +393,14 @@ impl FinancialService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_finance_at(None)?
-            .rent_claim_adjustments
-            .into_iter()
-            .find(|r| r.id == id)
-            .ok_or_else(|| invalid("La dépréciation enregistrée est introuvable."))
+            |tx, key| {
+                snapshot(tx, None)?
+                    .rent_claim_adjustments
+                    .into_iter()
+                    .find(|r| r.id == key)
+                    .ok_or_else(|| invalid("La dépréciation enregistrée est introuvable."))
+            },
+        )
     }
     fn get_financial_report(&self, request: FinancialReportRequest) -> Result<FinancialReport> {
         self.ensure_active()?;

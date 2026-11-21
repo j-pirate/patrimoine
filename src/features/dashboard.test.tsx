@@ -24,7 +24,7 @@ vi.mock('./dashboard-charts', () => ({
 const person: Entity = { id: 'alice', revision_id: 'alice-r1', kind: 'person', display_name: 'Alice', first_name: 'Alice', last_name: null, birth_date: null, residence_country: 'FR', preferred_currency: 'EUR', activity: '', notes: '', archived: false };
 const company: Entity = { ...person, id: 'company', revision_id: 'company-r1', kind: 'company', display_name: 'Société suivie', first_name: null };
 const registry: RegistrySnapshot = { ...emptyRegistry, knowledge_sequence: 42, entities: [person, company] };
-const status: VaultStatus = { generation_id: 'generation-a', data_dir: '/test/vault', schema_version: 6, app_version: '0.1.0', mutation_sequence: 42, document_count: 0, country_count: 4, currency_count: 5, settings: { workspace_name: 'Famille test', display_currency: 'CHF' } };
+const status: VaultStatus = { generation_id: 'generation-a', data_dir: '/test/vault', schema_version: 6, app_version: '0.1.0', mutation_sequence: 42, document_count: 0, country_count: 4, currency_count: 5, recovery_required: false, recovery_message: null, settings: { workspace_name: 'Famille test', display_currency: 'CHF' } };
 const totals: DashboardTotals = { known_assets_eur: '1000.00', known_liabilities_eur: '0.00', known_net_eur: '1000.00', exact_known_assets: { num: '1000', den: '1' }, exact_known_liabilities: { num: '0', den: '1' }, exact_known_net: { num: '1000', den: '1' }, assets_eur: null, liabilities_eur: null, net_eur: null, position_count: 1, unknown_count: 0 };
 const financial: FinancialReport = { context: 'family', person_id: null, date: '2026-03-31', knowledge_sequence: 42, status: 'partial', coverage_confirmed: false, assets_eur: null, liabilities_eur: null, net_eur: null, exact_assets: null, exact_liabilities: null, exact_net: null, known_assets_eur: '1000.00', known_liabilities_eur: '0.00', known_net_eur: '1000.00', positions: [], eliminations: [], source_ids: ['bank-r1'], warnings: [] };
 const request: DashboardRequest = { context: 'family', entity_id: null, date: '2026-03-31', from_date: '2026-01-01', interval: 'monthly', knowledge_sequence: 42, filters: { country: null, currency: null, category: null, owner_entity_id: null, query: '' } };
@@ -176,7 +176,8 @@ describe('Tableau de bord sourcé', () => {
     expect(screen.queryByText(/Le rapport filtré a été exporté/)).not.toBeInTheDocument();
     vi.mocked(api.getDashboard).mockRejectedValue({ code: 'validation', message: 'La période dépasse la capacité autorisée.' });
     await user.click(screen.getByRole('button', { name: 'Actualiser le tableau de bord' }));
-    await screen.findByText('La période dépasse la capacité autorisée.');
+    await screen.findByText(/La période dépasse la capacité autorisée\./);
+    expect(screen.getByRole('alert')).toHaveTextContent('Vérifiez les champs, dates, devises et références indiqués.');
     expect(screen.queryByText('Banque réelle')).not.toBeInTheDocument();
     expect(screen.queryByText('Le fichier existe déjà.')).not.toBeInTheDocument();
   });

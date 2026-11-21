@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, displayCurrencies, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { Fraction, RegistrySnapshot, SaveRecord } from '../services/registry-types';
 import type { MetalCashLink, MetalLot, MetalMovement, MetalPremium, MetalQuote, MetalReport, MetalSnapshot, PostedMetalCashLink } from '../services/metals-types';
 import type { TreasuryEntry, TreasurySnapshot, TreasuryTransaction } from '../services/treasury-types';
@@ -15,7 +16,7 @@ type Values = Record<string, string>;
 type CashMode = 'unlinked' | 'new' | 'existing' | 'correct';
 interface Editor { kind: Kind; record: Row | null; values: Values; reason: string; cashMode: CashMode; newLine: string; cashLinks: PostedMetalCashLink[]; entries: TreasuryEntry[] }
 interface OwnerRow { entity: string; legalNum: string; legalDen: string; economicNum: string; economicDen: string }
-interface Transfer { date: string; end: string; reason: string; owners: OwnerRow[] }
+interface Transfer { lotId: string; assetId: string; designation: string; assetName: string; date: string; end: string; reason: string; owners: OwnerRow[] }
 const metals = { gold: 'Or', silver: 'Argent' };
 const forms = { bar: 'Barre', ingot: 'Lingot ou lingotin', coin: 'Pièce', other: 'Autre forme' };
 const units = { g: 'Gramme', kg: 'Kilogramme', troy_oz: 'Once troy (31,1034768 g)' };
@@ -45,7 +46,7 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
   const requestId = useRef(0);
   const reportId = useRef(0);
   const readOnly = context.knowledgeSequence != null;
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const request = ++requestId.current;
     setLoading(true); setSnapshot(null); setTreasury(null); setReport(null); reportId.current += 1; setError('');
     try {
@@ -55,12 +56,13 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
         setSnapshot(lots); setTreasury(accounts);
         setSelected(current => lots.lots.some(l => l.id === current) ? current : '');
       }
-    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (request === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
   useEffect(() => { onBusyChange(loading || pending); return () => onBusyChange(false); }, [loading, pending, onBusyChange]);
-  useEffect(() => { setEditor(null); setTransfer(null); setRemoval(null); setMessage(''); setReport(null); reportId.current += 1; }, [context.date, context.personId, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { setEditor(null); setTransfer(null); setRemoval(null); setReport(null); reportId.current += 1; }, [context.date, context.personId, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { setMessage(''); }, [context.date, context.knowledgeSequence, context.personId]);
   const assetName = (id: string) => { const a = registry.assets.find(item => item.id === id); return a ? assetAt(registry, a, context.date).name : id; };
   const entityName = (id: string) => { const e = registry.entities.find(item => item.id === id); return e ? entityAt(registry, e, context.date).display_name : id; };
   const lotName = (id: string) => snapshot?.lots.find(l => l.id === id)?.designation || id;
@@ -94,7 +96,7 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
   async function mutate(action: () => Promise<unknown>) {
     if (readOnly) return;
     setPending(true); setError(''); setMessage('');
-    try { await action(); setEditor(null); setRemoval(null); setTransfer(null); await onChanged(); await reload(); setMessage('Les sources du métal ont été enregistrées avec leurs révisions.'); }
+    try { await action(); setEditor(null); setRemoval(null); setTransfer(null); await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'Les sources du métal ont été enregistrées avec leurs révisions.', setMessage); }
     catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -140,12 +142,12 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
   function openTransfer() {
     const lot = snapshot?.lots.find(l => l.id === selected); if (!lot || readOnly) return;
     const rows = registry.ownerships.filter(o => o.asset_id === lot.asset_id && activeAt(o.valid_from, o.valid_to, context.date));
-    setTransfer({ date: context.date, end: '', reason: '', owners: rows.map(o => ({ entity: o.owner_entity_id, legalNum: o.legal_share?.num || '', legalDen: o.legal_share?.den || '', economicNum: o.economic_share?.num || '', economicDen: o.economic_share?.den || '' })) });
+    setTransfer({ lotId: lot.id, assetId: lot.asset_id, designation: lot.designation, assetName: assetName(lot.asset_id), date: context.date, end: '', reason: '', owners: rows.map(o => ({ entity: o.owner_entity_id, legalNum: o.legal_share?.num || '', legalDen: o.legal_share?.den || '', economicNum: o.economic_share?.num || '', economicDen: o.economic_share?.den || '' })) });
     setEditor(null); setRemoval(null); setError('');
   }
   async function saveTransfer(event: FormEvent) {
     event.preventDefault(); if (!transfer || !snapshot || readOnly) return;
-    const lot = snapshot.lots.find(l => l.id === selected); if (!lot) return;
+    const lot = snapshot.lots.find(l => l.id === transfer.lotId && l.asset_id === transfer.assetId); if (!lot) return;
     const reason = transfer.reason.trim();
     const previous = registry.ownerships.filter(o => o.asset_id === lot.asset_id && activeAt(o.valid_from, o.valid_to, transfer.date));
     const closes = previous.map(o => ({ id: o.id, expected_revision_id: o.revision_id, reason, asset_id: o.asset_id, owner_entity_id: o.owner_entity_id, legal_share: o.legal_share, economic_share: o.economic_share, valid_from: o.valid_from, valid_to: transfer.date }));
@@ -179,7 +181,7 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
     {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>Les champs sont conservés après un refus. Rechargez les sources en cas de conflit de révision.</p><button type="button" className="button secondary" disabled={pending || loading} onClick={() => { void reload(); }}>Recharger les métaux</button></RegistryNotice>}
     {message && <RegistryNotice>{message}</RegistryNotice>}
     {!loading && snapshot && treasury && <>
-      <section className="card"><Field id="metal-filter" label="Lot à consulter"><select id="metal-filter" value={selected} disabled={pending} onChange={event => { setSelected(event.currentTarget.value); setReport(null); reportId.current += 1; }}>{options(lotOptions)}</select></Field><button type="button" className="text-button" disabled={pending} onClick={onNavigateRegistry}>Gérer les actifs et leurs propriétaires</button></section>
+      <section className="card"><Field id="metal-filter" label="Lot à consulter"><select id="metal-filter" value={selected} disabled={pending} onChange={event => { setSelected(event.currentTarget.value); setTransfer(null); setReport(null); reportId.current += 1; }}>{options(lotOptions)}</select></Field><button type="button" className="text-button" disabled={pending} onClick={onNavigateRegistry}>Gérer les actifs et leurs propriétaires</button></section>
       {tab === 'lots' && <>
         {card('Lots physiques', 'Créer un lot de métal', 'lot', ['Lot', 'Poids unitaire et pureté', 'Suivi et titulaire initial', 'Lieu initial', 'Actions'], snapshot.lots.filter(l => relevant(l.id)).map(l => <tr key={l.id}><td><strong>{l.designation}</strong><small>{metals[l.metal as keyof typeof metals]} · {forms[l.form as keyof typeof forms]} · {assetName(l.asset_id)}{l.archived ? ' · archivé' : ''}</small></td><td>{l.unit_weight} {l.weight_unit}<small>Pureté {l.purity}</small></td><td>{l.tracking_start}<small>{entityName(l.legal_owner_entity_id)} · coût en {l.cost_currency}</small></td><td>{l.country} · {l.storage_location}</td><td>{actions('lot', l)}<button type="button" className="text-button" disabled={pending || readOnly} onClick={() => edit('movement', null, l)}>Confirmer le stock d’ouverture</button></td></tr>))}
         <section className="card"><h2>Transfert des droits économiques et juridiques</h2><p>La quantité physique reste identique. Les droits actuels sont clôturés et les nouveaux droits ouverts ensemble à la date choisie. Les quotes-parts sont explicites ; un transfert familial ne constitue pas un gain.</p><button type="button" className="button secondary" disabled={pending || readOnly || !selected} onClick={openTransfer}>Transférer les droits du lot</button></section>
@@ -215,7 +217,7 @@ export default function MetalsPage({ registry, context, onChanged, onBusyChange,
         {d.kind === 'link' && <>{select('movement_id', 'Mouvement réel à rapprocher', snapshot.movements.filter(m => isTrade(m.kind)).map(m => ({ id: m.id, label: `${lotName(m.lot_id)} · ${m.effective_on} · ${movementKinds[m.kind]}` })))}<Field id="metal-transaction_revision_id" label="Opération bancaire du métal"><select id="metal-transaction_revision_id" required value={v.transaction_revision_id} onChange={event => chooseTransaction(event.currentTarget.value)}>{options(transactionOptions)}</select></Field>{select('line_id', 'Ligne bancaire existante du métal', transaction?.entries.map(e => ({ id: e.line_id, label: `${accountName(e.account_id)} · ${e.amount}` })) || [])}{input('amount', 'Montant signé du lien métal', true)}</>}
         <Field id="metal-notes" label="Notes de la source métal"><textarea id="metal-notes" value={v.notes || ''} onChange={event => update('notes', event.currentTarget.value)} /></Field><Field id="metal-reason" label="Motif de l’enregistrement métal"><textarea id="metal-reason" required value={d.reason} onChange={event => { const value = event.currentTarget.value; setEditor(current => current && ({ ...current, reason: value })); }} /></Field><button type="submit" className="button" disabled={!d.reason.trim()}>{d.record ? 'Enregistrer la correction métal' : 'Enregistrer la source métal'}</button>
       </fieldset></form></EditorFrame>}
-      {transfer && !readOnly && <EditorFrame title="Transférer les droits du lot" pending={pending} onCancel={() => setTransfer(null)}><form onSubmit={event => { void saveTransfer(event); }}><fieldset disabled={pending}><p>Clôturez les droits en vigueur et décrivez leur nouvelle répartition complète. Ces changements sont enregistrés ensemble ; la quantité ne change pas. Les périodes futures déjà saisies sont contrôlées.</p><div className="form-grid"><Field id="metal-transfer-date" label="Date du transfert des droits"><input id="metal-transfer-date" type="date" required value={transfer.date} onChange={event => { const value = event.currentTarget.value; setTransfer(current => current && ({ ...current, date: value })); }} /></Field><Field id="metal-transfer-end" label="Fin des nouveaux droits (exclue, facultative)"><input id="metal-transfer-end" type="date" value={transfer.end} onChange={event => { const value = event.currentTarget.value; setTransfer(current => current && ({ ...current, end: value })); }} /></Field></div>
+      {transfer && !readOnly && <EditorFrame title="Transférer les droits du lot" pending={pending} onCancel={() => setTransfer(null)}><form onSubmit={event => { void saveTransfer(event); }}><fieldset disabled={pending}><p><strong>Lot concerné : {transfer.designation}</strong> · {transfer.assetName} · {transfer.lotId}</p><p>Clôturez les droits en vigueur et décrivez leur nouvelle répartition complète. Ces changements sont enregistrés ensemble ; la quantité ne change pas. Les périodes futures déjà saisies sont contrôlées.</p><div className="form-grid"><Field id="metal-transfer-date" label="Date du transfert des droits"><input id="metal-transfer-date" type="date" required value={transfer.date} onChange={event => { const value = event.currentTarget.value; setTransfer(current => current && ({ ...current, date: value })); }} /></Field><Field id="metal-transfer-end" label="Fin des nouveaux droits (exclue, facultative)"><input id="metal-transfer-end" type="date" value={transfer.end} onChange={event => { const value = event.currentTarget.value; setTransfer(current => current && ({ ...current, end: value })); }} /></Field></div>
         {transfer.owners.map((owner, index) => { const change = (key: keyof OwnerRow, value: string) => setTransfer(current => current && ({ ...current, owners: current.owners.map((o, i) => i === index ? { ...o, [key]: value } : o) })); return <div className="treasury-line" key={index}><Field id={`metal-transfer-owner-${index}`} label={`Nouveau propriétaire ${index + 1}`}><select id={`metal-transfer-owner-${index}`} required value={owner.entity} onChange={event => change('entity', event.currentTarget.value)}>{options(entityOptions)}</select></Field><div className="form-grid">{([['legalNum', 'Numérateur juridique'], ['legalDen', 'Dénominateur juridique'], ['economicNum', 'Numérateur économique'], ['economicDen', 'Dénominateur économique']] as const).map(([key, label]) => <Field key={key} id={`metal-transfer-${key}-${index}`} label={`${label} ${index + 1}`}><input id={`metal-transfer-${key}-${index}`} value={owner[key]} onChange={event => change(key, event.currentTarget.value)} /></Field>)}</div><button type="button" className="text-button" onClick={() => setTransfer(current => current && ({ ...current, owners: current.owners.filter((_, i) => i !== index) }))}>Retirer ce propriétaire</button></div>; })}
         <button type="button" className="button secondary" onClick={() => setTransfer(current => current && ({ ...current, owners: [...current.owners, emptyOwner()] }))}>Ajouter un nouveau propriétaire</button><Field id="metal-transfer-reason" label="Motif du transfert des droits"><textarea id="metal-transfer-reason" required value={transfer.reason} onChange={event => { const value = event.currentTarget.value; setTransfer(current => current && ({ ...current, reason: value })); }} /></Field><button type="submit" className="button" disabled={!transfer.reason.trim() || !transfer.owners.length}>Enregistrer le transfert des droits</button></fieldset></form></EditorFrame>}
       {removal && !readOnly && <section className="card restore-review"><h2>Annuler une source métal</h2><p>Les anciennes connaissances conserveront cette révision. Les dépendances et inventaires historiques sont contrôlés avant toute annulation.</p><form onSubmit={event => { event.preventDefault(); void mutate(() => api.voidRegistryRecord(removal.id, removal.revision_id, removalReason.trim())); }}><fieldset disabled={pending}><Field id="metal-void-reason" label="Motif de l’annulation métal"><textarea id="metal-void-reason" required value={removalReason} onChange={event => setRemovalReason(event.currentTarget.value)} /></Field><button type="submit" className="button danger" disabled={!removalReason.trim()}>Confirmer l’annulation métal</button><button type="button" className="button secondary" onClick={() => setRemoval(null)}>Conserver la source métal</button></fieldset></form></section>}

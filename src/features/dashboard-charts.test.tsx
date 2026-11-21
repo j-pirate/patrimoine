@@ -4,7 +4,7 @@ import type { DashboardBucket, DashboardMember, DashboardPoint, DashboardTotals 
 import type { CompanyPeriodAnalysis } from '../services/companies-types';
 import { DashboardAllocationChart, DashboardCompanyChart, DashboardHistoryChart, DashboardMembersChart } from './dashboard-charts';
 
-const drawn = vi.hoisted(() => ({ charts: [] as { kind: string; data: Record<string, unknown>[] }[], lines: [] as Record<string, unknown>[] }));
+const drawn = vi.hoisted(() => ({ charts: [] as { kind: string; data: Record<string, unknown>[] }[], lines: [] as Record<string, unknown>[], axes: [] as Record<string, unknown>[] }));
 vi.mock('recharts', async () => {
   const React = await import('react');
   const box = ({ children }: { children?: React.ReactNode }) => React.createElement('div', {}, children);
@@ -15,7 +15,7 @@ vi.mock('recharts', async () => {
   return { ResponsiveContainer: box, LineChart: chart('line-chart'), BarChart: chart('bar-chart'),
     Line: (props: Record<string, unknown>) => { drawn.lines.push(props); return null; },
     Bar: () => null, CartesianGrid: () => null, Legend: () => null, ReferenceLine: () => null,
-    Tooltip: () => null, XAxis: () => null, YAxis: () => null };
+    Tooltip: () => null, XAxis: (props: Record<string, unknown>) => { drawn.axes.push(props); return null; }, YAxis: () => null };
 });
 const fraction = { num: '0', den: '1' };
 function totals(net: string | null, knownAssets = '100.00', knownLiabilities = '10.00'): DashboardTotals {
@@ -27,9 +27,23 @@ function totals(net: string | null, knownAssets = '100.00', knownLiabilities = '
 function point(date: string, net: string | null): DashboardPoint {
   return { date, status: net === null ? 'partial' : 'complete', totals: totals(net), source_ids: [`source-${date}`], warnings: [] };
 }
-beforeEach(() => { drawn.charts.length = 0; drawn.lines.length = 0; });
+beforeEach(() => { drawn.charts.length = 0; drawn.lines.length = 0; drawn.axes.length = 0; });
 
 describe('Graphiques alimentés par les résultats exacts', () => {
+  it('DASH-03 représente les durées irrégulières sur un axe temporel numérique en UTC', () => {
+    const points = [point('2026-01-01', '100.00'), point('2026-01-02', null), point('2026-01-11', '0.00')];
+    render(<DashboardHistoryChart points={points} />);
+    const data = drawn.charts.at(-1)!.data;
+    const times = data.map(row => row.timestamp as number);
+    expect(times).toEqual(points.map(row => Date.parse(`${row.date}T00:00:00Z`)));
+    expect(times[2] - times[1]).toBe(9 * (times[1] - times[0]));
+    expect(drawn.axes.at(-1)).toMatchObject({ dataKey: 'timestamp', type: 'number', scale: 'time', domain: ['dataMin', 'dataMax'] });
+    const format = drawn.axes.at(-1)!.tickFormatter as (time: number) => string;
+    expect(format(times[0])).toBe('01/01/2026');
+    expect(data.map(row => row.net)).toEqual([100, null, 0]);
+    expect(data.map(row => row.point)).toEqual(points);
+    expect(drawn.lines.at(-1)).toMatchObject({ connectNulls: false });
+  });
   it('interrompt le net inconnu sans transformer une vraie valeur zéro en lacune', () => {
     render(<DashboardHistoryChart points={[point('2026-01-01', '100.00'), point('2026-02-01', null), point('2026-03-01', '0.00')]} />);
     expect(drawn.charts.at(-1)?.data.map(row => row.net)).toEqual([100, null, 0]);
@@ -110,6 +124,8 @@ describe('Graphiques alimentés par les résultats exacts', () => {
     expect(drawn.charts.at(-1)?.data.map(row => [row.date, row.revenue, row.result])).toEqual([
       ['2025-01-01', Number('12345678901234567890.1234'), null], ['2026-01-01', null, 0],
     ]);
+    expect(drawn.charts.at(-1)?.data.map(row => row.timestamp)).toEqual([Date.parse('2025-01-01T00:00:00Z'), Date.parse('2026-01-01T00:00:00Z')]);
+    expect(drawn.axes.at(-1)).toMatchObject({ dataKey: 'timestamp', type: 'number', scale: 'time', domain: ['dataMin', 'dataMax'] });
     expect(drawn.lines.slice(-2).every(line => line.connectNulls === false)).toBe(true);
     fireEvent.click(screen.getByText('Consulter les observations exactes sélectionnées'));
     expect(screen.getByText('12\u202f345\u202f678\u202f901\u202f234\u202f567\u202f890,1234 EUR', { normalizer: value => value })).toBeVisible();

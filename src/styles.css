@@ -1,10 +1,11 @@
 :root { font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif; color: #253b36; background: #f3f5f2; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; font-weight: 400; }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 360px; }
+body { margin: 0; min-width: 320px; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .55; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #b58837; outline-offset: 3px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid #28533e; outline-offset: 3px; }
+.sidebar button:focus-visible { outline-color: #f2cd75; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font-size: clamp(1.7rem, 2.7vw, 2.2rem); font-weight: 600; letter-spacing: -.04em; margin-bottom: 0; }
 h1:focus, main:focus, .restore-review:focus { outline: none; }
@@ -118,10 +119,10 @@ td > small { display: block; color: #5b6a55; margin-top: 5px; }
 @media (max-width: 1100px) { .sidebar { width: 220px; padding-left: 12px; padding-right: 12px; } .main-shell { margin-left: 220px; } main { padding: 28px 24px; } .two-columns { grid-template-columns: 1fr; } .welcome-art { display: none; } .page-heading { align-items: flex-start; } .page-heading .badge { white-space: normal; max-width: 125px; text-align: center; } .summary-grid { gap: 12px; } .summary { padding: 18px; } .summary > strong { font-size: 1.2rem; } }
 @media (max-width: 760px) { .app-shell { display: block; } .sidebar { position: static; width: 100%; padding: 20px 18px 12px; overflow: visible; } .brand { padding: 0 4px 15px; } .workspace, .sidebar-footer { display: none; } .sidebar nav { display: flex; overflow-x: auto; gap: 4px; padding: 4px 3px 8px; } .nav-item { width: auto; white-space: nowrap; margin: 0; padding: 10px 12px; } .main-shell { margin-left: 0; } .topbar { padding: 16px 22px; font-size: .65rem; } .local-label { display: none; } main { padding: 25px 18px; } .page-heading { gap: 10px; } .page-heading .badge { font-size: .57rem; max-width: 100px; } .welcome-card { padding: 25px; } .welcome-card h2 { font-size: 1.6rem; } .summary-grid { grid-template-columns: 1fr; } .summary > strong { font-size: 1.3rem; } .card { padding: 22px; } .section-title { flex-wrap: wrap; } .main-footer { padding: 18px; flex-wrap: wrap; } .details > div { flex-direction: column; gap: 7px; } .details dd { text-align: left; max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+@media (max-width: 760px) { .topbar { flex-wrap: wrap; } }
 
 /* Registre familial : les montants sont des chaînes exactes renvoyées par Rust. */
 textarea { display: block; width: 100%; min-height: 95px; resize: vertical; padding: 11px 12px; border: 1px solid #cbd8c9; border-radius: 5px; background: #fff; color: #2b4837; font: inherit; }
-textarea:focus-visible { outline: 3px solid #b58837; outline-offset: 3px; }
 .context-bar { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(170px, .8fr) minmax(200px, 1.8fr); align-items: center; gap: 20px; border: 1px solid #d9e3d6; background: #edf2e8; padding: 16px 20px; border-radius: 9px; margin-bottom: 24px; }
 .context-bar label:not(.checkbox-label) { margin: 0 0 8px; font-size: .75rem; }
 .context-bar p { font-size: .7rem; margin: 0; line-height: 1.6; grid-column: 1 / -1; }

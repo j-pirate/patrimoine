@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 import type { Asset, CompanyPolicy, ConsolidationReport, ConsolidationRequest, Entity, Membership, Ownership, Participation, RegistrySnapshot, SaveRecord, Valuation } from './registry-types';
 import type { ExchangeRate, FxQuery, FxResult, ProfilePeriod, RegistryHistory, VariationReport, VariationRequest } from './phase4-types';
 import type { DisposePropertyInput, Property, PropertyEvent, PropertyReport, PropertyReportRequest, PropertySnapshot, RentalUnit } from './property-types';
@@ -31,6 +32,8 @@ export interface VaultStatus {
   settings: Settings;
   country_count: number;
   currency_count: number;
+  recovery_required: boolean;
+  recovery_message: string | null;
 }
 
 export interface DocumentSummary {
@@ -65,18 +68,56 @@ export interface RestoreInspection {
   mutation_sequence: number;
 }
 
-export function errorMessage(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const message = (error as { message: unknown }).message;
-    if (typeof message === 'string' && message.length > 0) return message;
+export const errorCodes = [
+  'conflict', 'validation', 'io', 'database', 'schema_version', 'integrity', 'not_found',
+  'invalid_archive', 'invalid_csv', 'publication_unavailable',
+  'publication_uncertain', 'recovery_required', 'recovery', 'locked', 'lock_io',
+  'capacity', 'limit', 'confirmation_required', 'snapshot_timeout', 'document_open',
+  'unsupported_document_open', 'xlsx_export', 'FILE_SCOPE', 'VAULT_LOCK', 'TASK_FAILED',
+] as const;
+export type ErrorCode = (typeof errorCodes)[number];
+
+export function errorCode(error: unknown): ErrorCode | null {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return null;
+  const code = (error as { code: unknown }).code;
+  return typeof code === 'string' && (errorCodes as readonly string[]).includes(code) ? code as ErrorCode : null;
+}
+
+export function errorAction(error: unknown): string | null {
+  switch (errorCode(error)) {
+    case 'conflict': return 'Conservez votre saisie, rechargez les données puis comparez les révisions avant de réenregistrer.';
+    case 'validation': return 'Vérifiez les champs, dates, devises et références indiqués.';
+    case 'FILE_SCOPE': return 'Sélectionnez de nouveau le fichier avec le dialogue de l’application.';
+    case 'io': case 'lock_io': case 'publication_uncertain':
+      return 'Vérifiez le support et l’espace disponible. Contrôlez le fichier ou l’état du coffre avant de recommencer.';
+    case 'database':
+      return 'Fermez les outils qui accèdent au coffre, puis réessayez.';
+    case 'schema_version':
+      return 'Vérifiez la version de Patrimoine compatible avec ce coffre ou cette archive.';
+    case 'invalid_csv':
+      return 'Vérifiez la table, la ligne et la colonne indiquées dans le diagnostic.';
+    case 'recovery_required': case 'recovery': case 'VAULT_LOCK': case 'TASK_FAILED':
+      return 'Consultez l’état du coffre et redémarrez l’application si nécessaire, en conservant ses données.';
+    case 'snapshot_timeout': return 'Arrêtez les écritures concurrentes puis relancez la sauvegarde.';
+    case 'invalid_archive': return 'Choisissez une archive compatible et intacte ; conservez l’original pour le diagnostic.';
+    default: return null;
   }
-  if (typeof error === 'string' && error.length > 0) return error;
-  return 'Une erreur est survenue. Réessayez ; aucune réussite n’a été confirmée.';
+}
+
+export function errorMessage(error: unknown): string {
+  let message = 'Une erreur est survenue. Réessayez ; aucune réussite n’a été confirmée.';
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const supplied = (error as { message: unknown }).message;
+    if (typeof supplied === 'string' && supplied.length > 0) message = supplied;
+  } else if (typeof error === 'string' && error.length > 0) message = error;
+  const action = errorAction(error);
+  return action && !message.includes(action) ? `${message} ${action}` : message;
 }
 
 const zipFilter = [{ name: 'Sauvegarde Patrimoine', extensions: ['zip'] }];
 
 export const api = {
+  onDocumentOpenFailed: (onError: (error: { code: string; message: string }) => void) => listen<{ code: string; message: string }>('document-open-failed', event => onError(event.payload)),
   getStatus: () => invoke<VaultStatus>('get_status'),
   getSettings: () => invoke<Settings>('get_settings'),
   saveSettings: (settings: Settings) => invoke<Settings>('save_settings', { settings }),

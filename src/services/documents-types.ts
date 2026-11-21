@@ -1,6 +1,8 @@
+export type DocumentStatus = 'active' | 'archived' | 'deleted';
+
 export interface DocumentRecord {
   id: string; revision_id: string; original_name: string; mime_type: string;
-  description: string; status: string; sha256: string; size_bytes: number;
+  description: string; status: DocumentStatus; sha256: string; size_bytes: number;
   added_at: string; recorded_at: string;
 }
 export interface DocumentLink {

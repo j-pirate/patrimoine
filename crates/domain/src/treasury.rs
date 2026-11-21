@@ -1068,6 +1068,12 @@ pub fn treasury_report(
             l.source_revision_id.clone(),
         ]);
     }
+    executions.sort_by(|a, b| {
+        (&a.effective_on, &a.transaction_id).cmp(&(&b.effective_on, &b.transaction_id))
+    });
+    reconciliations.sort_by(|a, b| {
+        (&a.effective_on, &a.reconciliation_id).cmp(&(&b.effective_on, &b.reconciliation_id))
+    });
     Ok(TreasuryReport {
         account_id: account.id.clone(),
         asset_id: account.asset_id.clone(),

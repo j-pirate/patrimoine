@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
+import { refreshAfterCommit } from '../services/mutations';
 import { api, displayCurrencies, errorMessage } from '../services/api';
 import type { Asset, CompanyPolicy, ConsolidationReport, Entity, Fraction, Membership, Ownership, Participation, RegistryRecord, RegistrySnapshot, Valuation } from '../services/registry-types';
 import type { ProfilePeriod } from '../services/phase4-types';
 import { FxTrace } from './exchange-rates';
-import { activeAt, assetAt, entityAt, EditorFrame, Field, Period, RegistryNotice } from './registry-ui';
+import { activeAt, assetAt, entityAt, EditorFrame, Field, Period, RegistryNotice, useFocusedRegion } from './registry-ui';
 import type { ViewContext } from './registry-ui';
 
 type Page = 'family' | 'companies' | 'assets';
@@ -75,6 +76,8 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [confirmationReason, setConfirmationReason] = useState('');
   const [pending, setPending] = useState(false);
+  const [consolidationBusy, setConsolidationBusy] = useState(false);
+  const confirmationFocus = useFocusedRegion(!!confirmation);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [allRegistry, setAllRegistry] = useState(false);
@@ -82,7 +85,7 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
   const [showArchived, setShowArchived] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const readOnly = context.knowledgeSequence != null;
-  useEffect(() => { onBusyChange(pending); return () => onBusyChange(false); }, [pending, onBusyChange]);
+  useEffect(() => { onBusyChange(pending || consolidationBusy); return () => onBusyChange(false); }, [pending, consolidationBusy, onBusyChange]);
   useEffect(() => { setEditor(null); setConfirmation(null); setError(''); setMessage(''); }, [page, context.knowledgeSequence]);
   useEffect(() => { if (editor || confirmation) editorRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }, [editor, confirmation]);
 
@@ -108,7 +111,7 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
   }
   async function mutate(action: () => Promise<unknown>, success: string) {
     setPending(true); setError(''); setMessage('');
-    try { await action(); setEditor(null); setConfirmation(null); await onChanged(); setMessage(success); }
+    try { await action(); setEditor(null); setConfirmation(null); await refreshAfterCommit(onChanged, success, setMessage); }
     catch (reason) { setError(errorMessage(reason)); }
     finally { setPending(false); }
   }
@@ -161,7 +164,7 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
     {message && <RegistryNotice>{message}</RegistryNotice>}
     <div ref={editorRef}>
       {editor && !readOnly && <EditorFrame title={`${editor.record ? 'Modifier' : 'Créer'} · ${editorTitles[editor.kind]}`} pending={pending} onCancel={() => setEditor(null)}><RegistryForm editor={editor} setEditor={setEditor} registry={registry} pending={pending} onSubmit={save} /></EditorFrame>}
-      {confirmation && !readOnly && <section className="card restore-review" aria-label="Confirmer la modification du registre"><h2>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</h2><p>{confirmation.action === 'void' ? 'Cette correction annule cet enregistrement dans l’état courant de connaissance. Ses révisions restent conservées. Pour terminer une période à une date donnée, modifiez sa date de fin.' : 'L’historique et les relations de propriété sont conservés. Archiver une fiche ne cède pas ses actifs et ne la retire pas automatiquement du périmètre familial.'}</p><form onSubmit={event => { void confirmMutation(event); }}><fieldset disabled={pending}><label htmlFor="confirmation-reason">Motif de la modification</label><textarea id="confirmation-reason" required maxLength={1000} value={confirmationReason} onChange={event => setConfirmationReason(event.target.value)} /><div className="button-row"><button type="submit" className="button danger" disabled={pending || !confirmationReason.trim()}>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</button><button type="button" className="button secondary" onClick={() => setConfirmation(null)}>Conserver l’état actuel</button></div></fieldset></form></section>}
+      {confirmation && !readOnly && <section ref={confirmationFocus} tabIndex={-1} className="card restore-review" aria-label="Confirmer la modification du registre"><h2>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</h2><p>{confirmation.action === 'void' ? 'Cette correction annule cet enregistrement dans l’état courant de connaissance. Ses révisions restent conservées. Pour terminer une période à une date donnée, modifiez sa date de fin.' : 'L’historique et les relations de propriété sont conservés. Archiver une fiche ne cède pas ses actifs et ne la retire pas automatiquement du périmètre familial.'}</p><form onSubmit={event => { void confirmMutation(event); }}><fieldset disabled={pending}><label htmlFor="confirmation-reason">Motif de la modification</label><textarea id="confirmation-reason" required maxLength={1000} value={confirmationReason} onChange={event => setConfirmationReason(event.target.value)} /><div className="button-row"><button type="submit" className="button danger" disabled={pending || !confirmationReason.trim()}>{confirmation.action === 'void' ? 'Confirmer l’annulation' : confirmation.action === 'archive' ? 'Confirmer l’archivage' : 'Confirmer la réactivation'}</button><button type="button" className="button secondary" onClick={() => setConfirmation(null)}>Conserver l’état actuel</button></div></fieldset></form></section>}
     </div>
     {page === 'family' && <>
       {table('Personnes, membres et tiers', ['Personne', 'Périmètre à la date choisie', 'Résidence', 'Actions'], people.filter(item => visibleProfile(item) && (allRegistry || !context.personId || item.id === context.personId)).map(item => <tr key={item.id}><td><strong>{entityName(item.id)}</strong>{item.archived && <small>Archivé</small>}</td><td>{registry.memberships.some(member => member.person_id === item.id && activeAt(member.valid_from, member.valid_to, context.date)) ? 'Membre de la famille' : 'Extérieur au périmètre'}</td><td>{entityAt(registry, item, context.date).residence_country || 'Non renseignée'}</td><td>{actions('person', item, true)}</td></tr>), 'Créer une personne', 'person')}
@@ -173,13 +176,13 @@ export default function RegistryPage({ page, registry, context, onChanged, onBus
       {table('Participations datées', ['Associé / propriétaire', 'Société détenue', 'Droits juridiques / économiques / votes', 'Période', 'Actions'], registry.participations.filter(item => period(item) && (relevantEntity(item.owner_entity_id) || relevantEntity(item.company_id))).map(item => <tr key={item.id}><td>{entityName(item.owner_entity_id)}</td><td>{entityName(item.company_id)}</td><td>{fractionLabel(item.legal_share)} / {fractionLabel(item.economic_share)} / {fractionLabel(item.voting_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('participation', item)}</td></tr>), 'Ajouter une participation', 'participation')}
       {table('Méthodes de consolidation datées', ['Société', 'Méthode', 'Qualification', 'Période', 'Actions'], registry.company_policies.filter(item => period(item) && relevantEntity(item.company_id)).map(item => <tr key={item.id}><td>{entityName(item.company_id)}</td><td>{item.mode === 'detailed' ? 'Actifs sous-jacents détaillés' : 'Valeur globale des capitaux propres'}</td><td>{item.coverage_complete ? 'Couverture déclarée complète' : 'Couverture incomplète'}<br />{item.liability_qualified ? 'Responsabilité qualifiée' : 'Responsabilité à qualifier'}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('company_policy', item)}</td></tr>), 'Définir une méthode', 'company_policy')}
       {valuationTable('company')}
-      <RegistryNotice>Le mode détaillé utilise les actifs sous-jacents. Le mode global retient la valeur nette des capitaux propres et exclut les sous-jacents sur ce chemin. Ils ne sont jamais additionnés. Les indicateurs d’exploitation et les dettes détaillées seront ajoutés dans leurs phases respectives.</RegistryNotice>
+      <RegistryNotice>Le mode détaillé utilise les actifs sous-jacents. Le mode global retient la valeur nette des capitaux propres et exclut les sous-jacents sur ce chemin. Ils ne sont jamais additionnés. Les observations périodiques, distributions et financements sont disponibles dans leurs modules ; ils restent distincts de cette méthode de valorisation.</RegistryNotice>
     </>}
     {page === 'assets' && <>
       {table('Actifs génériques', ['Actif', 'Pays', 'Classe', 'Actions'], registry.assets.filter(item => visibleProfile(item) && assetRelevant(item.id)).map(item => <tr key={item.id}><td><strong>{assetName(item.id)}</strong>{item.archived && <small>Archivé</small>}</td><td>{assetAt(registry, item, context.date).country}</td><td>{assetAt(registry, item, context.date).category}</td><td>{actions('asset', item, true)}</td></tr>), 'Créer un actif', 'asset')}
       {table('Propriétés datées', ['Actif', 'Propriétaire juridique', 'Droit juridique', 'Droit économique', 'Période', 'Actions'], registry.ownerships.filter(item => period(item) && (allRegistry || relevantEntity(item.owner_entity_id))).map(item => <tr key={item.id}><td>{assetName(item.asset_id)}</td><td>{entityName(item.owner_entity_id)}</td><td>{fractionLabel(item.legal_share)}</td><td>{fractionLabel(item.economic_share)}</td><td><Period from={item.valid_from} to={item.valid_to} /></td><td>{actions('ownership', item)}</td></tr>), 'Attribuer une propriété', 'ownership')}
       {valuationTable('asset')}
-      <ConsolidationPanel context={context} knowledgeSequence={registry.knowledge_sequence} onBusyChange={onBusyChange} />
+      <ConsolidationPanel context={context} knowledgeSequence={registry.knowledge_sequence} onBusyChange={setConsolidationBusy} />
     </>}
     {table('Périodes des profils descriptifs', ['Objet', 'Profil exact appliqué', 'Période', 'Actions'], registry.profile_periods.filter(item => period(item) && (page === 'assets' ? item.target_kind === 'asset' && assetRelevant(item.target_id) : item.target_kind === 'entity' && registry.entities.some(entity => entity.id === item.target_id && entity.kind === (page === 'family' ? 'person' : 'company')) && (page === 'family' ? allRegistry || !context.personId || item.target_id === context.personId : relevantEntity(item.target_id)))).map(item => {
       const profile = item.target_kind === 'asset' ? [...registry.assets, ...registry.asset_profile_revisions].find(profile => profile.id === item.target_id && profile.revision_id === item.profile_revision_id) : [...registry.entities, ...registry.profile_revisions].find(profile => profile.id === item.target_id && profile.revision_id === item.profile_revision_id);
@@ -218,7 +221,7 @@ function RegistryForm({ editor, setEditor, registry, pending, onSubmit }: {
       {kind === 'person' && <p className="field-hint">La fiche peut représenter un tiers. Ajoutez ensuite une période familiale pour inclure cette personne dans la consolidation.</p>}
     </>}
     {kind === 'membership' && <>{select('person_id', 'Personne à inclure dans la famille', entityOptions('person'))}{input('relationship', 'Lien familial (facultatif)')}{dates}</>}
-    {kind === 'asset' && <>{input('name', 'Nom de l’actif', true)}<div className="form-grid">{country('country', 'Pays de l’actif', true)}{input('category', 'Classe d’actif', true, 'text', 'Exemples : immobilier, liquidités, métaux, autre.')}</div>{notes}<p className="field-hint">La fiche générique ne crée pas de bien locatif, de compte bancaire ni de lot de métal. Ces modules seront ajoutés plus tard.</p></>}
+    {kind === 'asset' && <>{input('name', 'Nom de l’actif', true)}<div className="form-grid">{country('country', 'Pays de l’actif', true)}{input('category', 'Classe d’actif', true, 'text', 'Exemples : immobilier, liquidités, métaux, autre.')}</div>{notes}<p className="field-hint">La fiche générique ne crée pas de bien locatif, de compte bancaire ni de lot de métal. Complétez cette fiche dans Immobilier et loyers, Comptes bancaires ou Or et argent selon sa nature.</p></>}
     {(kind === 'participation' || kind === 'ownership') && <>
       {kind === 'participation' ? select('company_id', 'Société détenue', entityOptions('company')) : select('asset_id', 'Actif concerné', registry.assets.map(item => ({ id: item.id, label: item.name })))}
       {select('owner_entity_id', kind === 'participation' ? 'Associé ou société propriétaire' : 'Propriétaire identifié', entityOptions())}

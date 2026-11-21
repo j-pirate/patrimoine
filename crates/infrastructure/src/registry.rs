@@ -273,14 +273,15 @@ pub(crate) fn begin_shared(
     Ok((object, revision))
 }
 impl Vault {
-    fn write_registry(
+    fn write_registry<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(RegistrySnapshot, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut connection = db::connect(&self.db_path())?;
         let tx = connection
@@ -289,12 +290,14 @@ impl Vault {
         let (object, revision) = begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &object, &revision)?;
         validate_profile_sources(&tx)?;
-        validate_registry(&snapshot(&tx, None)?)?;
+        let result = snapshot(&tx, None)?;
+        validate_registry(&result)?;
         crate::properties::validate_current(&tx)?;
         crate::rentals::validate_current(&tx)?;
         crate::finance::validate_current(&tx)?;
+        let result = read(result, &object)?;
         tx.commit().map_err(db::error)?;
-        Ok(object)
+        Ok(result)
     }
 }
 impl RegistryService for Vault {
@@ -374,19 +377,14 @@ impl RegistryService for Vault {
         Ok(report)
     }
     fn save_entity(&mut self, i: SaveEntityInput) -> Result<Entity> {
-        let key=self.write_registry("entity",i.id.as_deref(),i.expected_revision_id.as_deref(),&i.reason,|tx,key,rev|{
+        self.write_registry("entity",i.id.as_deref(),i.expected_revision_id.as_deref(),&i.reason,|tx,key,rev|{
             tx.execute("INSERT OR IGNORE INTO entities VALUES(?1,?2)",params![key,i.kind]).map_err(db::error)?;
             let existing:String=tx.query_row("SELECT kind FROM entities WHERE id=?1",[key],|r|r.get(0)).map_err(db::error)?;
             if existing!=i.kind{return Err(AppError::new("validation","La nature personne ou société d’une identité existante ne peut pas changer."));}
-            tx.execute("INSERT INTO entity_profiles VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",params![rev,key,i.display_name,i.first_name,i.last_name,i.birth_date,i.residence_country,i.preferred_currency,i.activity,i.notes,i.archived]).map_err(db::error)?;Ok(())})?;
-        self.list_registry()?
-            .entities
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("La fiche enregistrée est introuvable."))
+            tx.execute("INSERT INTO entity_profiles VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",params![rev,key,i.display_name,i.first_name,i.last_name,i.birth_date,i.residence_country,i.preferred_currency,i.activity,i.notes,i.archived]).map_err(db::error)?;Ok(())}, |saved, key| saved.entities.into_iter().find(|v| v.id == key).ok_or_else(|| invalid("La fiche enregistrée est introuvable.")))
     }
     fn save_membership(&mut self, i: SaveMembershipInput) -> Result<Membership> {
-        let key = self.write_registry(
+        self.write_registry(
             "membership",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -399,18 +397,20 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .memberships
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("L’appartenance enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .memberships
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("L’appartenance enregistrée est introuvable."))
+            },
+        )
     }
     fn save_participation(&mut self, mut i: SaveParticipationInput) -> Result<Participation> {
         normalize_share(&mut i.legal_share)?;
         normalize_share(&mut i.economic_share)?;
         normalize_share(&mut i.voting_share)?;
-        let key = self.write_registry(
+        self.write_registry(
             "participation",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -438,15 +438,17 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .participations
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("La participation enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .participations
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("La participation enregistrée est introuvable."))
+            },
+        )
     }
     fn save_asset(&mut self, i: SaveAssetInput) -> Result<Asset> {
-        let key = self.write_registry(
+        self.write_registry(
             "asset",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -461,17 +463,19 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .assets
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("L’actif enregistré est introuvable."))
+            |saved, key| {
+                saved
+                    .assets
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("L’actif enregistré est introuvable."))
+            },
+        )
     }
     fn save_ownership(&mut self, mut i: SaveOwnershipInput) -> Result<Ownership> {
         normalize_share(&mut i.legal_share)?;
         normalize_share(&mut i.economic_share)?;
-        let key = self.write_registry(
+        self.write_registry(
             "ownership",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -496,16 +500,18 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .ownerships
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("Le droit enregistré est introuvable."))
+            |saved, key| {
+                saved
+                    .ownerships
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("Le droit enregistré est introuvable."))
+            },
+        )
     }
     fn save_valuation(&mut self, mut i: SaveValuationInput) -> Result<Valuation> {
         i.amount = exact::normalize_decimal_input(&i.amount)?;
-        let key = self.write_registry(
+        self.write_registry(
             "valuation",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -526,15 +532,17 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .valuations
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("La valorisation enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .valuations
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("La valorisation enregistrée est introuvable."))
+            },
+        )
     }
     fn save_company_policy(&mut self, i: SaveCompanyPolicyInput) -> Result<CompanyPolicy> {
-        let key = self.write_registry(
+        self.write_registry(
             "company_policy",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -555,16 +563,18 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .company_policies
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("La politique enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .company_policies
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("La politique enregistrée est introuvable."))
+            },
+        )
     }
     fn save_exchange_rate(&mut self, mut i: SaveExchangeRateInput) -> Result<ExchangeRate> {
         i.rate = exact::normalize_rate_input(&i.rate)?;
-        let key = self.write_registry(
+        self.write_registry(
             "exchange_rate",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -585,15 +595,17 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .exchange_rates
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("Le taux enregistré est introuvable."))
+            |saved, key| {
+                saved
+                    .exchange_rates
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("Le taux enregistré est introuvable."))
+            },
+        )
     }
     fn save_profile_period(&mut self, i: SaveProfilePeriodInput) -> Result<ProfilePeriod> {
-        let key = self.write_registry(
+        self.write_registry(
             "profile_period",
             i.id.as_deref(),
             i.expected_revision_id.as_deref(),
@@ -613,12 +625,14 @@ impl RegistryService for Vault {
                 .map_err(db::error)?;
                 Ok(())
             },
-        )?;
-        self.list_registry()?
-            .profile_periods
-            .into_iter()
-            .find(|v| v.id == key)
-            .ok_or_else(|| invalid("La période de profil enregistrée est introuvable."))
+            |saved, key| {
+                saved
+                    .profile_periods
+                    .into_iter()
+                    .find(|v| v.id == key)
+                    .ok_or_else(|| invalid("La période de profil enregistrée est introuvable."))
+            },
+        )
     }
     fn void_registry_record(&mut self, input: VoidRecordInput) -> Result<()> {
         self.ensure_active()?;
@@ -706,6 +720,33 @@ fn validate_profile_sources(c: &Connection) -> Result<()> {
     }
     Ok(())
 }
+/// K values between two relevant revisions have identical business sources.
+/// Keep every change that alters a source, including corrections and voids.
+pub(crate) const KINDS: &[&str] = &[
+    "entity",
+    "membership",
+    "participation",
+    "asset",
+    "ownership",
+    "valuation",
+    "company_policy",
+    "exchange_rate",
+    "profile_period",
+];
+
+pub(crate) fn history_sequences(c: &Connection, kinds: &[&str]) -> Result<Vec<u64>> {
+    let placeholders = vec!["?"; kinds.len()].join(",");
+    let mut query = c.prepare(&format!(
+        "SELECT DISTINCT cs.sequence FROM change_sets cs JOIN revisions r ON r.change_set_id=cs.id JOIN objects o ON o.id=r.object_id WHERE o.kind IN ({placeholders}) ORDER BY cs.sequence"
+    )).map_err(db::error)?;
+    let result = query
+        .query_map(rusqlite::params_from_iter(kinds), |r| r.get(0))
+        .map_err(db::error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db::error);
+    result
+}
+
 pub(crate) fn validate_history(c: &Connection) -> Result<()> {
     let identities: u64 = c.query_row(
         "SELECT (SELECT count(*) FROM entity_profiles v JOIN revisions r ON v.revision_id=r.id WHERE v.entity_id<>r.object_id) + (SELECT count(*) FROM asset_profiles v JOIN revisions r ON v.revision_id=r.id WHERE v.asset_id<>r.object_id) + (SELECT count(*) FROM entities e JOIN objects o ON e.id=o.id WHERE o.kind<>'entity') + (SELECT count(*) FROM assets a JOIN objects o ON a.id=o.id WHERE o.kind<>'asset') + (SELECT count(*) FROM objects o WHERE (o.kind='entity' AND NOT EXISTS(SELECT 1 FROM entities e WHERE e.id=o.id)) OR (o.kind='asset' AND NOT EXISTS(SELECT 1 FROM assets a WHERE a.id=o.id))) + (SELECT count(*) FROM objects o WHERE o.kind IN ('entity','membership','participation','asset','ownership','valuation','company_policy','exchange_rate','profile_period','property','rental_unit','property_event','lease','lease_terms','rent_due','rent_payment','rent_allocation','rental_expense','treasury_account','treasury_transaction','account_reconciliation','cash_link','deposit_movement','debt_contract','debt_terms','debt_movement','debt_receivable_adjustment','debt_schedule','debt_payment_allocation','debt_asset_link','debt_guarantee','debt_coverage','finance_coverage','rent_claim','rent_claim_adjustment') AND ((SELECT count(CASE WHEN r.supersedes_revision_id IS NULL THEN 1 END) FROM revisions r WHERE r.object_id=o.id)<>1 OR (SELECT count(*) FROM revisions r WHERE r.object_id=o.id AND NOT EXISTS(SELECT 1 FROM revisions n WHERE n.supersedes_revision_id=r.id))<>1))",
@@ -717,14 +758,8 @@ pub(crate) fn validate_history(c: &Connection) -> Result<()> {
         ));
     }
     validate_profile_sources(c)?;
-    let mut sequences = c
-        .prepare("SELECT sequence FROM change_sets ORDER BY sequence")
-        .map_err(db::error)?;
-    for sequence in sequences
-        .query_map([], |r| r.get::<_, u64>(0))
-        .map_err(db::error)?
-    {
-        validate_registry(&snapshot(c, Some(sequence.map_err(db::error)?))?)?;
+    for sequence in history_sequences(c, KINDS)? {
+        validate_registry(&snapshot(c, Some(sequence))?)?;
     }
     let mut tables = vec![
         ("entity", "entity_profiles"),

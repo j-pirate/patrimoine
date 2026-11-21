@@ -1,0 +1,35 @@
+{
+  "reviewed_at": "2026-11-20",
+  "historical_database_date": "2026-11-12",
+  "review_again_before": "2026-12-12",
+  "review_triggers": [
+    "new release build",
+    "GTK/WebKit/Tauri or lockfile changes",
+    "new weekly advisory matches",
+    "activation of the serde_with chrono integration"
+  ],
+  "scope": "Review on 2026-11-20 against RustSec f291af9b1cc0d21dfcea1709d6b037963cef262b. GLib and proc-macro-error remain tracked. Chrono is present in Cargo.lock through serde_with optional dependency metadata, but cargo tree --workspace --locked --offline --all-features --target all -i chrono resolves no compiled dependency. Prior GLib reachability evidence is not a proof of every indirect path in the new binary.",
+  "tracked_warnings": [
+    {
+      "id": "RUSTSEC-2024-0370",
+      "package": "proc-macro-error",
+      "version": "1.0.4",
+      "kind": "unmaintained",
+      "follow_up": "Review the macro dependency tree when upgrading GTK/Tauri; compilation remains a trust boundary."
+    },
+    {
+      "id": "RUSTSEC-2024-0429",
+      "package": "glib",
+      "version": "0.18.5",
+      "kind": "unsound",
+      "follow_up": "Review a coherent GTK/WebKit/Tauri upgrade and rerun VariantStrIter/array_iter_str reachability for the program being built; an isolated GLib upgrade is not validated."
+    },
+    {
+      "id": "RUSTSEC-2026-0543",
+      "package": "chrono",
+      "version": "0.4.45",
+      "kind": "unmaintained",
+      "follow_up": "No patched version is listed. Keep the serde_with chrono integration disabled; reconsider its dependency or an alternative if a feature change makes chrono enter the resolved graph."
+    }
+  ]
+}

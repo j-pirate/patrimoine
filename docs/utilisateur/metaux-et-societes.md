@@ -10,7 +10,7 @@ La date économique **D** et les connaissances **K** restent celles du bandeau c
 
 Dans **Or et argent → Lots**, choisir **Créer un lot de métal**. Rattacher le lot à un actif déjà créé dans **Patrimoine** ; **Gérer les actifs et leurs propriétaires** permet de préparer cet actif et ses droits. Un lot complète un actif unique. Il ne peut pas utiliser un actif déjà spécialisé comme compte ou bien immobilier.
 
-Renseigner le métal, la forme, la désignation, le poids brut **d’une unité physique**, l’unité de poids, la pureté, le début du suivi, la devise des coûts, le titulaire initial et le lieu initial. La pureté est une fraction décimale, par exemple `0,9`, et non un pourcentage à interpréter. Les unités sont **Gramme**, **Kilogramme** et **Once troy (31,1034768 g)**. Une once ordinaire n’est pas une once troy.
+Renseigner le métal, la forme, la désignation, le poids brut **d’une unité physique**, l’unité de poids, la pureté, le début du suivi, la devise des coûts, le titulaire initial et le lieu initial. La pureté est une fraction décimale strictement supérieure à `0` et inférieure ou égale à `1`, par exemple `0,9`, et non un pourcentage à interpréter. La quantité restante peut être nulle après une vente complète ; cette possibilité ne s’applique pas à la pureté. Les unités sont **Gramme**, **Kilogramme** et **Once troy (31,1034768 g)**. Une once ordinaire n’est pas une once troy.
 
 Les conversions sont exactes : `1 kg = 1 000 g` et `1 once troy = 31,1034768 g`. Le poids fin est la quantité restante multipliée par le poids brut unitaire en grammes, puis par la pureté. Deux pièces de `31,1034768 g`, de pureté `0,9`, représentent exactement `55,98625824 g` de métal fin.
 
@@ -75,7 +75,7 @@ Choisir **Indicateurs et dividendes → Observations périodiques → Ajouter un
 
 Les champs sont facultatifs : chiffre d’affaires, charges d’exploitation, résultat d’exploitation déclaré, résultat net, trésorerie indicative, dettes indicatives, créances importantes, dividendes déclarés indicatifs et valeur globale indicative. Une case vide reste **Non renseigné** ; saisir `0` uniquement si ce zéro est confirmé. Les résultats et la trésorerie peuvent être signés selon la source ; les autres montants respectent leurs contraintes de signe.
 
-Les périodes de même société, fréquence et devise ne se chevauchent pas. Des observations mensuelles et annuelles peuvent coexister, mais elles ne sont pas additionnées. Les montants sont des observations de pilotage ; ils ne créent aucun compte, dette, créance, bénéfice reçu personnellement ou deuxième valeur de société dans le bilan.
+Les périodes de même société et fréquence ne se chevauchent pas, **même si les devises diffèrent**. Changer de devise ne permet pas de créer une observation concurrente pour la même période. Des observations mensuelles et annuelles peuvent coexister, mais elles ne sont pas additionnées. Les montants sont des observations de pilotage ; ils ne créent aucun compte, dette, créance, bénéfice reçu personnellement ou deuxième valeur de société dans le bilan.
 
 Dans **Consulter une société**, choisir une société et éventuellement une fréquence, puis **Calculer le contrôle de société**. Seules les périodes terminées à D sont analysées. Le rapport compare des périodes adjacentes de fréquence et devise compatibles. Il expose la différence de montant et sa variation en pourcentage ; une base nulle laisse le pourcentage non calculable. Une lacune ou une période incompatible ne produit pas de tendance inventée.
 

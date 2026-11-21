@@ -119,6 +119,32 @@ describe('Registre familial et droits datés', () => {
     expect(api.voidRegistryRecord).not.toHaveBeenCalled();
   });
 
+  it.each(['archivage', 'réactivation', 'annulation'])('REG-05 focalise la confirmation de %s puis restaure son déclencheur', async action => {
+    const { user } = openRegistry('family', action === 'réactivation' ? { ...registry, entities: [{ ...person, archived: true }] } : registry);
+    if (action === 'réactivation') await user.click(screen.getByRole('checkbox', { name: 'Afficher les fiches archivées' }));
+    const table = screen.getByRole('table', { name: action === 'annulation' ? 'Périodes du périmètre familial' : 'Personnes, membres et tiers' });
+    const trigger = within(table).getByRole('button', { name: action === 'annulation' ? 'Annuler l’enregistrement' : action === 'réactivation' ? 'Réactiver' : 'Archiver' });
+    await user.click(trigger);
+    expect(screen.getByRole('region', { name: 'Confirmer la modification du registre' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Conserver l’état actuel' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(api.saveEntity).not.toHaveBeenCalled();
+    expect(api.voidRegistryRecord).not.toHaveBeenCalled();
+  });
+
+  it('REG-03 ferme la correction confirmée et garde son succès si la relecture échoue', async () => {
+    const { user, onChanged } = openRegistry('family');
+    onChanged.mockRejectedValue(new Error('Registre momentanément illisible'));
+    const row = within(screen.getByRole('table', { name: 'Personnes, membres et tiers' })).getByText('Alice Martin').closest('tr')!;
+    await user.click(within(row).getByRole('button', { name: 'Modifier' }));
+    await user.type(screen.getByLabelText('Motif de la correction'), 'Correction confirmée');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la correction' }));
+    expect(await screen.findByText(/L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Registre momentanément illisible');
+    expect(api.saveEntity).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Enregistrer la correction' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('envoie le montant français comme texte au backend sans calcul JavaScript', async () => {
     const { user } = openRegistry('assets');
     await user.click(screen.getByRole('button', { name: 'Ajouter une estimation' }));

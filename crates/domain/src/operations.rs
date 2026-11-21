@@ -3,7 +3,7 @@ use crate::exact::parse_decimal;
 use crate::*;
 use num_rational::BigRational;
 use num_traits::{Signed, Zero};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub fn validate_operation_cash_capacity(
     treasury: &TreasurySnapshot,
@@ -46,18 +46,26 @@ pub fn validate_operation_cash_capacity(
             .entry((revision, line))
             .or_insert_with(BigRational::zero) += parse_decimal(amount)?.abs();
     }
+    // Keep the first exact revision and first line, as the former linear
+    // lookup did, while building the lookup only once for this snapshot.
+    let mut revisions = BTreeSet::new();
+    let mut capacities = BTreeMap::new();
+    for transaction in &treasury.transactions {
+        if revisions.insert(transaction.revision_id.as_str()) {
+            for entry in &transaction.entries {
+                capacities
+                    .entry((transaction.revision_id.as_str(), entry.line_id.as_str()))
+                    .or_insert(entry);
+            }
+        }
+    }
     for ((revision, line), total) in used {
-        let entry = treasury
-            .transactions
-            .iter()
-            .find(|t| t.revision_id == revision)
-            .and_then(|t| t.entries.iter().find(|e| e.line_id == line))
-            .ok_or_else(|| {
-                AppError::new(
-                    "validation",
-                    "Un rapprochement ne référence pas une ligne de trésorerie courante.",
-                )
-            })?;
+        let entry = capacities.get(&(revision, line)).ok_or_else(|| {
+            AppError::new(
+                "validation",
+                "Un rapprochement ne référence pas une ligne de trésorerie courante.",
+            )
+        })?;
         if total > parse_decimal(&entry.amount)?.abs() {
             return Err(AppError::new("validation", "Les sources cumulées de loyers, financements, métaux et dividendes dépassent la capacité de la même ligne de trésorerie."));
         }

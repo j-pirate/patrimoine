@@ -1,6 +1,6 @@
 # Devises, dates et historique — phase 4
 
-Le registre utilise désormais des taux manuels en EUR, TND, CHF, USD et AED. Tout reste dans le coffre local. Aucune cotation n’est téléchargée et aucune parité n’est supposée, y compris pour AED/USD. La consolidation reste un contrôle du sous-total des actifs enregistrés ; les flux de trésorerie et les passifs saisissables viendront dans les phases suivantes.
+Le registre utilise désormais des taux manuels en EUR, TND, CHF, USD et AED. Tout reste dans le coffre local. Aucune cotation n’est téléchargée et aucune parité n’est supposée, y compris pour AED/USD. Le contrôle du registre reste un sous-total des actifs enregistrés ; le bilan intermodules avec comptes, créances et dettes est livré dans **Comptes et financements**.
 
 ## Enregistrer et vérifier un cours
 
@@ -29,9 +29,9 @@ La barre globale comporte deux références indépendantes :
 
 Exemple : un cours du 1er janvier est enregistré à `0,30`, puis corrigé en mars à `0,31`. À D = 31 janvier, les connaissances actuelles donnent `310,00 EUR` pour `1 000 TND`. En choisissant la séquence précédant la correction, la même date donne `300,00 EUR`. La date de saisie dans le journal n’est pas une nouvelle date économique du cours.
 
-Dans **Historique**, chaque ligne présente la séquence, la date de saisie, l’objet et le motif. **Consulter la séquence** ouvre cet état en lecture seule ; **Revenir aux connaissances actuelles** rétablit la saisie. Les paramètres, documents et sauvegardes portent toujours sur le coffre actuel, comme l’indique l’interface. Choisir une séquence ne restaure pas le coffre. Les séquences comprennent aussi les changements documentaires et de paramètres ; elles ne sont pas des numéros de cours.
+Dans **Historique**, chaque ligne présente la séquence, la date de saisie, l’objet et le motif. **Consulter la séquence** ouvre cet état en lecture seule ; **Revenir aux connaissances actuelles** rétablit la saisie. La bibliothèque **Documents** suit les connaissances K ; les associations sont également filtrées par la date D. À K fixe, les écritures documentaires sont bloquées. Les paramètres et les sauvegardes/exports intégraux concernent le coffre actuel et toute son histoire. Voir [Documents et portabilité](documents-et-portabilite.md). Choisir une séquence ne restaure pas le coffre. Les séquences comprennent aussi les changements documentaires et de paramètres ; elles ne sont pas des numéros de cours.
 
-Une estimation de stock en devise est convertie au cours de **D**, même si son estimation est plus ancienne. La date de cette estimation et les dates des cotations restent distinctes dans le détail de contribution. Les conversions de flux à leur date de paiement appartiennent aux modules futurs.
+Une estimation de stock en devise est convertie au cours de **D**, même si son estimation est plus ancienne. La date de cette estimation et les dates des cotations restent distinctes dans le détail de contribution. Les modules locatifs, de trésorerie et de financement conservent la conversion de leurs flux à leur date de paiement ; voir [Comptes et financements](comptes-et-financements.md).
 
 ## Dater les profils descriptifs
 
@@ -54,10 +54,10 @@ Dans **Historique**, comparer deux dates avec **Expliquer la variation**. Le pon
 
 Les interactions sont attribuées à la dernière étape concernée. Par exemple, `1 000 TND × 0,30` devient `1 200 TND × 0,40` : la variation de `180 EUR` se décompose en `60 EUR` d’estimation puis `120 EUR` de change. Ce choix d’ordre est une convention de décomposition et non une mesure causale du rendement.
 
-Une entrée dans le périmètre, une acquisition ou un changement de droits ne devient pas un gain de marché. Les flux et coûts d’acquisition ne sont pas encore inventoriés : aucun rendement ni apport de trésorerie n’est déduit. Si une référence manque, la composante apparaît **Non attribuable**. Le résidu est la différence non expliquée des sous-totaux connus, sans estimation du patrimoine absent. Même un pont réconcilié ne certifie pas un bilan net exhaustif. Les détails donnent les dates figées, sources et alertes de chaque calcul.
+Une entrée dans le périmètre, une acquisition ou un changement de droits ne devient pas un gain de marché. Ce pont du registre ne décompose pas les flux et coûts d’acquisition des modules livrés : aucun rendement ni apport de trésorerie n’en est déduit. Si une référence manque, la composante apparaît **Non attribuable**. Le résidu est la différence non expliquée des sous-totaux connus, sans estimation du patrimoine absent. Même un pont réconcilié ne certifie pas un bilan net exhaustif. Les détails donnent les dates figées, sources et alertes de chaque calcul.
 
 ## Sauvegarder et retrouver ces données
 
-La migration `0003` ajoute les taux et périodes descriptives. Les coffres et archives des schémas 1 et 2 sont contrôlés dans leur schéma d’origine, copiés, puis migrés avant activation. La génération précédente et l’archive source sont conservées. Le format ZIP reste en version 1 ; le schéma SQLite courant est 3.
+La migration `0003` ajoute les taux et périodes descriptives. Les coffres et archives des schémas 1 et 2 sont contrôlés dans leur schéma d’origine, copiés, puis migrés avant activation. La génération précédente et l’archive source sont conservées. Le format ZIP reste en version 1 ; la phase 4 introduisait le schéma 3 ; le schéma SQLite courant est 6.
 
 Une sauvegarde contient les taux, toutes les révisions, périodes, séquences et documents originaux, avec les autres données du registre. Après restauration, vérifier D et K puis relancer le contrôle : la restauration ne sauvegarde pas un calcul affiché en tant que rapport immuable. Les preuves exécutées et limites sont dans [la validation de phase 4](../historique/validation-phase-4.md).

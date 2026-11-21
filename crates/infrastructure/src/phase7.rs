@@ -137,14 +137,15 @@ pub(crate) fn resolve_cash(
 }
 
 impl Vault {
-    pub(crate) fn write_phase7(
+    pub(crate) fn write_phase7<T>(
         &mut self,
         kind: &str,
         object: Option<&str>,
         expected: Option<&str>,
         reason: &str,
         write: impl FnOnce(&Transaction<'_>, &str, &str) -> Result<()>,
-    ) -> Result<String> {
+        read: impl FnOnce(&Connection, &str) -> Result<T>,
+    ) -> Result<T> {
         self.ensure_active()?;
         let mut c = db::connect(&self.db_path())?;
         let tx = c
@@ -153,7 +154,8 @@ impl Vault {
         let (id, revision) = registry::begin(&tx, object, expected, kind, reason, false)?;
         write(&tx, &id, &revision)?;
         finance::validate_current(&tx)?;
+        let result = read(&tx, &id)?;
         tx.commit().map_err(db::error)?;
-        Ok(id)
+        Ok(result)
     }
 }

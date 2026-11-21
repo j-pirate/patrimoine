@@ -25,6 +25,7 @@ const report: PropertyReport = {
   acquisition_conversions: [], estimated_value_eur: null, exact_estimated_value_eur: null,
   unrealized_gain_original: null, exact_unrealized_gain_original: null, unrealized_gain_currency: null,
   unrealized_gain_eur: null, exact_unrealized_gain_eur: null, debt_remaining_eur: null, net_before_disposal_eur: null,
+  financing_conversions: [], exact_debt_remaining_eur: null, exact_net_before_disposal_eur: null,
   source_ids: ['details-r1'], warnings: [{ code: 'missing_valuation', message: 'Aucune estimation applicable ; le coût n’est pas une estimation.' }],
 };
 
@@ -196,4 +197,18 @@ describe('Fiches immobilières et unités techniques', () => {
     expect(screen.queryByText('0.00 EUR')).not.toBeInTheDocument();
     expect(screen.getByText(/Le coût ne remplace jamais une estimation manquante/)).toBeVisible();
   });
+  it('REG-03 conserve la confirmation de cession si le parent refuse son actualisation', async () => {
+    const { user, onChanged } = open();
+    onChanged.mockRejectedValueOnce(new Error('Relecture immobilière indisponible'));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer une cession' }));
+    await user.selectOptions(screen.getByLabelText('Bien concerné'), 'house');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Acte enregistré');
+    await user.click(screen.getByLabelText('Je confirme la cession complète et la clôture des droits suivis.'));
+    await user.click(screen.getByRole('button', { name: 'Confirmer la cession complète' }));
+    expect(await screen.findByText(/La cession et la clôture des droits ont été enregistrées ensemble.*L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Relecture immobilière indisponible');
+    expect(api.disposeProperty).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmer la cession complète' })).not.toBeInTheDocument();
+  });
+
 });

@@ -7,7 +7,6 @@ use std::{
     fs::{self, File},
     io::{Read, Seek, SeekFrom, Write},
     path::{Component, Path},
-    time::Duration,
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
@@ -96,18 +95,7 @@ pub(crate) fn create(
 ) -> Result<Manifest> {
     directory(scratch)?;
     let snapshot = scratch.join("snapshot.sqlite3");
-    new_file(&snapshot)?;
-    let source = db::connect(&generation.join("patrimoine.sqlite3"))?;
-    let mut target = Connection::open(&snapshot).map_err(db::error)?;
-    rusqlite::backup::Backup::new(&source, &mut target)
-        .map_err(db::error)?
-        .run_to_completion(64, Duration::from_millis(10), None)
-        .map_err(db::error)?;
-    target
-        .execute_batch("PRAGMA journal_mode=DELETE;")
-        .map_err(db::error)?;
-    drop(target);
-    drop(source);
+    db::copy_snapshot(&generation.join("patrimoine.sqlite3"), &snapshot)?;
     db::validate(&snapshot)?;
     let c = db::readonly(&snapshot)?;
     let counts = db::counts(&c)?;
@@ -337,6 +325,7 @@ pub(crate) fn inspect(archive: &Path, staging: &Path) -> Result<(Manifest, Strin
         || !(1..=db::SCHEMA).contains(&manifest.schema_version)
         || !valid_id(&manifest.export_id)
         || !valid_id(&manifest.generation_id)
+        || !db::valid_timestamp(&manifest.created_at)
     {
         return Err(invalid(
             "Le type ou la version de sauvegarde n’est pas pris en charge.",

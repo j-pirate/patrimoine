@@ -1,6 +1,6 @@
 use crate::files::*;
 use patrimoine_application::validate_settings;
-use patrimoine_domain::{AppError, DocumentSummary, Result, Settings};
+use patrimoine_domain::{AppError, DocumentSummary, ErrorCode, Result, Settings};
 use rusqlite::{params, Connection, OpenFlags};
 use std::{collections::BTreeMap, path::Path};
 
@@ -14,7 +14,7 @@ pub(crate) const SQL5: &str = include_str!("../migrations/0005_finance.sql");
 pub(crate) const SQL6: &str = include_str!("../migrations/0006_metals_companies.sql");
 pub(crate) fn error(e: rusqlite::Error) -> AppError {
     AppError::new(
-        "database",
+        ErrorCode::Database,
         format!("La base SQLite ne peut pas être utilisée : {e}"),
     )
 }
@@ -156,7 +156,7 @@ pub(crate) fn mutation(c: &Connection, reason: &str) -> Result<(String, String)>
     Ok((cs, stamp))
 }
 pub(crate) fn documents(c: &Connection) -> Result<Vec<DocumentSummary>> {
-    let mut s=c.prepare("SELECT d.id,v.original_name,v.mime_type,b.size_bytes,b.sha256,r.recorded_at FROM documents d JOIN revisions r ON r.object_id=d.id JOIN document_versions v ON v.revision_id=r.id JOIN document_blobs b ON b.sha256=v.blob_sha256 WHERE r.is_void=0 AND v.status='active' AND NOT EXISTS(SELECT 1 FROM revisions r2 WHERE r2.supersedes_revision_id=r.id) ORDER BY r.recorded_at,d.id").map_err(error)?;
+    let mut s=c.prepare("SELECT d.id,v.original_name,v.mime_type,b.size_bytes,b.sha256,(SELECT r0.recorded_at FROM revisions r0 JOIN change_sets c0 ON c0.id=r0.change_set_id WHERE r0.object_id=d.id ORDER BY c0.sequence,r0.id LIMIT 1) FROM documents d JOIN revisions r ON r.object_id=d.id JOIN document_versions v ON v.revision_id=r.id JOIN document_blobs b ON b.sha256=v.blob_sha256 WHERE r.is_void=0 AND v.status='active' AND NOT EXISTS(SELECT 1 FROM revisions r2 WHERE r2.supersedes_revision_id=r.id) ORDER BY r.recorded_at,d.id").map_err(error)?;
     let result = s
         .query_map([], |r| {
             Ok(DocumentSummary {
@@ -191,7 +191,7 @@ pub(crate) fn validate(path: &Path) -> Result<()> {
         .map_err(error)?;
     if !(1..=SCHEMA).contains(&version) {
         return Err(AppError::new(
-            "schema_version",
+            ErrorCode::SchemaVersion,
             format!(
                 "Version de base non prise en charge : {version}. Version attendue : {SCHEMA}."
             ),
@@ -282,6 +282,7 @@ pub(crate) fn validate(path: &Path) -> Result<()> {
             return Err(invalid("Un identifiant stable est invalide."));
         }
     }
+    validate_technical_metadata(&c)?;
     for d in documents(&c)? {
         if d.original_name.is_empty()
             || d.original_name.len() > 1024
@@ -321,6 +322,68 @@ pub(crate) fn validate(path: &Path) -> Result<()> {
     // Les modules futurs ne sont pas déclarés validés.
     Ok(())
 }
+pub(crate) fn valid_timestamp(value: &str) -> bool {
+    time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+        .is_ok_and(|value| value.offset() == time::UtcOffset::UTC)
+}
+fn validate_technical_metadata(c: &Connection) -> Result<()> {
+    for (table, column) in [
+        ("schema_migrations", "applied_at"),
+        ("objects", "created_at"),
+        ("change_sets", "recorded_at"),
+        ("revisions", "recorded_at"),
+        ("app_settings", "updated_at"),
+        ("document_blobs", "created_at"),
+        ("backup_runs", "started_at"),
+        ("backup_runs", "completed_at"),
+    ] {
+        let mut statement = c
+            .prepare(&format!(
+                "SELECT \"{column}\" FROM \"{table}\" WHERE \"{column}\" IS NOT NULL"
+            ))
+            .map_err(error)?;
+        for value in statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(error)?
+        {
+            if !valid_timestamp(&value.map_err(error)?) {
+                return Err(invalid(&format!(
+                    "L’instant technique {table}.{column} doit être une date RFC 3339 en UTC."
+                )));
+            }
+        }
+    }
+    let mut commands = c
+        .prepare("SELECT command_id FROM change_sets UNION ALL SELECT id FROM backup_runs")
+        .map_err(error)?;
+    for value in commands
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(error)?
+    {
+        if !valid_id(&value.map_err(error)?) {
+            return Err(invalid("Un identifiant technique de commande ou de sauvegarde n’est pas un UUID canonique."));
+        }
+    }
+    let mismatched: bool = c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM audit_events a JOIN revisions r ON r.id=a.revision_id WHERE a.object_id<>r.object_id OR a.change_set_id<>r.change_set_id)",
+        [], |row| row.get(0),
+    ).map_err(error)?;
+    if mismatched {
+        return Err(invalid(
+            "Un audit ne correspond pas à l’objet ou au changement de sa révision.",
+        ));
+    }
+    let mismatched: bool = c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM revisions r JOIN change_sets c ON c.id=r.change_set_id WHERE r.recorded_at<>c.recorded_at)",
+        [], |row| row.get(0),
+    ).map_err(error)?;
+    if mismatched {
+        return Err(invalid(
+            "L’instant d’une révision ne correspond pas à son changement.",
+        ));
+    }
+    Ok(())
+}
 pub(crate) fn validate_generation(generation: &Path) -> Result<()> {
     validate(&generation.join("patrimoine.sqlite3"))?;
     let c = readonly(&generation.join("patrimoine.sqlite3"))?;
@@ -341,18 +404,58 @@ pub(crate) fn version(path: &Path) -> Result<u32> {
         .map_err(error)
 }
 pub(crate) fn copy_snapshot(source: &Path, target: &Path) -> Result<()> {
-    new_file(target)?;
-    let source = readonly(source)?;
-    let mut target = Connection::open(target).map_err(error)?;
-    rusqlite::backup::Backup::new(&source, &mut target)
-        .map_err(error)?
-        .run_to_completion(64, std::time::Duration::from_millis(10), None)
-        .map_err(error)?;
-    target
-        .execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")
-        .map_err(error)?;
-    Ok(())
+    copy_snapshot_with_timeout(source, target, std::time::Duration::from_secs(30))
 }
+fn copy_snapshot_with_timeout(
+    source: &Path,
+    target: &Path,
+    timeout: std::time::Duration,
+) -> Result<()> {
+    let started = std::time::Instant::now();
+    new_file(target)?;
+    let result = (|| {
+        let source = readonly(source)?;
+        source
+            .busy_timeout(std::time::Duration::ZERO)
+            .map_err(error)?;
+        let mut destination = Connection::open(target).map_err(error)?;
+        destination
+            .busy_timeout(std::time::Duration::ZERO)
+            .map_err(error)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&source, &mut destination).map_err(error)?;
+            loop {
+                if started.elapsed() >= timeout {
+                    return Err(AppError::new(ErrorCode::SnapshotTimeout, "La copie SQLite n’a pas pu terminer dans le délai de 30 secondes. Fermez les outils externes qui utilisent ce coffre, puis réessayez ; la copie incomplète est abandonnée."));
+                }
+                match backup.step(64).map_err(error)? {
+                    rusqlite::backup::StepResult::Done => break,
+                    rusqlite::backup::StepResult::More => {}
+                    _ => std::thread::sleep(
+                        std::time::Duration::from_millis(10)
+                            .min(timeout.saturating_sub(started.elapsed())),
+                    ),
+                }
+            }
+        }
+        destination
+            .execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")
+            .map_err(error)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let mut path = target.as_os_str().to_owned();
+            path.push(suffix);
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+#[path = "db_integrity_tests.rs"]
+mod integrity_tests;
 pub(crate) fn migrate_candidate(path: &Path) -> Result<()> {
     validate(path)?;
     let previous = version(path)?;

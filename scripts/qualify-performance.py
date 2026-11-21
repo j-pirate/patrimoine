@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -189,10 +190,25 @@ def measure(binary, vault, operation, artifacts, timeout):
             time.sleep(0.05)
     record = {'operation':operation, 'exit_code':process.returncode, 'wall_seconds':time.monotonic()-started,
               'sampled_peak_rss_kib':peak_kib, 'timeout_seconds':timeout, 'status':'timeout' if timed_out else 'error'}
-    if not timed_out and stdout.stat().st_size:
-        try: record.update(json.loads(stdout.read_text()))
-        except json.JSONDecodeError: record['invalid_stdout']=True
-    return finish_record(record)
+    return finish_record(driver_record(record, stdout.read_bytes(), timed_out))
+
+
+def driver_record(record, raw, timed_out=False):
+    """Keep process supervision authoritative over untrusted driver output."""
+    record['process_state'] = 'running' if record['exit_code'] is None else 'exited'
+    if timed_out:
+        return record
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or payload.get('operation') != record['operation']:
+            raise ValueError('The driver response must identify the requested operation.')
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        record['invalid_stdout'] = True
+        return record
+    result = {**payload, **record, 'driver_status': payload.get('status')}
+    if payload.get('status') == 'passed':
+        result['status'] = 'pending' if record['exit_code'] is None else 'passed' if record['exit_code'] == 0 else 'error'
+    return result
 
 
 def finish_record(record):
@@ -200,7 +216,9 @@ def finish_record(record):
     record['ordinary_consultation_target_seconds']=2 if operation in ['open','registry','treasury','documents','account','financial','individual','historical','fx','dashboard'] else None
     if record['ordinary_consultation_target_seconds'] is not None:
         duration=record.get('open_seconds') if operation=='open' else record.get('operation_seconds')
-        record['provisional_target_met']=record['status']=='passed' and duration is not None and duration < 2
+        record['provisional_target_met']=(record['status']=='passed' and record.get('exit_code') == 0
+            and isinstance(duration, (int, float)) and not isinstance(duration, bool)
+            and math.isfinite(duration) and 0 <= duration < 2)
     print(json.dumps(record,ensure_ascii=False),flush=True)
     return record
 
@@ -230,11 +248,7 @@ def session_stage(process, operation, artifacts, timeout, stem):
             'sampled_peak_rss_kib':peak_kib, 'timeout_seconds':timeout, 'status':'timeout' if timed_out else 'error',
             'shared_validated_session':True, 'load_average_after':os.getloadavg(),
             'memory_note':'sampled_peak_rss_kib covers this stage; VmHWM_kib is cumulative unless memory_peak_reset is true'}
-    if data.strip() and not timed_out:
-        try: record.update(json.loads(data))
-        except json.JSONDecodeError: record['invalid_stdout']=True
-    if record['status']=='passed': record['exit_code']=0
-    return finish_record(record)
+    return driver_record(record, data, timed_out)
 
 
 def measure_session(binary, vault, operations, artifacts, timeout):
@@ -244,27 +258,53 @@ def measure_session(binary, vault, operations, artifacts, timeout):
         attempt += 1
         with (artifacts/f'session-{attempt}.stderr.txt').open('w') as err:
             process=subprocess.Popen([str(binary),str(vault),'--session'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=err)
+            records = []
+            blocked = None
+            shutdown_timed_out = False
             try:
                 opened=session_stage(process,'open',artifacts,timeout,f'session-{attempt}-open')
+                records.append(opened)
                 yield 'startup', opened
                 if 'open' in pending:
                     pending.remove('open')
                     yield 'measurement', opened
-                if opened['status']!='passed':
-                    yield 'blocked', {'reason':'The real application refused or timed out validating the fixture.','operations':pending}
-                    return
-                while pending:
+                if opened.get('driver_status') != 'passed' or opened['status'] not in ('passed', 'pending'):
+                    blocked = {'reason':'The real application refused or timed out validating the fixture.','operations':list(pending)}
+                while pending and blocked is None:
                     operation=pending.pop(0)
-                    process.stdin.write((operation+'\n').encode('utf-8')); process.stdin.flush()
-                    result=session_stage(process,operation,artifacts,timeout,operation)
+                    try:
+                        process.stdin.write((operation+'\n').encode('utf-8')); process.stdin.flush()
+                        result=session_stage(process,operation,artifacts,timeout,operation)
+                    except BrokenPipeError:
+                        result={'operation':operation, 'status':'error', 'exit_code':process.poll(), 'broken_pipe':True}
+                    records.append(result)
                     yield 'measurement', result
-                    if result['status']=='timeout' or process.poll() is not None: break
+                    if result['status'] not in ('passed', 'pending') or process.poll() is not None: break
             finally:
-                if process.poll() is None:
+                try:
                     process.stdin.close()
-                    try: process.wait(timeout=5)
-                    except subprocess.TimeoutExpired: process.kill(); process.wait()
+                except BrokenPipeError:
+                    pass
+                try:
+                    process.wait(timeout=min(timeout, 5))
+                except subprocess.TimeoutExpired:
+                    process.kill(); process.wait(); shutdown_timed_out=True
                 process.stdout.close()
+            for result in records:
+                result['exit_code'] = process.returncode
+                result['process_state'] = 'exited'
+                if shutdown_timed_out:
+                    result['status'] = 'timeout'
+                    result['shutdown_timeout'] = True
+                elif result['status'] != 'timeout':
+                    result['status'] = 'passed' if process.returncode == 0 and result.get('driver_status') == 'passed' else 'error'
+                finish_record(result)
+            yield 'session_exit', {'attempt':attempt, 'exit_code':process.returncode,
+                                  'status':'passed' if process.returncode == 0 and not shutdown_timed_out else 'error',
+                                  'shutdown_timeout':shutdown_timed_out}
+            if blocked is not None:
+                yield 'blocked', blocked
+                return
 
 
 def main():
@@ -298,13 +338,17 @@ def main():
     if args.seed_only: print(json.dumps({'status':'seeded','fixture':expected},ensure_ascii=False)); return 0
     if args.session:
         metadata['session_startups']=[]
+        metadata['session_processes']=[]
         for kind,result in measure_session(binary,vault,args.operations,output,args.timeout):
             if kind=='startup': metadata['session_startups'].append(result)
             elif kind=='measurement': metadata['measurements'].append(result)
+            elif kind=='session_exit': metadata['session_processes'].append(result)
             else: metadata['remaining_operations_skipped']=result
             metadata['hardware']['last_load_average']=os.getloadavg()
             report.write_text(json.dumps(metadata,ensure_ascii=False,indent=2)+'\n')
-        return 0 if not metadata.get('remaining_operations_skipped') and all(r['status']=='passed' for r in metadata['measurements']) else 1
+        return 0 if (not metadata.get('remaining_operations_skipped')
+            and len(metadata['measurements']) == len(args.operations)
+            and all(r['status']=='passed' for r in metadata['session_startups'] + metadata['measurements'] + metadata['session_processes'])) else 1
     for operation in args.operations:
         result=measure(binary,vault,operation,output,args.timeout)
         metadata['measurements'].append(result)

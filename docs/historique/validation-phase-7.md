@@ -4,7 +4,7 @@ Campagne du **11 novembre 2026, Europe/Paris**, sur des coffres isolés et des d
 
 ## Vérification complète
 
-`source scripts/cloud-env.sh` puis `CARGO_BUILD_JOBS=3 bash scripts/check.sh` : **réussi, sortie 0**. Le [journal](/workspace/.tooling/check-phase7.log) conserve les commandes effectivement exécutées.
+`source scripts/cloud-env.sh` puis `CARGO_BUILD_JOBS=3 bash scripts/check.sh` : **réussi, sortie 0**. Le [journal](preuves.md#preuve-063) conserve les commandes effectivement exécutées.
 
 | Campagne | Résultat |
 |---|---|
@@ -56,7 +56,7 @@ La migration `0006_metals_companies.sql` ajoute huit tables typées au schéma 6
 
 ## Parcours Linux natif
 
-`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0** sur le binaire final. Le [rapport JSON](../../.local/desktop-smoke.ku6m530N/desktop-result.json) contient **42 étapes réussies**, aucune échouée ni non exécutée, avec dialogues natifs activés. L’application fonctionne dans Debian 13 sous WebKitGTK/Xvfb, avec utilisateur non privilégié, réseau désactivé et coffre neuf. Les scénarios des phases précédentes restent exécutés.
+`bash scripts/test-desktop-cloud.sh` : **réussi, sortie 0** sur le binaire final. Le [rapport JSON](preuves.md#preuve-036) contient **42 étapes réussies**, aucune échouée ni non exécutée, avec dialogues natifs activés. L’application fonctionne dans Debian 13 sous WebKitGTK/Xvfb, avec utilisateur non privilégié, réseau désactivé et coffre neuf. Les scénarios des phases précédentes restent exécutés.
 
 Le nouveau parcours vérifie :
 
@@ -65,10 +65,10 @@ Le nouveau parcours vérifie :
 - Vente d’une pièce : une seule recette nette de 1 790 EUR, coût sorti 1 200, gain réalisé 590, coût restant 1 200. Avec le cours corrigé, le stock restant vaut exactement 1 707,58087632 EUR, affiché 1 707,58.
 - Transfert du lot entier vers un coffre suisse, sans quantité ni banque supplémentaire. Transfert de droits d’Alice à Benoît : sa valeur sort du sous-total individuel d’Alice et entre dans celui de Benoît pour le même montant exact, sans changer le sous-total familial.
 - Observation annuelle créée depuis le formulaire : chiffre d’affaires 120 000, charges 80 000, résultat d’exploitation 40 000 et trésorerie indicative 999 999. Cette observation ne modifie aucun sous-total patrimonial.
-- Déclaration de dividende de 300 EUR puis paiement : une commande écrit le débit société et le crédit bénéficiaire avec leurs deux liens exacts. Les banques société et bénéficiaire passent respectivement à 700 et 2 430 EUR ; le sous-total familial ne gagne pas 300 EUR. Le contrôle de société et le [rapport métal](../../.local/desktop-smoke.ku6m530N/metal-report.png) sont affichés depuis leurs commandes Rust réelles ; le [contrôle société](../../.local/desktop-smoke.ku6m530N/company-report.png) conserve les observations séparées des stocks.
-- Import/export d’un original, sauvegarde complète, analyse et annulation sans mutation, confirmation avec sauvegarde préalable, activation d’une nouvelle génération et restitution des huit ensembles métier. Les [rapports métal et société avant/après](../../.local/desktop-smoke.ku6m530N/metal-company-restore-comparison.json) et le [bilan financier avant/après](../../.local/desktop-smoke.ku6m530N/financial-restore-comparison.json) sont intégralement identiques à K=111. L’ancien stock et l’ancienne cotation sont aussi reproduits après restauration.
+- Déclaration de dividende de 300 EUR puis paiement : une commande écrit le débit société et le crédit bénéficiaire avec leurs deux liens exacts. Les banques société et bénéficiaire passent respectivement à 700 et 2 430 EUR ; le sous-total familial ne gagne pas 300 EUR. Le contrôle de société et le [rapport métal](preuves.md#preuve-042) sont affichés depuis leurs commandes Rust réelles ; le [contrôle société](preuves.md#preuve-035) conserve les observations séparées des stocks.
+- Import/export d’un original, sauvegarde complète, analyse et annulation sans mutation, confirmation avec sauvegarde préalable, activation d’une nouvelle génération et restitution des huit ensembles métier. Les [rapports métal et société avant/après](preuves.md#preuve-041) et le [bilan financier avant/après](preuves.md#preuve-037) sont intégralement identiques à K=111. L’ancien stock et l’ancienne cotation sont aussi reproduits après restauration.
 
-Le bilan de cette fixture reste partiel : actifs connus 355 949,88 EUR, passifs connus 100 242 EUR, différence connue 255 707,88 EUR ; les anciennes sources locatives non rapprochées empêchent de présenter cette différence comme un net exhaustif. Les [oracles du parcours](../../.local/desktop-smoke.ku6m530N/metal-company-oracles.json) sont conservés.
+Le bilan de cette fixture reste partiel : actifs connus 355 949,88 EUR, passifs connus 100 242 EUR, différence connue 255 707,88 EUR ; les anciennes sources locatives non rapprochées empêchent de présenter cette différence comme un net exhaustif. Les [oracles du parcours](preuves.md#preuve-040) sont conservés.
 
 Le pilote attend deux images avant un clic pour laisser les effets de rendu s’établir ; il réouvre le contrôle du lot après un changement de K qui remonte le module sur son onglet initial. Le délai de restauration de la fixture enrichie a été porté de 25 à 60 secondes après observation de l’état « en cours » : la campagne réussie mesure **27,89 secondes**, sauvegarde préalable et contrôles compris. Aucune assertion de montant, source ou restauration n’a été retirée. Ces mesures ne constituent pas la qualification de performance prévue en phase 10.
 
@@ -76,7 +76,7 @@ Les saisies textuelles passent par le clavier WebDriver ; les champs date natifs
 
 ## Inspection indépendante des archives
 
-Le [script du scénario synthétique](../../.local/desktop-smoke.ku6m530N/independent-backup-inspection.py), utilisant seulement `zipfile`, `hashlib`, `sqlite3` et `fractions.Fraction`, lit les deux ZIP sans appeler le backend. Son [résultat indépendant](../../.local/desktop-smoke.ku6m530N/independent-backup-inspection.json) est **réussi**.
+Le [script du scénario synthétique](preuves.md#preuve-039), utilisant seulement `zipfile`, `hashlib`, `sqlite3` et `fractions.Fraction`, lit les deux ZIP sans appeler le backend. Son [résultat indépendant](preuves.md#preuve-038) est **réussi**.
 
 Les bases sont au schéma 6, à K=111 et K=112, avec 62 tables, 128 objets et 135 révisions. Les quatre fichiers manifestés dans chaque archive ont les tailles et empreintes annoncées ; `integrity_check` répond `ok` et aucune violation FK n’est trouvée. Les six checksums de migrations correspondent aux fichiers SQL, et les migrations 1–5 sont identiques à celles de l’archive précédente de phase 6.
 

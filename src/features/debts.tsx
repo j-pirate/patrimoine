@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import { api, displayCurrencies, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { RegistrySnapshot, Fraction } from '../services/registry-types';
 import type { DebtAssetLink, DebtContract, DebtCoverage, DebtGuarantee, DebtMovement, DebtPaymentAllocation, DebtReceivableAdjustment, DebtReport, DebtSchedule, DebtSnapshot, DebtTerms, FinancingParty } from '../services/debt-types';
 import { FxTrace } from './exchange-rates';
@@ -43,22 +44,23 @@ export default function DebtsPage({ registry, context, onChanged, onBusyChange, 
   const requestId = useRef(0);
   const reportId = useRef(0);
   const readOnly = context.knowledgeSequence != null;
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const request = ++requestId.current;
     setLoading(true); setSnapshot(null); setError('');
     try { const value = await api.listDebtsAt(context.knowledgeSequence ?? null); if (request === requestId.current) setSnapshot(value); }
-    catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+    catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (request === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
   useEffect(() => { onBusyChange(pending); return () => onBusyChange(false); }, [pending, onBusyChange]);
-  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setConfirmation(null); setMessage(''); }, [context.date, context.personId, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setConfirmation(null); }, [context.date, context.personId, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { setMessage(''); }, [context.date, context.knowledgeSequence, context.personId]);
   function contractName(id: string) { return snapshot?.contracts.find(c => c.id === id)?.name ?? id; }
   function entityName(id: string) { const e = registry.entities.find(item => item.id === id); return e ? entityAt(registry, e, context.date).display_name : id; }
   function assetName(id: string) { const a = registry.assets.find(item => item.id === id); return a ? assetAt(registry, a, context.date).name : id; }
   function open(kind: Kind, record: DebtRecord | null = null) {
     if (readOnly) return;
-    const values = initial(context.date, selected);
+    const values = initial(context.date, snapshot?.contracts.find(c => c.id === selected && !c.archived)?.id || '');
     if (kind === 'adjustment') values.kind = 'impairment';
     if (record) for (const [key, value] of Object.entries(record)) if (typeof value === 'string' || typeof value === 'boolean' || value === null) values[key] = value === null ? '' : String(value);
     if (record && 'attributed_principal_share' in record) { values.share_num = record.attributed_principal_share?.num ?? ''; values.share_den = record.attributed_principal_share?.den ?? ''; }
@@ -86,7 +88,7 @@ export default function DebtsPage({ registry, context, onChanged, onBusyChange, 
         case 'guarantee': await api.saveDebtGuarantee({ ...meta, debt_id: v.debt_id, guarantor_entity_id: v.guarantor_entity_id, limit_amount: v.limit_amount.trim() || null, ...dated, notes: v.notes }); break;
         case 'coverage': await api.saveDebtCoverage({ ...meta, debt_id: v.debt_id, company_id: v.company_id, side: v.side, ...dated, included: v.included === 'true', source: v.source.trim(), notes: v.notes }); break;
       }
-      await onChanged(); await reload(); setEditor(null); setReport(null); setMessage('L’enregistrement de financement a été conservé avec ses révisions.');
+      setEditor(null); setReport(null); await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'L’enregistrement de financement a été conservé avec ses révisions.', setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -98,7 +100,7 @@ export default function DebtsPage({ registry, context, onChanged, onBusyChange, 
         const { revision_id, ...record } = confirmation.record;
         await api.saveDebtContract({ ...record, expected_revision_id: revision_id, reason: confirmationReason.trim(), archived: !record.archived });
       } else await api.voidRegistryRecord(confirmation.record.id, confirmation.record.revision_id, confirmationReason.trim());
-      setConfirmation(null); await onChanged(); await reload(); setReport(null); setMessage('La modification est conservée dans l’historique.');
+      setConfirmation(null); setReport(null); await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'La modification est conservée dans l’historique.', setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -158,7 +160,7 @@ function DebtForm({ editor, registry, snapshot, context, update, setEditor, pend
   const v = editor.values; const kind = editor.kind;
   const text = (key: string, label: string, required = false, type = 'text', hint?: string) => <Field key={key} id={`debt-${key}`} label={label} hint={hint}><input id={`debt-${key}`} required={required} type={type} value={v[key] ?? ''} onChange={event => update(key, event.currentTarget.value)} /></Field>;
   const select = (key: string, label: string, options: { id: string; label: string }[], required = true) => <Field key={key} id={`debt-${key}`} label={label}><select id={`debt-${key}`} required={required} value={v[key] ?? ''} onChange={event => update(key, event.currentTarget.value)}><option value="">Choisir…</option>{options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></Field>;
-  const contracts = snapshot.contracts.map(c => ({ id: c.id, label: c.name }));
+  const contracts = snapshot.contracts.filter(c => !c.archived || (!!editor.record && c.id === v.debt_id)).map(c => ({ id: c.id, label: `${c.name}${c.archived ? ' (archivé)' : ''}` }));
   const entities = registry.entities.map(e => ({ id: e.id, label: entityAt(registry, e, context.date).display_name }));
   const dates = <div className="form-grid">{text('valid_from', 'Début de validité', true, 'date')}{text('valid_to', 'Fin de validité (exclue)', false, 'date')}</div>;
   function changeParty(index: number, key: keyof PartyForm, value: string) { setEditor(current => current && ({ ...current, parties: current.parties.map((p, i) => i === index ? { ...p, [key]: value } : p) })); }
@@ -187,7 +189,7 @@ function DebtReportView({ report, entityName, assetName }: { report: DebtReport;
   const money = (value: string | null, currency = report.contract.currency) => value === null ? 'Non calculable' : `${value} ${currency}`;
   return <div className="debt-report"><h3>{report.contract.name} · situation au {report.date}</h3><dl className="rental-indicators"><div><dt>Principal restant contractuel</dt><dd>{money(report.balance.principal_original)}</dd></div><div><dt>Principal converti</dt><dd>{money(report.principal_eur, 'EUR')}</dd></div><div><dt>Intérêts payés dans le suivi</dt><dd>{money(report.balance.interest_paid_original)}</dd></div><div><dt>Frais payés dans le suivi</dt><dd>{money(report.balance.fees_paid_original)}</dd></div></dl><p className="scope-note">Ces montants décrivent le contrat entier. Les parts créancières et débitrices sont distinctes, les garanties conditionnelles restent hors dette certaine, et les paiements proviennent de mouvements réels.</p>
     {report.parties.length > 0 && <div className="table-scroll"><table><caption>Faces juridiques et économiques du contrat</caption><thead><tr><th scope="col">Partie</th><th scope="col">Droits économiques</th><th scope="col">Nominal</th><th scope="col">Ajustement de créance</th><th scope="col">Valeur portée</th><th scope="col">Exposition juridique</th></tr></thead><tbody>{report.parties.map(p => <tr key={p.party.line_id}><td>{sideNames[p.party.side] || p.party.side} · {entityName(p.party.entity_id)}<small>{liabilityNames[p.party.liability_kind] || p.party.liability_kind}</small></td><td>{fractionLabel(p.party.economic_share)}</td><td>{money(p.nominal_original)}</td><td>{money(p.adjustment_original)}</td><td>{money(p.carrying_value_original)}</td><td>{money(p.legal_maximum_original)}</td></tr>)}</tbody></table></div>}
-    {report.schedules.length > 0 && <div className="table-scroll"><table><caption>Échéancier et remboursements réellement affectés</caption><thead><tr><th scope="col">Date</th><th scope="col">Principal restant prévu</th><th scope="col">Intérêts / frais prévus restants</th><th scope="col">État du règlement</th></tr></thead><tbody>{report.schedules.map(s => <tr key={s.schedule.id}><td>{s.schedule.due_on}</td><td>{s.remaining_principal}</td><td>{s.remaining_interest} / {s.remaining_fees}</td><td>{s.settled_on ? `Réglée le ${s.settled_on}` : s.overdue_days > 0 ? `${s.overdue_days} jour(s) de retard` : 'Non soldée'}{s.historical_late && <small>Retard historique conservé</small>}</td></tr>)}</tbody></table></div>}
+    {report.schedules.length > 0 && <div className="table-scroll"><table><caption>Échéancier et remboursements réellement affectés</caption><thead><tr><th scope="col">Date</th><th scope="col">Principal prévu</th><th scope="col">Intérêts / frais prévus</th><th scope="col">État du règlement</th></tr></thead><tbody>{report.schedules.map(s => <tr key={s.schedule.id}><td>{s.schedule.due_on}</td><td>{s.schedule.status === 'cancelled' ? <>{s.schedule.expected_principal}<small>Montant historique annulé</small></> : <>{s.remaining_principal}<small>Restant prévu</small></>}</td><td>{s.schedule.status === 'cancelled' ? <>{s.schedule.expected_interest} / {s.schedule.expected_fees}<small>Montants historiques annulés</small></> : <>{s.remaining_interest} / {s.remaining_fees}<small>Restants prévus</small></>}</td><td>{s.schedule.status === 'cancelled' ? 'Prévision annulée' : s.settled_on ? `Réglée le ${s.settled_on}` : s.overdue_days > 0 ? `${s.overdue_days} jour(s) de retard` : 'Non soldée'}{s.schedule.status !== 'cancelled' && s.historical_late && <small>Retard historique conservé</small>}</td></tr>)}</tbody></table></div>}
     {report.guarantees.length > 0 && <RegistryNotice><strong>Engagements conditionnels, hors dette certaine</strong><ul>{report.guarantees.map(g => <li key={g.id}>{entityName(g.guarantor_entity_id)} : {money(g.limit_amount)} · <Period from={g.valid_from} to={g.valid_to} /></li>)}</ul></RegistryNotice>}
     {report.asset_links.length > 0 && <details><summary>Biens liés et affectations analytiques</summary><ul>{report.asset_links.map(l => <li key={l.id}>{assetName(l.asset_id)} · {l.relation_kind === 'collateral' ? 'Sûreté uniquement' : 'Financement analytique'} · {fractionLabel(l.attributed_principal_share)}</li>)}</ul></details>}
     {report.warnings.length > 0 && <RegistryNotice><ul>{report.warnings.map((w, index) => <li key={`${w.code}-${index}`}>{w.message}</li>)}</ul></RegistryNotice>}

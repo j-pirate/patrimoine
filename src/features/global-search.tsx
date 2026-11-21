@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorMessage } from '../services/api';
 import type { DocumentLibrarySnapshot } from '../services/documents-types';
 import type { RegistrySnapshot } from '../services/registry-types';
-import type { TreasuryAccount } from '../services/treasury-types';
+import type { TreasurySnapshot } from '../services/treasury-types';
 import { assetAt, entityAt } from './registry-ui';
 import type { ViewContext } from './registry-ui';
 import './global-search.css';
@@ -29,7 +29,7 @@ export default function GlobalSearch({ registry, context, disabled, onNavigate }
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(30);
   const [library, setLibrary] = useState<DocumentLibrarySnapshot | null>(null);
-  const [accounts, setAccounts] = useState<TreasuryAccount[]>([]);
+  const [treasury, setTreasury] = useState<TreasurySnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -38,7 +38,7 @@ export default function GlobalSearch({ registry, context, disabled, onNavigate }
   const knowledge = context.knowledgeSequence ?? registry.knowledge_sequence;
   useEffect(() => {
     const id = ++requestId.current;
-    setLibrary(null); setAccounts([]); setError('');
+    setLibrary(null); setTreasury(null); setError('');
     if (!opened) { setLoading(false); return; }
     setLoading(true);
     void (async () => {
@@ -46,7 +46,7 @@ export default function GlobalSearch({ registry, context, disabled, onNavigate }
         const [result, treasury] = await Promise.all([api.listDocumentLibraryAt(knowledge), api.listTreasuryAt(knowledge)]);
         if (id !== requestId.current) return;
         if (!result || !treasury || result.knowledge_sequence !== knowledge || treasury.knowledge_sequence !== knowledge) throw new Error('Les résultats ne correspondent pas aux connaissances sélectionnées. Rechargez la recherche.');
-        setAccounts(treasury.accounts);
+        setTreasury(treasury);
         setLibrary(result);
       } catch (failure) { if (id === requestId.current) setError(errorMessage(failure)); }
       finally { if (id === requestId.current) setLoading(false); }
@@ -55,23 +55,33 @@ export default function GlobalSearch({ registry, context, disabled, onNavigate }
   }, [opened, knowledge, retry]);
   const entries = useMemo((): SearchEntry[] => {
     if (!library) return [];
+    const accounts = treasury?.accounts ?? [];
+    const accountPages = new Map(accounts.map(account => [account.id, account.kind === 'cash' ? 'cash-accounts' : 'bank']));
+    function transactionPage(id: string, revision = false, line?: string): string {
+      const transaction = treasury?.transactions.find(item => revision ? item.revision_id === id : item.id === id);
+      const pages = transaction?.entries.filter(entry => !line || entry.line_id === line).map(entry => accountPages.get(entry.account_id));
+      // Mixed operations are visible in the bank journal with their full lines.
+      return pages?.includes('bank') ? 'bank' : pages?.includes('cash-accounts') ? 'cash-accounts' : 'history';
+    }
     const targets = library.targets.map(target => {
       const entity = registry.entities.find(item => item.id === target.id);
       const account = accounts.find(item => item.id === target.id);
       const asset = registry.assets.find(item => item.id === (account?.asset_id ?? target.id));
       const label = entity ? entityAt(registry, entity, context.date).display_name : asset ? assetAt(registry, asset, context.date).name : target.label;
-      const page = entity?.kind === 'company' ? 'companies' : account?.kind === 'cash' ? 'cash-accounts' : target.kind === 'treasury_account' && !account ? 'history' : pageFor(target.kind);
+      const reconciliation = target.kind === 'account_reconciliation' ? treasury?.reconciliations.find(item => item.id === target.id) : undefined;
+      const cashLink = target.kind === 'cash_link' ? treasury?.cash_links.find(item => item.id === target.id) : undefined;
+      const page = target.kind === 'treasury_transaction' ? transactionPage(target.id) : reconciliation ? accountPages.get(reconciliation.account_id) ?? 'history' : cashLink ? transactionPage(cashLink.transaction_revision_id, true, cashLink.line_id) : entity?.kind === 'company' ? 'companies' : account?.kind === 'cash' ? 'cash-accounts' : target.kind === 'treasury_account' && !account ? 'history' : pageFor(target.kind);
       return { id: target.id, label, text: [label, target.label, target.id, target.kind, moduleNames[page], account?.bank_name, account?.reference, account?.storage_location].join(' '), kind: entity?.kind === 'company' ? 'Société' : moduleNames[page], page, retired: target.retired };
     });
     return [...targets, ...library.documents.map(document => ({ id: document.id, label: document.original_name, text: [document.id, document.original_name, document.description, document.mime_type, document.sha256, 'document'].join(' '), kind: document.status === 'archived' ? 'Document archivé' : 'Document', page: 'documents', retired: document.status === 'deleted' }))];
-  }, [library, registry, context.date, accounts]);
+  }, [library, registry, context.date, treasury]);
   const words = normalized(query.trim()).split(/\s+/).filter(Boolean);
   const results = query.trim().length < 2 ? [] : entries.filter(entry => words.every(word => normalized(entry.text).includes(word)));
-  function close() { setOpened(false); setQuery(''); setLimit(30); requestAnimationFrame(() => toggle.current?.focus()); }
+  function close(restoreFocus = true) { setOpened(false); setQuery(''); setLimit(30); if (restoreFocus) requestAnimationFrame(() => toggle.current?.focus()); }
   return <div className="global-search">
     <button ref={toggle} type="button" className="global-search-toggle" aria-expanded={opened} aria-controls="global-search-panel" disabled={disabled} onClick={() => { if (opened) close(); else setOpened(true); }}>Rechercher dans le coffre</button>
     {opened && <section id="global-search-panel" className="global-search-panel" aria-label="Recherche globale dans le coffre" onKeyDown={event => { if (event.key === 'Escape') { close(); } }}>
-      <div className="section-title"><h2>Recherche dans le coffre</h2><button type="button" className="button secondary small-button" onClick={close}>Fermer la recherche</button></div>
+      <div className="section-title"><h2>Recherche dans le coffre</h2><button type="button" className="button secondary small-button" onClick={() => close()}>Fermer la recherche</button></div>
       <p className="small">Tous les objets et documents connus à K={knowledge}, y compris ceux retirés. Cette recherche couvre le coffre entier ; elle ne se limite pas au membre choisi. Les libellés datés suivent le {context.date}.</p>
       <label htmlFor="global-search-query">Nom, description documentaire ou identifiant</label>
       <input id="global-search-query" type="search" autoFocus maxLength={200} value={query} onChange={event => { setQuery(event.currentTarget.value); setLimit(30); }} />
@@ -79,7 +89,7 @@ export default function GlobalSearch({ registry, context, disabled, onNavigate }
       {error && <div role="alert"><p>{error}</p><button type="button" className="button secondary" onClick={() => setRetry(current => current + 1)}>Recharger la recherche</button></div>}
       {!loading && !error && library && (query.trim().length < 2 ? <p className="small">Saisir au moins deux caractères.</p> : <>
         <p role="status">{results.length} résultat{results.length > 1 ? 's' : ''}{results.length > limit ? ` · ${limit} affichés` : ''}.</p>
-        <ul className="global-search-results">{results.slice(0, limit).map(entry => <li key={`${entry.kind}-${entry.id}`}><div><strong>{entry.label}</strong><span>{entry.kind}{entry.retired ? ' · retiré' : ''}</span><code>{entry.id}</code></div><button type="button" className="button secondary small-button" disabled={disabled} onClick={() => { onNavigate(entry.page); close(); }}>Ouvrir le module {moduleNames[entry.page]}</button></li>)}</ul>
+        <ul className="global-search-results">{results.slice(0, limit).map(entry => <li key={`${entry.kind}-${entry.id}`}><div><strong>{entry.label}</strong><span>{entry.kind}{entry.retired ? ' · retiré' : ''}</span><code>{entry.id}</code></div><button type="button" className="button secondary small-button" disabled={disabled} onClick={() => { onNavigate(entry.page); close(false); }}>Ouvrir le module {moduleNames[entry.page]}</button></li>)}</ul>
         {results.length > limit && <button type="button" className="button secondary" onClick={() => setLimit(current => current + 30)}>Afficher les résultats suivants</button>}
       </>)}
     </section>}

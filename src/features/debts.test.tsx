@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../services/api';
@@ -164,4 +164,52 @@ describe('Contrats, remboursements et engagements', () => {
     await waitFor(() => expect(api.saveDebtContract).toHaveBeenCalledOnce());
     expect(api.saveDebtContract).toHaveBeenCalledExactlyOnceWith({ id: 'loan', expected_revision_id: 'loan-r1', reason: 'Contrat clos hors nouvelles saisies', name: contract.name, currency: 'EUR', tracking_start: '2026-01-01', notes: 'Contrat de test', archived: true });
   });
+  it('FIN-02 distingue une prévision annulée de la même prévision encore à régler', async () => {
+    const schedule = { id: 'scheduled', revision_id: 'scheduled-r', debt_id: 'loan', due_on: '2026-03-15', expected_principal: '1000', expected_interest: '20', expected_fees: '5', status: 'planned', notes: '' };
+    const status = { schedule, paid_principal: '0', paid_interest: '0', paid_fees: '0', remaining_principal: '1000', remaining_interest: '20', remaining_fees: '5', overdue_days: 0, settled_on: null, historical_late: false };
+    vi.mocked(api.getDebtReport).mockResolvedValue({ ...report, schedules: [status, { ...status, schedule: { ...schedule, id: 'cancelled', due_on: '2026-03-16', status: 'cancelled' } }] });
+    const { user } = await open();
+    await user.click(screen.getByRole('button', { name: 'Contrôler un financement' }));
+    await user.selectOptions(screen.getByLabelText('Financement à contrôler'), 'loan');
+    await user.click(screen.getByRole('button', { name: 'Calculer l’encours du financement' }));
+    const cancelled = (await screen.findByText('Prévision annulée')).closest('tr')!;
+    expect(cancelled).toHaveTextContent('1000');
+    expect(cancelled).toHaveTextContent('Montant historique annulé');
+    expect(cancelled).not.toHaveTextContent('Non soldée');
+    expect(cancelled).not.toHaveTextContent('Restant prévu');
+    expect(screen.getByText('Non soldée').closest('tr')).toHaveTextContent('Restant prévu');
+  });
+
+  it('FIN-03 écarte un contrat archivé des nouvelles saisies et permet de corriger son historique', async () => {
+    vi.mocked(api.listDebtsAt).mockResolvedValue({ ...snapshot, contracts: [{ ...contract, archived: true }] });
+    const { user } = await open();
+    await user.selectOptions(screen.getByLabelText('Contrat à consulter'), 'loan');
+    await user.click(screen.getByRole('button', { name: 'Définir les parties du financement' }));
+    const newContract = screen.getByLabelText('Contrat du financement');
+    expect(newContract).toHaveValue('');
+    expect(within(newContract).queryByRole('option', { name: /Emprunt du bien/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Fermer le formulaire' }));
+    await user.click(screen.getByRole('button', { name: 'Mouvements et échéances' }));
+    await user.click(screen.getByRole('button', { name: 'Modifier le mouvement de Emprunt du bien du 2026-03-01' }));
+    expect(screen.getByLabelText('Contrat du financement')).toHaveValue('loan');
+    expect(within(screen.getByLabelText('Contrat du financement')).getByRole('option', { name: 'Emprunt du bien (archivé)' })).toBeVisible();
+    await user.type(screen.getByLabelText('Motif de l’enregistrement du financement'), 'Correction du relevé historique');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la correction du financement' }));
+    await waitFor(() => expect(api.saveDebtMovement).toHaveBeenCalledOnce());
+    expect(api.saveDebtMovement).toHaveBeenCalledWith(expect.objectContaining({ id: movement.id, debt_id: 'loan', expected_revision_id: movement.revision_id }));
+  });
+
+  it('REG-03 confirme le contrat enregistré même si son actualisation échoue', async () => {
+    const { user, onChanged } = await open();
+    onChanged.mockRejectedValueOnce(new Error('Actualisation indisponible'));
+    await user.click(screen.getByRole('button', { name: 'Créer un contrat de financement' }));
+    await user.type(screen.getByLabelText('Nom du financement'), 'Nouveau contrat');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement du financement'), 'Contrat signé');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le financement' }));
+    expect(await screen.findByText(/L’enregistrement de financement a été conservé.*L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Actualisation indisponible');
+    expect(screen.queryByLabelText('Nom du financement')).not.toBeInTheDocument();
+    expect(api.saveDebtContract).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
 });

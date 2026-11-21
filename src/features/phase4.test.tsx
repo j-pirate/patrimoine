@@ -108,6 +108,40 @@ describe('Taux manuels et conversions locales', () => {
     expect(screen.getByText('Le cours retenu a plus de 30 jours.')).toBeVisible();
   });
 
+  it.each(['Montant à convertir', 'Devise du montant', 'Devise de destination'])('REG-06 masque le résultat précédent après modification de %s', async label => {
+    const { user } = openRates();
+    await user.type(screen.getByLabelText('Montant à convertir'), '10');
+    await user.click(screen.getByRole('button', { name: 'Vérifier la conversion' }));
+    await screen.findByText('3.00 EUR');
+    if (label === 'Montant à convertir') await user.type(screen.getByLabelText(label), '0');
+    else await user.selectOptions(screen.getByLabelText(label), 'CHF');
+    expect(screen.queryByText('3.00 EUR')).not.toBeInTheDocument();
+    expect(api.convertCurrency).toHaveBeenCalledOnce();
+  });
+
+  it('REG-05 focalise l’annulation du taux et rend le focus après fermeture', async () => {
+    const { user } = openRates(null, [rate]);
+    const trigger = screen.getByRole('button', { name: 'Annuler le taux' });
+    await user.click(trigger);
+    expect(screen.getByRole('region', { name: 'Annuler un taux manuel' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Conserver le taux' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(api.voidRegistryRecord).not.toHaveBeenCalled();
+  });
+
+  it('REG-03 garde le taux confirmé quand le rafraîchissement échoue', async () => {
+    const { user, onChanged } = openRates();
+    onChanged.mockRejectedValue(new Error('Liste des taux indisponible'));
+    await user.click(screen.getByRole('button', { name: 'Ajouter un taux' }));
+    await user.type(screen.getByLabelText('Taux manuel'), '0.3');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Observation locale');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le taux' }));
+    expect(await screen.findByText(/Le taux a été enregistré.*L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Liste des taux indisponible');
+    expect(api.saveExchangeRate).toHaveBeenCalledOnce();
+    expect(screen.queryByLabelText('Taux manuel')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it.each([
     { amount: '0.00', label: '0.00 EUR', absent: 'Conversion impossible' },
     { amount: null, label: 'Conversion impossible', absent: '0.00 EUR' },
@@ -182,5 +216,7 @@ describe('Journal et explication des variations', () => {
     expect(within(row).queryByText('0.00 EUR')).not.toBeInTheDocument();
     expect(screen.getByText(/Ce contrôle n’est ni un rendement d’investissement/)).toBeVisible();
     expect(screen.getByText('La valeur de référence est inconnue.')).toBeVisible();
+    expect(screen.getByText(/calculée avec les connaissances de la séquence 8/)).toBeVisible();
+    expect(screen.getByText(/Actualiser le journal ne recalcule pas cette comparaison/)).toBeVisible();
   });
 });

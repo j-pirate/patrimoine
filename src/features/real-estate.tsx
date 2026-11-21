@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { api, displayCurrencies, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { PropertySnapshot } from '../services/property-types';
 import type { Lease, LeaseTerms, RefundAllocationInput, RentAllocation, RentDue, RentalExpense, RentalReport, RentalSnapshot, RentPayment } from '../services/rental-types';
 import type { RegistrySnapshot } from '../services/registry-types';
@@ -50,6 +51,7 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
   const [tab, setTab] = useState<Tab>('properties');
   const [properties, setProperties] = useState<PropertySnapshot | null>(null);
   const [rentals, setRentals] = useState<RentalSnapshot | null>(null);
+  const [loadedKnowledge, setLoadedKnowledge] = useState<number | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [childBusy, setChildBusy] = useState(false);
@@ -75,21 +77,22 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
   const readOnly = context.knowledgeSequence != null;
 
   useEffect(() => { onBusyChange(pending || loading || childBusy); return () => onBusyChange(false); }, [pending, loading, childBusy, onBusyChange]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const request = ++requestId.current;
-    setLoading(true); setError(''); setProperties(null); setRentals(null);
+    setLoading(true); setError('');
     try {
       const [nextProperties, nextRentals] = await Promise.all([
         api.listPropertiesAt(context.knowledgeSequence ?? null), api.listRentalsAt(context.knowledgeSequence ?? null),
       ]);
-      if (request === requestId.current) { setProperties(nextProperties); setRentals(nextRentals); }
-    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); }
+      if (request === requestId.current) { setProperties(nextProperties); setRentals(nextRentals); setLoadedKnowledge(context.knowledgeSequence ?? null); }
+    } catch (failure) { if (request === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (request === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
   useEffect(() => {
-    reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); setGeneration(false); setMessage('');
+    reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); setGeneration(false);
   }, [context.date, context.personId, context.knowledgeSequence, selectedAsset, registry.knowledge_sequence]);
+  useEffect(() => { setMessage(''); }, [context.date, context.personId, context.knowledgeSequence, selectedAsset]);
   useEffect(() => { setToDate(context.date); }, [context.date]);
   useEffect(() => { reportId.current += 1; setReport(null); }, [reportCountry, reportCompany, wholeProperty]);
   useEffect(() => { if (!selectedAsset || reportCompany) setWholeProperty(false); }, [selectedAsset, reportCompany]);
@@ -97,12 +100,12 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
 
   async function changed() {
     reportId.current += 1; setReport(null);
-    await Promise.all([reload(), onChanged()]);
+    await Promise.all([reload(true), onChanged()]);
   }
-  async function mutate(action: () => Promise<unknown>, success: string) {
+  async function mutate(action: () => Promise<unknown>, success: string | (() => string)) {
     if (readOnly) return;
     setPending(true); setError(''); setMessage('');
-    try { await action(); setEditor(null); setRemoval(null); setGeneration(false); await changed(); setMessage(success); }
+    try { await action(); setEditor(null); setRemoval(null); setGeneration(false); await refreshAfterCommit(changed, typeof success === 'function' ? success() : success, setMessage); }
     catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }
@@ -147,8 +150,7 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
     await mutate(async () => {
       const result = await api.generateRentDues({ lease_id: generationLease, from_date: generationFrom, to_date: generationTo, expected_sequence: rentals.knowledge_sequence, reason: generationReason.trim() });
       count = result.created.length; existing = result.existing_count;
-    }, 'La génération des échéances est terminée.');
-    if (!readOnly) setMessage(current => current ? `${count} échéance(s) créée(s), ${existing} déjà présente(s).` : current);
+    }, () => `${count} échéance(s) créée(s), ${existing} déjà présente(s).`);
   }
   async function calculate(event: FormEvent) {
     event.preventDefault(); setPending(true); setError(''); setReport(null);
@@ -163,8 +165,9 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
 
   const assetName = (id: string) => { const value = registry.assets.find(asset => asset.id === id); return value ? assetAt(registry, value, context.date).name : id; };
   const entityName = (id: string) => { const value = registry.entities.find(entity => entity.id === id); return value ? entityAt(registry, value, context.date).display_name : id; };
-  const unitName = (id: string) => properties?.units.find(unit => unit.id === id)?.name || id;
-  const leaseName = (id: string) => { const lease = rentals?.leases.find(item => item.id === id); return lease ? `${unitName(lease.unit_id)} · ${entityName(lease.tenant_entity_id)}` : id; };
+  const propertyLabel = (id: string) => `${assetName(id)} · ${id}`;
+  const unitName = (id: string) => { const unit = properties?.units.find(item => item.id === id); return unit ? `${propertyLabel(unit.property_asset_id)} · ${unit.reference} · ${unit.name}` : id; };
+  const leaseName = (id: string) => { const lease = rentals?.leases.find(item => item.id === id); return lease ? `${unitName(lease.unit_id)} · ${entityName(lease.tenant_entity_id)} · ${lease.valid_from} → ${lease.valid_to || 'sans fin'} · ${lease.id}` : id; };
   const leaseAsset = (id: string) => properties?.units.find(unit => unit.id === rentals?.leases.find(lease => lease.id === id)?.unit_id)?.property_asset_id;
   const matchesLease = (id: string) => !selectedAsset || leaseAsset(id) === selectedAsset;
   const propertyAssets = registry.assets.filter(asset => properties?.properties.some(property => property.asset_id === asset.id));
@@ -174,14 +177,14 @@ export default function RealEstatePage({ registry, context, onChanged, onBusyCha
 
   return <div className="registry-workspace real-estate-workspace">
     <RegistryNotice>Le bien immobilier correspond à un actif unique du registre. Les unités servent à gérer les locations et n’ajoutent aucune valeur patrimoniale. Les paiements locatifs sont rapprochés des lignes exactes du journal dans les comptes ; une échéance ne crée aucun encaissement supposé.</RegistryNotice>
-    <div className="module-tabs" role="group" aria-label="Sections immobilières">{([['properties', 'Biens et unités'], ['leases', 'Baux et échéances'], ['payments', 'Paiements et dépenses'], ['reports', 'Indicateurs locatifs']] as const).map(([id, label]) => <button key={id} type="button" className={`button ${tab === id ? '' : 'secondary'}`} aria-pressed={tab === id} disabled={pending || loading} onClick={() => { setTab(id); setEditor(null); setRemoval(null); setGeneration(false); }}>{label}</button>)}</div>
+    <div className="module-tabs" role="group" aria-label="Sections immobilières">{([['properties', 'Biens et unités'], ['leases', 'Baux et échéances'], ['payments', 'Paiements et dépenses'], ['reports', 'Indicateurs locatifs']] as const).map(([id, label]) => <button key={id} type="button" className={`button ${tab === id ? '' : 'secondary'}`} aria-pressed={tab === id} disabled={pending || loading || childBusy} onClick={() => { setTab(id); setEditor(null); setRemoval(null); setGeneration(false); }}>{label}</button>)}</div>
     {readOnly && <RegistryNotice><strong>Lecture seule historique.</strong> Les fiches et calculs utilisent la séquence {context.knowledgeSequence}. Revenez aux connaissances actuelles pour enregistrer une modification.</RegistryNotice>}
     {loading && <p role="status">Chargement de l’immobilier et des locations…</p>}
-    {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>En cas de conflit, rechargez les connaissances actuelles et rouvrez le formulaire. Aucun remplacement d’une version plus récente n’a été confirmé.</p><button type="button" className="button secondary" disabled={pending || loading} onClick={() => { void reload(); }}>Recharger l’immobilier</button></RegistryNotice>}
+    {error && <RegistryNotice error><strong>Opération impossible.</strong><p>{error}</p><p>En cas de conflit, rechargez les connaissances actuelles et rouvrez le formulaire. La confirmation d’enregistrement apparaît séparément ci-dessous.</p><button type="button" className="button secondary" disabled={pending || loading} onClick={() => { void reload(); }}>Recharger l’immobilier</button></RegistryNotice>}
     {message && <RegistryNotice>{message}</RegistryNotice>}
-    {!loading && properties && rentals && <>
+    {properties && rentals && loadedKnowledge === (context.knowledgeSequence ?? null) && <>
       {tab === 'properties' ? <PropertyWorkspace registry={registry} snapshot={properties} context={context} onChanged={changed} onBusyChange={setChildBusy} onNavigateRegistry={onNavigateRegistry} /> : <>
-        <section className="card"><Field id="rental-property-filter" label="Bien à consulter"><select id="rental-property-filter" value={selectedAsset} disabled={pending} onChange={event => setSelectedAsset(event.currentTarget.value)}><option value="">Tous les biens suivis</option>{propertyAssets.map(asset => <option value={asset.id} key={asset.id}>{assetName(asset.id)}</option>)}</select></Field><p className="field-hint">Les fiches sont communes à l’espace familial. Les indicateurs utilisent le membre et la date de référence de la barre globale, ainsi que ce filtre de bien.</p></section>
+        <section className="card"><Field id="rental-property-filter" label="Bien à consulter"><select id="rental-property-filter" value={selectedAsset} disabled={pending} onChange={event => setSelectedAsset(event.currentTarget.value)}><option value="">Tous les biens suivis</option>{propertyAssets.map(asset => <option value={asset.id} key={asset.id}>{propertyLabel(asset.id)}</option>)}</select></Field><p className="field-hint">Les fiches sont communes à l’espace familial. Les indicateurs utilisent le membre et la date de référence de la barre globale, ainsi que ce filtre de bien.</p></section>
         {tab === 'leases' && <>
           {card('Baux', 'Ajouter un bail', 'lease', rows(rentals.leases.filter(lease => matchesLease(lease.id)), ['Unité et locataire', 'Période', 'Notes', 'Actions'], lease => <tr key={lease.id}><td><strong>{unitName(lease.unit_id)}</strong>{entityName(lease.tenant_entity_id)}</td><td><Period from={lease.valid_from} to={lease.valid_to} /></td><td>{lease.notes || '—'}</td><td>{actions('lease', lease)}</td></tr>))}
           {card('Conditions de bail', 'Ajouter des conditions de bail', 'terms', rows(rentals.lease_terms.filter(terms => matchesLease(terms.lease_id)), ['Bail', 'Loyer et charges', 'Période', 'Dépôt contractuel', 'Actions'], terms => <tr key={terms.id}><td>{leaseName(terms.lease_id)}</td><td><strong>{terms.rent} {terms.currency}</strong>Charges {terms.charges} {terms.currency}<small>{frequencies[terms.frequency] || terms.frequency} · échéance au jour {terms.due_day}</small></td><td><Period from={terms.valid_from} to={terms.valid_to} /></td><td>{terms.deposit_required} {terms.currency}<small>Montant requis, distinct d’un dépôt reçu</small></td><td>{actions('terms', terms)}</td></tr>))}
@@ -210,7 +213,9 @@ function RentalForm({ editor, registry, properties, rentals, update, setReason, 
   const v = editor.values; const kind = editor.kind;
   const input = (key: string, label: string, type = 'text', required = true, hint?: string) => <Field id={`rental-${key}`} label={label} hint={hint}><input id={`rental-${key}`} required={required} type={type} inputMode={['rent', 'charges', 'amount', 'deposit_required'].includes(key) ? 'decimal' : undefined} value={v[key] || ''} onChange={event => update(key, event.currentTarget.value)} /></Field>;
   const select = (key: string, label: string, options: { id: string; label: string }[], required = true) => <Field id={`rental-${key}`} label={label}><select id={`rental-${key}`} required={required} value={v[key] || ''} onChange={event => update(key, event.currentTarget.value)}><option value="">Choisir…</option>{options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></Field>;
-  const leaseOptions = rentals.leases.map(lease => ({ id: lease.id, label: `${properties.units.find(unit => unit.id === lease.unit_id)?.name || lease.unit_id} · ${registry.entities.find(entity => entity.id === lease.tenant_entity_id)?.display_name || lease.tenant_entity_id}` }));
+  const propertyLabel = (id: string) => { const asset = registry.assets.find(item => item.id === id); return `${asset ? assetAt(registry, asset, editor.values.effective_on || editor.values.valid_from).name : id} · ${id}`; };
+  const unitLabel = (id: string) => { const unit = properties.units.find(item => item.id === id); return unit ? `${propertyLabel(unit.property_asset_id)} · ${unit.reference} · ${unit.name}` : id; };
+  const leaseOptions = rentals.leases.map(lease => ({ id: lease.id, label: `${unitLabel(lease.unit_id)} · ${registry.entities.find(entity => entity.id === lease.tenant_entity_id)?.display_name || lease.tenant_entity_id} · ${lease.valid_from} → ${lease.valid_to || 'sans fin'} · ${lease.id}` }));
   const currency = select('currency', 'Devise de l’enregistrement', displayCurrencies.map(code => ({ id: code, label: code })));
   const dates = <div className="form-grid">{input('valid_from', 'Début de validité', 'date')}{input('valid_to', 'Fin de validité (exclue)', 'date', false)}</div>;
   const terms = [...new Map([...rentals.lease_terms, ...rentals.lease_term_revisions].filter(term => term.lease_id === v.lease_id).map(term => [term.revision_id, term])).values()];
@@ -218,14 +223,14 @@ function RentalForm({ editor, registry, properties, rentals, update, setReason, 
   const originalAllocations = rentals.allocations.filter(allocation => allocation.payment_id === v.original_payment_id);
   const refundableDues = rentals.dues.filter(due => originalAllocations.some(allocation => allocation.due_id === due.id));
   return <form onSubmit={event => { void onSubmit(event); }}><fieldset disabled={pending}>
-    {kind === 'lease' && <>{select('unit_id', 'Unité louée', properties.units.map(unit => ({ id: unit.id, label: `${unit.reference} · ${unit.name}` })))}{select('tenant_entity_id', 'Locataire identifié', registry.entities.map(entity => ({ id: entity.id, label: entity.display_name })))}{dates}<p className="field-hint">Un bail reste rattaché à son unité. Pour un nouveau contrat ou une nouvelle unité, créez un nouveau bail. Les contrats d’une même unité ne se chevauchent pas.</p></>}
+    {kind === 'lease' && <>{select('unit_id', 'Unité louée', properties.units.map(unit => ({ id: unit.id, label: `${unitLabel(unit.id)} · ${unit.id}` })))}{select('tenant_entity_id', 'Locataire identifié', registry.entities.map(entity => ({ id: entity.id, label: entity.display_name })))}{dates}<p className="field-hint">Un bail reste rattaché à son unité. Pour un nouveau contrat ou une nouvelle unité, créez un nouveau bail. Les contrats d’une même unité ne se chevauchent pas.</p></>}
     {['terms', 'due', 'payment'].includes(kind) && select('lease_id', 'Bail concerné', leaseOptions)}
     {kind === 'terms' && <><div className="form-grid">{input('rent', 'Loyer contractuel hors charges')}{input('charges', 'Charges contractuelles')}</div>{currency}<div className="form-grid">{select('frequency', 'Fréquence contractuelle', Object.entries(frequencies).map(([id, label]) => ({ id, label })))}{select('due_day', 'Jour d’exigibilité', Array.from({ length: 31 }, (_, index) => ({ id: String(index + 1), label: String(index + 1) })))}</div>{input('deposit_required', 'Dépôt de garantie requis', 'text', true, 'Montant contractuel uniquement. Un dépôt reçu ne constitue pas un revenu locatif.')}{dates}<p className="field-hint">Pour une révision de loyer, fermez le segment précédent et ajoutez les nouvelles conditions à partir de leur date d’effet. Les échéances existantes gardent leur source exacte.</p></>}
     {kind === 'due' && <>{select('terms_revision_id', 'Révision exacte des conditions', terms.map(term => ({ id: term.revision_id, label: `${term.valid_from} · ${term.rent} ${term.currency} · ${term.revision_id}` })))}<div className="form-grid">{input('period_start', 'Début de période courue', 'date')}{input('period_end', 'Fin de période courue (exclue)', 'date')}</div>{input('due_on', 'Date d’exigibilité', 'date')}<div className="form-grid">{input('rent', 'Loyer exigible')}{input('charges', 'Charges exigibles')}</div>{currency}{input('generation_key', 'Clé stable de l’échéance', 'text', true, 'Une clé unique identifie cette échéance à travers ses corrections. Pour les échéances courantes, privilégiez la génération contractuelle.')}<p className="field-hint">Une rectification est un fait motivé ; aucun paiement existant n’est remplacé. Une diminution sous le montant déjà affecté sera refusée.</p></>}
     {kind === 'payment' && <>{select('kind', 'Nature du paiement', [{ id: 'receipt', label: 'Réception' }, { id: 'refund', label: 'Remboursement' }])}{kind === 'payment' && v.kind === 'refund' && select('original_payment_id', 'Paiement d’origine remboursé', rentals.payments.filter(payment => payment.kind === 'receipt' && payment.lease_id === v.lease_id).map(payment => ({ id: payment.id, label: `${payment.effective_on} · ${payment.amount} ${payment.currency} · ${payment.reference || payment.id}` })))}{input('amount', 'Montant du paiement', 'text', true, v.kind === 'refund' ? 'Saisir un montant négatif ; le paiement d’origine reste conservé.' : 'Saisir le montant positif réellement reçu, même s’il couvre plusieurs échéances.')}{currency}{input('effective_on', 'Date de réception ou remboursement', 'date')}{select('recipient_entity_id', 'Bénéficiaire de l’encaissement déclaré', registry.entities.map(entity => ({ id: entity.id, label: entity.display_name })))}{input('reference', 'Référence du paiement', 'text', false)}<Field id="rental-unlinked_reason" label="Motif de non-rapprochement bancaire"><textarea id="rental-unlinked_reason" required value={v.unlinked_reason} onChange={event => update('unlinked_reason', event.currentTarget.value)} /></Field><p className="field-hint">Cette déclaration ne crée ni compte ni mouvement bancaire implicite. Dans les comptes, rapprochez une ligne existante ou enregistrez ensemble la source et sa trésorerie.</p></>}
     {kind === 'payment' && v.kind === 'refund' && <section className="refund-lines"><h3>Reprises d’affectations du remboursement</h3><p className="field-hint">Si le paiement d’origine est déjà affecté, indiquez les reprises négatives à enregistrer dans la même opération que le remboursement. Sans reprise, seul le montant non affecté reste remboursable. Aucun montant n’est déduit automatiquement.</p>{editor.refundLines.map((line, index) => <div className="refund-line" key={index}><div className="form-grid"><Field id={`refund-due-${index}`} label={`Échéance reprise ${index + 1}`}><select id={`refund-due-${index}`} required value={line.due_id} onChange={event => setRefundLines(editor.refundLines.map((item, current) => current === index ? { ...item, due_id: event.currentTarget.value } : item))}><option value="">Choisir…</option>{refundableDues.map(due => <option key={due.id} value={due.id}>{due.due_on} · {due.id}</option>)}</select></Field><Field id={`refund-component-${index}`} label={`Composante reprise ${index + 1}`}><select id={`refund-component-${index}`} value={line.component} onChange={event => setRefundLines(editor.refundLines.map((item, current) => current === index ? { ...item, component: event.currentTarget.value } : item))}><option value="rent">Loyer</option><option value="charges">Charges</option></select></Field><Field id={`refund-amount-${index}`} label={`Montant repris ${index + 1}`} hint="Montant négatif dans la devise du remboursement."><input id={`refund-amount-${index}`} required inputMode="decimal" value={line.amount} onChange={event => setRefundLines(editor.refundLines.map((item, current) => current === index ? { ...item, amount: event.currentTarget.value } : item))} /></Field></div><button type="button" className="text-button" onClick={() => setRefundLines(editor.refundLines.filter((_, current) => current !== index))}>Retirer la reprise {index + 1}</button></div>)}<button type="button" className="button secondary" disabled={!v.original_payment_id || refundableDues.length === 0} onClick={() => setRefundLines([...editor.refundLines, { due_id: '', component: 'rent', amount: '' }])}>Ajouter une reprise d’affectation</button></section>}
     {kind === 'allocation' && <>{select('payment_id', 'Paiement à affecter', rentals.payments.map(payment => ({ id: payment.id, label: `${payment.effective_on} · ${payment.amount} ${payment.currency} · ${payment.reference || payment.id}` })))}{select('due_id', 'Échéance réglée', rentals.dues.filter(due => !selectedPayment || due.lease_id === selectedPayment.lease_id).map(due => ({ id: due.id, label: `${due.due_on} · ${due.rent} + ${due.charges} ${due.currency} · ${due.id}` })))}{select('component', 'Composante réglée', [{ id: 'rent', label: 'Loyer' }, { id: 'charges', label: 'Charges récupérables' }])}{input('amount', 'Montant affecté')}{currency}{input('effective_on', 'Date d’affectation', 'date')}<p className="field-hint">Un paiement peut régler plusieurs échéances ; une échéance peut recevoir plusieurs paiements. Les dépassements et mélanges de devises sont refusés.</p></>}
-    {kind === 'expense' && <>{select('asset_id', 'Bien concerné par la dépense', registry.assets.filter(asset => properties.properties.some(property => property.asset_id === asset.id)).map(asset => ({ id: asset.id, label: asset.name })))}{select('kind', 'Nature de la dépense', Object.entries(expenseKinds).map(([id, label]) => ({ id, label })))}{input('amount', 'Montant de la dépense')}{currency}{input('effective_on', 'Date économique de la dépense', 'date')}{input('paid_on', 'Date de décaissement', 'date', false)}<label className="checkbox-label"><input id="rental-recoverable" type="checkbox" checked={v.recoverable === 'true'} onChange={event => update('recoverable', String(event.currentTarget.checked))} />Charge récupérable sur le locataire</label><p className="field-hint">Les travaux en capital, intérêts, principal et frais de financement restent distincts de l’exploitation. Une charge récupérable n’est pas réputée remboursée sans échéance et paiement.</p></>}
+    {kind === 'expense' && <>{select('asset_id', 'Bien concerné par la dépense', registry.assets.filter(asset => properties.properties.some(property => property.asset_id === asset.id)).map(asset => ({ id: asset.id, label: propertyLabel(asset.id) })))}{select('kind', 'Nature de la dépense', Object.entries(expenseKinds).map(([id, label]) => ({ id, label })))}{input('amount', 'Montant de la dépense')}{currency}{input('effective_on', 'Date économique de la dépense', 'date')}{input('paid_on', 'Date de décaissement', 'date', false)}<label className="checkbox-label"><input id="rental-recoverable" type="checkbox" checked={v.recoverable === 'true'} onChange={event => update('recoverable', String(event.currentTarget.checked))} />Charge récupérable sur le locataire</label><p className="field-hint">Les travaux en capital, intérêts, principal et frais de financement restent distincts de l’exploitation. Une charge récupérable n’est pas réputée remboursée sans échéance et paiement.</p></>}
     {['lease', 'terms', 'due', 'expense'].includes(kind) && <Field id="rental-notes" label="Notes locatives"><textarea id="rental-notes" value={v.notes || ''} onChange={event => update('notes', event.currentTarget.value)} /></Field>}
     <Field id="rental-reason" label="Motif de l’enregistrement locatif"><textarea id="rental-reason" required value={editor.reason} onChange={event => setReason(event.currentTarget.value)} /></Field><button type="submit" className="button" disabled={!editor.reason.trim()}>{editor.record ? 'Enregistrer la correction locative' : 'Créer l’enregistrement locatif'}</button>
   </fieldset></form>;

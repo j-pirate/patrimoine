@@ -225,4 +225,39 @@ describe('Métaux physiques et leurs sources', () => {
     await waitFor(() => expect(api.saveMetalMovement).toHaveBeenCalledWith(expect.objectContaining({ kind: 'storage_transfer', quantity_change: '0', country: 'CH', storage_location: 'Lieu suisse déclaré', cost_amount: null, trade_amount: null, cash_entity_id: '' })));
     expect(api.postMetalMovement).not.toHaveBeenCalled();
   });
+  it('MET-01 annonce la cible et ferme le transfert au changement de lot sans modifier aucun droit', async () => {
+    const secondLot = { ...lot, id: 'lot-b', revision_id: 'lot-b-r', asset_id: 'metal-b', designation: 'Second lot' };
+    vi.mocked(api.listMetalsAt).mockResolvedValue({ ...snapshot, lots: [lot, secondLot] });
+    const { user } = await open();
+    await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
+    await user.click(screen.getByRole('button', { name: 'Transférer les droits du lot' }));
+    expect(screen.getByText('Lot concerné : Pièces identifiées')).toBeVisible();
+    await user.selectOptions(screen.getByLabelText('Nouveau propriétaire 1'), 'recipient');
+    await user.type(screen.getByLabelText('Motif du transfert des droits'), 'Don du premier lot');
+    await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot-b');
+    expect(screen.queryByRole('button', { name: 'Enregistrer le transfert des droits' })).not.toBeInTheDocument();
+    expect(api.transferMetalOwnership).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByLabelText('Lot à consulter'), 'lot');
+    await user.click(screen.getByRole('button', { name: 'Transférer les droits du lot' }));
+    await user.selectOptions(screen.getByLabelText('Nouveau propriétaire 1'), 'recipient');
+    await user.type(screen.getByLabelText('Motif du transfert des droits'), 'Don du premier lot confirmé');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le transfert des droits' }));
+    await waitFor(() => expect(api.transferMetalOwnership).toHaveBeenCalledOnce());
+    const input = vi.mocked(api.transferMetalOwnership).mock.calls[0][0];
+    expect(input.lot_id).toBe('lot');
+    expect(input.ownerships.every(row => row.asset_id === 'metal-asset')).toBe(true);
+  });
+
+  it.each(['parent', 'sources'])('REG-03 conserve la vente confirmée quand le rechargement %s échoue', async source => {
+    const { user, props } = await open(); await saleForm(user);
+    await user.type(screen.getByLabelText('Motif du cash non rapproché'), 'Relevé conservé séparément');
+    if (source === 'parent') props.onChanged.mockRejectedValueOnce(new Error('Relecture interrompue'));
+    else vi.mocked(api.listMetalsAt).mockRejectedValueOnce(new Error('Relecture interrompue'));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la source métal' }));
+    expect(await screen.findByText(/Les sources du métal ont été enregistrées.*L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Relecture interrompue');
+    expect(screen.queryByRole('button', { name: 'Enregistrer la source métal' })).not.toBeInTheDocument();
+    expect(api.saveMetalMovement).toHaveBeenCalledOnce();
+    expect(api.postMetalMovement).not.toHaveBeenCalled();
+  });
+
 });

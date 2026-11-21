@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../services/api';
@@ -42,9 +42,9 @@ const report: RentalReport = {
   warnings: [{ code: 'financing_missing', object_id: 'scope', message: 'Les financements ne sont pas inventoriés.' }],
 };
 
-async function open(knowledgeSequence: number | null = null) {
+async function open(knowledgeSequence: number | null = null, registrySnapshot = registry) {
   const onChanged = vi.fn().mockResolvedValue(undefined);
-  const props = { registry, context: { personId: null as string | null, date: '2026-03-31', knowledgeSequence }, onChanged, onBusyChange: vi.fn(), onNavigateRegistry: vi.fn() };
+  const props = { registry: registrySnapshot, context: { personId: null as string | null, date: '2026-03-31', knowledgeSequence }, onChanged, onBusyChange: vi.fn(), onNavigateRegistry: vi.fn() };
   const view = render(<RealEstatePage {...props} />);
   await screen.findByRole('button', { name: 'Ajouter une fiche immobilière' });
   return { user: userEvent.setup(), onChanged, props, ...view };
@@ -64,6 +64,85 @@ beforeEach(() => {
 });
 
 describe('Locations, encaissements et indicateurs', () => {
+  it('IMMO-02 garde la confirmation immobilière après les relectures du parent et du registre', async () => {
+    const savedProperty = { ...properties.properties[0], revision_id: 'property-r2', city: 'Lyon' };
+    vi.mocked(api.saveProperty).mockResolvedValue(savedProperty);
+    const { user, onChanged, props, rerender } = await open();
+    const refreshedProperties = { ...properties, properties: [savedProperty], knowledge_sequence: 28 };
+    vi.mocked(api.listPropertiesAt).mockResolvedValue(refreshedProperties);
+    vi.mocked(api.listRentalsAt).mockResolvedValue({ ...rentals, knowledge_sequence: 28 });
+    onChanged.mockImplementationOnce(async () => {
+      rerender(<RealEstatePage {...props} registry={{ ...registry, knowledge_sequence: 28 }} />);
+    });
+    await user.click(screen.getByRole('button', { name: 'Modifier la fiche de Maison de test' }));
+    await user.type(screen.getByLabelText('Ville'), 'Lyon');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Adresse vérifiée');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la correction immobilière' }));
+    expect(await screen.findByText('L’enregistrement immobilier a été conservé avec son historique.')).toBeVisible();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Baux et échéances' })).toBeEnabled());
+    expect(screen.getByText('Lyon · Adresse non renseignée')).toBeVisible();
+    expect(api.listPropertiesAt).toHaveBeenCalledTimes(3);
+    expect(api.listRentalsAt).toHaveBeenCalledTimes(3);
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(api.saveProperty).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 'property', expected_revision_id: 'property-r1', city: 'Lyon' }));
+    expect(screen.getByText('L’enregistrement immobilier a été conservé avec son historique.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Enregistrer la correction immobilière' })).not.toBeInTheDocument();
+  });
+
+  it('IMMO-03 bloque tous les onglets pendant la sauvegarde de la fiche enfant', async () => {
+    let finishSave!: (value: PropertySnapshot['properties'][number]) => void;
+    vi.mocked(api.saveProperty).mockReturnValue(new Promise(resolve => { finishSave = resolve; }));
+    const { user, props, onChanged } = await open();
+    await user.click(screen.getByRole('button', { name: 'Modifier la fiche de Maison de test' }));
+    await user.type(screen.getByLabelText('Ville'), 'Lille');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement ou de la correction'), 'Adresse documentée');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la correction immobilière' }));
+    const tabs = within(screen.getByRole('group', { name: 'Sections immobilières' })).getAllByRole('button');
+    for (const tab of tabs) expect(tab).toBeDisabled();
+    expect(props.onBusyChange).toHaveBeenLastCalledWith(true);
+    await user.click(screen.getByRole('button', { name: 'Baux et échéances' }));
+    expect(screen.getByLabelText('Ville')).toHaveValue('Lille');
+    expect(screen.queryByRole('button', { name: 'Ajouter un bail' })).not.toBeInTheDocument();
+    expect(onChanged).not.toHaveBeenCalled();
+    await act(async () => { finishSave({ ...properties.properties[0], city: 'Lille' }); });
+    await screen.findByText('L’enregistrement immobilier a été conservé avec son historique.');
+    await waitFor(() => { for (const tab of tabs) expect(tab).toBeEnabled(); });
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(props.onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(api.saveProperty).toHaveBeenCalledOnce();
+    expect(api.saveLease).not.toHaveBeenCalled();
+  });
+
+  it('IMMO-04 distingue les unités et baux homonymes et transmet les identifiants choisis', async () => {
+    const otherHouse = { ...registry.assets[0], id: 'house-b', revision_id: 'house-b-r1' };
+    const otherUnit = { ...properties.units[0], id: 'unit-b', revision_id: 'unit-b-r1', property_asset_id: 'house-b' };
+    const otherLease = { ...lease, id: 'lease-b', revision_id: 'lease-b-r1', unit_id: 'unit-b', valid_from: '2026-02-01', valid_to: '2026-12-01' };
+    vi.mocked(api.listPropertiesAt).mockResolvedValue({ ...properties, properties: [...properties.properties, { ...properties.properties[0], id: 'property-b', asset_id: 'house-b' }], units: [...properties.units, otherUnit] });
+    vi.mocked(api.listRentalsAt).mockResolvedValue({ ...rentals, leases: [lease, otherLease] });
+    const { user } = await open(null, { ...registry, assets: [...registry.assets, otherHouse] });
+    await user.click(screen.getByRole('button', { name: 'Baux et échéances' }));
+    await user.click(screen.getByRole('button', { name: 'Ajouter un bail' }));
+    const unitSelect = screen.getByLabelText('Unité louée');
+    expect(within(unitSelect).getByRole('option', { name: 'Maison de test · house · A · Logement A · unit' })).toBeVisible();
+    await user.selectOptions(unitSelect, within(unitSelect).getByRole('option', { name: 'Maison de test · house-b · A · Logement A · unit-b' }));
+    await user.selectOptions(screen.getByLabelText('Locataire identifié'), 'tenant');
+    fireEvent.change(screen.getByLabelText('Début de validité'), { target: { value: '2027-01-01' } });
+    await user.type(screen.getByLabelText('Motif de l’enregistrement locatif'), 'Nouveau bail du second bien');
+    await user.click(screen.getByRole('button', { name: 'Créer l’enregistrement locatif' }));
+    await waitFor(() => expect(api.saveLease).toHaveBeenCalledOnce());
+    expect(api.saveLease).toHaveBeenCalledWith(expect.objectContaining({ unit_id: 'unit-b', valid_from: '2027-01-01' }));
+    await screen.findByText('L’enregistrement locatif a été conservé avec son historique.');
+    await user.click(screen.getByRole('button', { name: 'Ajouter des conditions de bail' }));
+    const leaseSelect = screen.getByLabelText('Bail concerné');
+    expect(within(leaseSelect).getByRole('option', { name: 'Maison de test · house · A · Logement A · Locataire identifié · 2026-01-01 → sans fin · lease' })).toBeVisible();
+    await user.selectOptions(leaseSelect, within(leaseSelect).getByRole('option', { name: 'Maison de test · house-b · A · Logement A · Locataire identifié · 2026-02-01 → 2026-12-01 · lease-b' }));
+    await user.type(screen.getByLabelText('Loyer contractuel hors charges'), '750');
+    await user.type(screen.getByLabelText('Motif de l’enregistrement locatif'), 'Conditions du second bail');
+    await user.click(screen.getByRole('button', { name: 'Créer l’enregistrement locatif' }));
+    await waitFor(() => expect(api.saveLeaseTerms).toHaveBeenCalledOnce());
+    expect(api.saveLeaseTerms).toHaveBeenCalledWith(expect.objectContaining({ lease_id: 'lease-b', rent: '750' }));
+  });
+
   it('crée un bail rattaché à une unité et un locataire existants avec fin exclusive', async () => {
     const { user, onChanged } = await open();
     await user.click(screen.getByRole('button', { name: 'Baux et échéances' }));

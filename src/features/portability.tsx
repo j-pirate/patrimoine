@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { refreshAfterCommit } from '../services/mutations';
 import { api, errorMessage } from '../services/api';
 import type { BackupSummary, RestoreInspection } from '../services/api';
 import type { ExportSummary } from '../services/portability-types';
@@ -75,10 +76,9 @@ export default function PortabilityPage({ currentSchema, onRestored, onBusyChang
         setMessage(`${importKind === 'csv' ? 'Réimportation' : 'Restauration'} annulée : aucun fichier de sauvegarde de l’état actuel n’a été choisi.`);
         return;
       }
-      await api.activateRestore(inspection.token, safetyPath);
+      const activated = await api.activateRestore(inspection.token, safetyPath);
       setInspection(null);
-      await onRestored();
-      setMessage(importKind === 'csv' ? 'L’archive CSV a été réimportée. Le coffre a été remplacé par les données vérifiées.' : 'La sauvegarde a été restaurée. Le coffre et les documents sont maintenant ceux de la sauvegarde.');
+      await refreshAfterCommit(onRestored, (importKind === 'csv' ? 'L’archive CSV a été réimportée. Le coffre a été remplacé par les données vérifiées.' : 'La sauvegarde a été restaurée. Le coffre et les documents sont maintenant ceux de la sauvegarde.') + (activated.recovery_required ? ` ${activated.recovery_message || 'Une reprise doit encore être finalisée.'}` : ''), setMessage);
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }

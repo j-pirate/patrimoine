@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, errorMessage } from '../services/api';
+import { refreshAfterCommit } from '../services/mutations';
 import type { RegistrySnapshot } from '../services/registry-types';
 import type { DebtSnapshot } from '../services/debt-types';
 import type { RentalSnapshot } from '../services/rental-types';
@@ -34,15 +35,16 @@ export default function FinancialPanel({ registry, context, onChanged, onBusyCha
   const reportId = useRef(0);
   const readOnly = context.knowledgeSequence != null;
   useEffect(() => { onBusyChange(pending); return () => onBusyChange(false); }, [pending, onBusyChange]);
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (afterCommit = false) => {
     const id = ++requestId.current;
     setLoading(true); setError(''); setFinance(null); setRentals(null); setDebts(null);
     try { const k = context.knowledgeSequence ?? null; const [f, r, d] = await Promise.all([api.listFinanceAt(k), api.listRentalsAt(k), api.listDebtsAt(k)]); if (id === requestId.current) { setFinance(f); setRentals(r); setDebts(d); } }
-    catch (failure) { if (id === requestId.current) setError(errorMessage(failure)); }
+    catch (failure) { if (id === requestId.current) setError(errorMessage(failure)); if (afterCommit) throw failure; }
     finally { if (id === requestId.current) setLoading(false); }
   }, [context.knowledgeSequence]);
   useEffect(() => { void reload(); return () => { requestId.current += 1; }; }, [reload, registry.knowledge_sequence]);
-  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); setMessage(''); }, [context.personId, context.date, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { reportId.current += 1; setReport(null); setEditor(null); setRemoval(null); }, [context.personId, context.date, context.knowledgeSequence, registry.knowledge_sequence]);
+  useEffect(() => { setMessage(''); }, [context.date, context.knowledgeSequence, context.personId]);
   const entityName = (id: string) => { const e = registry.entities.find(e => e.id === id); return e ? entityAt(registry, e, context.date).display_name : id; };
   const dueName = (id: string) => { const d = rentals?.dues.find(d => d.id === id); return d ? `${d.due_on} · ${d.rent} + ${d.charges} ${d.currency}` : id; };
   function open(kind: Kind, record: Source | null = null) {
@@ -56,7 +58,7 @@ export default function FinancialPanel({ registry, context, onChanged, onBusyCha
   async function mutate(action: () => Promise<unknown>) {
     if (readOnly) return;
     setPending(true); setError(''); setMessage('');
-    try { await action(); setEditor(null); setRemoval(null); setReport(null); await onChanged(); await reload(); setMessage('La déclaration et ses anciennes révisions sont conservées. Relancez le bilan pour actualiser les résultats.'); }
+    try { await action(); setEditor(null); setRemoval(null); setReport(null); await refreshAfterCommit(async () => { await onChanged(); await reload(true); }, 'La déclaration et ses anciennes révisions sont conservées. Relancez le bilan pour actualiser les résultats.', setMessage); }
     catch (failure) { setError(errorMessage(failure)); }
     finally { setPending(false); }
   }

@@ -19,6 +19,8 @@ function dateLabel(value: string): string {
   const [year, month, day] = value.split('-');
   return `${day}/${month}/${year}`;
 }
+function timestamp(value: string): number { return Date.parse(`${value}T00:00:00Z`); }
+function timeLabel(value: number): string { return dateLabel(new Date(value).toISOString().slice(0, 10)); }
 function axisLabel(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} k`;
@@ -36,6 +38,7 @@ export function DashboardHistoryChart({ points }: { points: DashboardPoint[] }) 
   const [mode, setMode] = useState<'net' | 'known'>('net');
   const data = points.map(point => ({
     date: point.date,
+    timestamp: timestamp(point.date),
     net: geometry(point.totals.net_eur),
     assets: geometry(point.totals.known_assets_eur),
     liabilities: geometry(point.totals.known_liabilities_eur),
@@ -54,7 +57,7 @@ export function DashboardHistoryChart({ points }: { points: DashboardPoint[] }) 
       <ResponsiveContainer width="100%" height={260} minWidth={0}>
         <LineChart data={data} margin={chartMargin} accessibilityLayer>
           <CartesianGrid stroke={colors.grid} vertical={false} />
-          <XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={40} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+          <XAxis dataKey="timestamp" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={timeLabel} minTickGap={40} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
           <YAxis tickFormatter={axisLabel} width={65} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
           <ReferenceLine y={0} stroke="#a9b9ad" />
           <Tooltip content={({ active, payload }) => {
@@ -74,7 +77,7 @@ export function DashboardHistoryChart({ points }: { points: DashboardPoint[] }) 
       <caption>Historique des positions calculées en EUR</caption><thead><tr><th>Date</th><th>Actifs connus</th><th>Passifs connus</th><th>Patrimoine net complet</th><th>Couverture et sources</th></tr></thead>
       <tbody>{points.map(point => <tr key={point.date}><td>{dateLabel(point.date)}</td><td>{money(point.totals.known_assets_eur)}</td><td>{money(point.totals.known_liabilities_eur)}</td><td>{money(point.totals.net_eur)}</td><td>{point.status === 'complete' ? 'Complète' : 'Partielle'}{point.warnings.length > 0 && <span> · {point.warnings.length} alerte{point.warnings.length > 1 ? 's' : ''}</span>}<Sources sourceIds={point.source_ids} /></td></tr>)}</tbody>
     </table></div></details>
-    <p className="muted small">Les graduations donnent un ordre de grandeur. Les valeurs exactes et les références sont conservées dans le tableau.</p>
+    <p className="muted small">L’espacement des dates suit la durée écoulée. Les graduations donnent un ordre de grandeur. Les valeurs exactes et les références sont conservées dans le tableau.</p>
   </section>;
 }
 
@@ -146,12 +149,12 @@ export function DashboardCompanyChart({ periods }: { periods: CompanyPeriodAnaly
   const selectedCurrency = currencies.includes(currency) ? currency : currencies[0] ?? '';
   const selected = periods.filter(analysis => analysis.period.frequency === selectedFrequency && analysis.period.currency === selectedCurrency)
     .sort((left, right) => left.period.period_end.localeCompare(right.period.period_end) || left.period.period_start.localeCompare(right.period.period_start) || left.period.id.localeCompare(right.period.id));
-  const data = selected.map(analysis => ({ date: analysis.period.period_end, revenue: geometry(analysis.period.revenue), result: geometry(analysis.period.net_result), analysis }));
+  const data = selected.map(analysis => ({ date: analysis.period.period_end, timestamp: timestamp(analysis.period.period_end), revenue: geometry(analysis.period.revenue), result: geometry(analysis.period.net_result), analysis }));
   const hasValues = data.some(row => row.revenue !== null || row.result !== null);
   const frequencyLabels: Record<string, string> = { monthly: 'Mensuelle', quarterly: 'Trimestrielle', annual: 'Annuelle' };
   return <section className="dashboard-chart" aria-labelledby={`${id}-title`}>
     <div className="section-title"><div><span className="eyebrow">PILOTAGE DE LA SOCIÉTÉ</span><h2 id={`${id}-title`}>Évolution des observations de société</h2></div><span className="badge">Devise d’origine</span></div>
-    <p className="muted small">Indicateurs de pilotage, hors bilan patrimonial. Une seule fréquence et une seule devise sont représentées ; elles ne sont ni additionnées ni converties en patrimoine. L’abscisse donne la fin de période, exclue.</p>
+    <p className="muted small">Indicateurs de pilotage, hors bilan patrimonial. Une seule fréquence et une seule devise sont représentées ; elles ne sont ni additionnées ni converties en patrimoine. L’abscisse donne la fin de période, exclue, avec un espacement proportionnel à la durée écoulée.</p>
     <div className="dashboard-chart-legend">
       <div><label htmlFor={`${id}-frequency`}>Fréquence des observations</label><select id={`${id}-frequency`} value={selectedFrequency} disabled={!frequencies.length} onChange={event => setFrequency(event.currentTarget.value)}>{frequencies.map(value => <option key={value} value={value}>{frequencyLabels[value] ?? value}</option>)}</select></div>
       <div><label htmlFor={`${id}-currency`}>Devise des observations</label><select id={`${id}-currency`} value={selectedCurrency} disabled={!currencies.length} onChange={event => setCurrency(event.currentTarget.value)}>{currencies.map(value => <option key={value} value={value}>{value}</option>)}</select></div>
@@ -159,7 +162,7 @@ export function DashboardCompanyChart({ periods }: { periods: CompanyPeriodAnaly
     {hasValues ? <div className="dashboard-chart-frame" role="group" aria-label={`Observations ${frequencyLabels[selectedFrequency] ?? selectedFrequency} en ${selectedCurrency}`}>
       <ResponsiveContainer width="100%" height={260} minWidth={0}>
         <LineChart data={data} margin={chartMargin} accessibilityLayer>
-          <CartesianGrid stroke={colors.grid} vertical={false} /><XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={40} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={axisLabel} width={65} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+          <CartesianGrid stroke={colors.grid} vertical={false} /><XAxis dataKey="timestamp" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={timeLabel} minTickGap={40} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={axisLabel} width={65} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
           <ReferenceLine y={0} stroke="#a9b9ad" />
           <Tooltip content={({ active, payload }) => {
             if (!active || !payload?.length) return null;

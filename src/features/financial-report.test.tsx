@@ -134,4 +134,15 @@ describe('Bilan et couverture explicite', () => {
     expect(screen.getByLabelText('Tous les actifs de l’espace familial sont inventoriés')).toBeChecked();
     expect(screen.queryByText(/La déclaration et ses anciennes révisions sont conservées/)).not.toBeInTheDocument();
   });
+  it('REG-03 garde la déclaration confirmée après l’échec de relecture du bilan', async () => {
+    const { user } = await open(); await declarations(user);
+    await user.click(screen.getByRole('button', { name: 'Déclarer la couverture du bilan' }));
+    await user.type(screen.getByLabelText('Motif de la déclaration financière'), 'Inventaires explicitement incomplets');
+    vi.mocked(api.listFinanceAt).mockRejectedValueOnce(new Error('Relecture du bilan indisponible'));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la déclaration financière' }));
+    expect(await screen.findByText(/La déclaration et ses anciennes révisions sont conservées.*L’affichage n’a pas pu être actualisé/)).toHaveTextContent('Relecture du bilan indisponible');
+    expect(screen.queryByLabelText('Motif de la déclaration financière')).not.toBeInTheDocument();
+    expect(api.saveFinanceCoverage).toHaveBeenCalledOnce();
+  });
+
 });

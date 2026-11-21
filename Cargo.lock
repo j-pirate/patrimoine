@@ -2234,14 +2234,14 @@ dependencies = [
 
 [[package]]
 name = "patrimoine-application"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "patrimoine-domain",
 ]
 
 [[package]]
 name = "patrimoine-desktop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "patrimoine-application",
  "patrimoine-domain",
@@ -2254,7 +2254,7 @@ dependencies = [
 
 [[package]]
 name = "patrimoine-domain"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "num-bigint",
  "num-rational",
@@ -2265,7 +2265,7 @@ dependencies = [
 
 [[package]]
 name = "patrimoine-infrastructure"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "fs2",
  "libc",

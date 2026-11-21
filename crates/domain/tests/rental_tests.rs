@@ -358,6 +358,125 @@ fn contract_without_terms_or_generated_dues_is_unknown_not_vacancy() {
 }
 
 #[test]
+fn unexposed_lease_without_dues_or_terms_keeps_zero_and_its_explicit_cash_recipient() {
+    let (mut r, p, mut s) = fixture();
+    r.ownerships[0].owner_entity_id = "buyer".into();
+    pay(&mut s, "advance", "100", "2024-03-05");
+    let mut query = q("2024-03-01", "2024-04-01", "2024-03-31");
+    query.context = "family".into();
+    query.asset_id = None;
+    for without_terms in [false, true] {
+        if without_terms {
+            s.lease_terms.clear();
+        }
+        let report = rental_report(&r, &p, &s, &query).unwrap();
+        assert_eq!(report.status, "complete");
+        assert_eq!(report.contractual_annual_rent_eur.as_deref(), Some("0.00"));
+        assert_eq!(report.economic_rent_eur.as_deref(), Some("0.00"));
+        assert_eq!(report.rent_due_eur.as_deref(), Some("0.00"));
+        assert_eq!(report.outstanding_rent_eur.as_deref(), Some("0.00"));
+        assert_eq!(report.unallocated_payments_eur.as_deref(), Some("100.00"));
+        assert!(!report
+            .warnings
+            .iter()
+            .any(|w| matches!(w.code.as_str(), "missing_lease_terms" | "missing_rent_dues")));
+    }
+}
+
+#[test]
+fn unexposed_missing_dues_do_not_invalidate_another_propertys_known_income() {
+    let (mut r, mut p, mut s) = fixture();
+    generate(&r, &p, &mut s, "2024-03-01", "2024-04-01");
+    r.assets.push(Asset {
+        id: "outside-asset".into(),
+        revision_id: "outside-asset-r".into(),
+        ..r.assets[0].clone()
+    });
+    r.ownerships.push(Ownership {
+        id: "outside-own".into(),
+        revision_id: "outside-own-r".into(),
+        asset_id: "outside-asset".into(),
+        owner_entity_id: "buyer".into(),
+        ..r.ownerships[0].clone()
+    });
+    p.properties.push(Property {
+        id: "outside-property".into(),
+        revision_id: "outside-property-r".into(),
+        asset_id: "outside-asset".into(),
+        ..p.properties[0].clone()
+    });
+    p.units.push(RentalUnit {
+        id: "outside-unit".into(),
+        revision_id: "outside-unit-r".into(),
+        property_asset_id: "outside-asset".into(),
+        ..p.units[0].clone()
+    });
+    s.leases.push(Lease {
+        id: "outside-lease".into(),
+        revision_id: "outside-lease-r".into(),
+        unit_id: "outside-unit".into(),
+        ..s.leases[0].clone()
+    });
+    let terms = LeaseTerms {
+        id: "outside-terms".into(),
+        revision_id: "outside-terms-r".into(),
+        lease_id: "outside-lease".into(),
+        ..s.lease_terms[0].clone()
+    };
+    s.lease_terms.push(terms.clone());
+    s.lease_term_revisions.push(terms);
+    let mut query = q("2024-03-01", "2024-04-01", "2024-03-31");
+    query.context = "family".into();
+    query.asset_id = None;
+    let report = rental_report(&r, &p, &s, &query).unwrap();
+    assert_eq!(report.status, "complete");
+    assert_eq!(
+        report.contractual_annual_rent_eur.as_deref(),
+        Some("12000.00")
+    );
+    assert_eq!(report.economic_rent_eur.as_deref(), Some("1000.00"));
+    assert_eq!(report.outstanding_rent_eur.as_deref(), Some("1000.00"));
+    assert!(!report
+        .warnings
+        .iter()
+        .any(|w| w.code == "missing_rent_dues"));
+}
+
+#[test]
+fn missing_dues_only_during_zero_exposure_preserve_the_covered_accrual_segment() {
+    let (mut r, p, mut s) = fixture();
+    r.ownerships[0].owner_entity_id = "buyer".into();
+    r.ownerships[0].valid_to = Some("2024-03-16".into());
+    r.ownerships.push(Ownership {
+        id: "family-own".into(),
+        revision_id: "family-own-r".into(),
+        owner_entity_id: "owner".into(),
+        valid_from: "2024-03-16".into(),
+        valid_to: None,
+        ..r.ownerships[0].clone()
+    });
+    s.lease_terms[0].valid_from = "2024-03-16".into();
+    s.lease_term_revisions = s.lease_terms.clone();
+    generate(&r, &p, &mut s, "2024-03-16", "2024-04-01");
+    let mut query = q("2024-03-01", "2024-04-01", "2024-03-31");
+    query.context = "family".into();
+    let report = rental_report(&r, &p, &s, &query).unwrap();
+    assert_eq!(report.status, "complete");
+    assert_eq!(report.economic_rent_eur.as_deref(), Some("516.13"));
+    assert_eq!(report.outstanding_rent_eur.as_deref(), Some("516.13"));
+    assert!(!report
+        .warnings
+        .iter()
+        .any(|w| matches!(w.code.as_str(), "missing_lease_terms" | "missing_rent_dues")));
+    // Unknown rights on the missing segment must still invalidate the totals.
+    r.ownerships[0].economic_share = None;
+    let unknown = rental_report(&r, &p, &s, &query).unwrap();
+    assert_eq!(unknown.status, "partial");
+    assert_eq!(unknown.economic_rent_eur, None);
+    assert_eq!(unknown.outstanding_rent_eur, None);
+}
+
+#[test]
 fn deposit_is_cash_and_restitution_with_zero_rental_income() {
     let out = deposit_effect("2000").unwrap();
     assert_eq!(out.cash_increase, f("2000", "1"));
